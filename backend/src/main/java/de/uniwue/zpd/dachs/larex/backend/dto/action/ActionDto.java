@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.dto.action;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ExecuteRole;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.LockMode;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ActionTarget;
@@ -45,11 +46,24 @@ public class ActionDto {
             InputLevel level,
             List<ActionTarget> requiredForTargets,
             Boolean multiple,
-            List<ImageType> imageTypes
+            List<ImageType> imageTypes,
+            @JsonInclude(JsonInclude.Include.NON_NULL) ImageType preferredImageType
     ) {
         public InputRequirement {
             multiple = Boolean.TRUE.equals(multiple);
             imageTypes = imageTypes == null ? List.of() : List.copyOf(imageTypes);
+            if (preferredImageType != null && (preferredImageType == ImageType.UNKNOWN
+                    || !imageTypes.isEmpty() && !imageTypes.contains(preferredImageType))) {
+                preferredImageType = null;
+            }
+        }
+
+        public InputRequirement(InputLevel level, List<ActionTarget> requiredForTargets, Boolean multiple, List<ImageType> imageTypes) {
+            this(level, requiredForTargets, multiple, imageTypes, null);
+        }
+
+        public int preferenceRank(ImageType type) {
+            return preferredImageType != null && preferredImageType == type ? 0 : 1;
         }
 
         public InputRequirement(InputLevel level, List<ActionTarget> requiredForTargets, Boolean multiple) {

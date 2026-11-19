@@ -57,12 +57,12 @@ const skippedCount = computed(() => scopedItems.value.length - compatibleItems.v
 function selectableImages(item: IntegrationInputItem) {
   return selectableActionImages(item.images, processor.value?.inputs.images, requiredImages.value === true)
 }
-const variantOptions = computed(() => actionImageVariantOptions(compatibleItems.value.flatMap(selectableImages)))
+const variantOptions = computed(() => actionImageVariantOptions(compatibleItems.value.flatMap(selectableImages), processor.value?.inputs.images.preferredImageType))
 watch([processor, compatibleItems], () => {
   if (!processor.value?.inputs.images.imageTypes?.length) return
   const validVariants = new Set(variantOptions.value.map(option => option.value))
   const retained = globalVariants.value.filter(variant => validVariants.has(variant))
-  globalVariants.value = retained.length ? retained : requiredImages.value ? defaultActionImageVariants(compatibleItems.value.map(selectableImages), multipleImages.value) : []
+  globalVariants.value = retained.length ? retained : requiredImages.value ? defaultActionImageVariants(compatibleItems.value.map(selectableImages), multipleImages.value, processor.value?.inputs.images.preferredImageType) : []
   for (const item of compatibleItems.value) {
     const ids = new Set(selectableImages(item).map(image => image.id))
     const retainedIds = (itemImageIdLists.value[item.itemId] ?? []).filter(id => ids.has(id))

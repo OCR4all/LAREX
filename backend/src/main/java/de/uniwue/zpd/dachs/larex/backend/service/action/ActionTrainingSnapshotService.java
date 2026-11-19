@@ -571,7 +571,8 @@ public class ActionTrainingSnapshotService {
             return selected;
         }
         images = images.stream().filter(image -> imageRequirement.acceptsType(image.imageType()))
-                .sorted(Comparator.comparing((ResolvedFile image) -> Objects.toString(image.variant(), ""), String.CASE_INSENSITIVE_ORDER)
+                .sorted(Comparator.comparingInt((ResolvedFile image) -> imageRequirement.preferenceRank(image.imageType()))
+                        .thenComparing((ResolvedFile image) -> Objects.toString(image.variant(), ""), String.CASE_INSENSITIVE_ORDER)
                         .thenComparing(ResolvedFile::fileName, String.CASE_INSENSITIVE_ORDER).thenComparing(ResolvedFile::id)).toList();
         List<String> variants = selection == null ? null : selection.globalVariants();
         if (variants == null && selection != null && selection.globalVariant() != null && !selection.globalVariant().isBlank()) {

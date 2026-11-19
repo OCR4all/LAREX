@@ -348,7 +348,7 @@ const imageChoicesByPageId = computed(() => {
     return [page.id, {
       compatible,
       selectable,
-      options: actionImageVariantOptions(selectable),
+      options: actionImageVariantOptions(selectable, requirement?.preferredImageType),
       variants: new Set(compatible.map(image => image.variant?.trim()).filter((variant): variant is string => Boolean(variant)))
     }]
   }))
@@ -377,7 +377,7 @@ const scopeItems = computed(() => [
     disabled: !hasSelection.value
   }
 ])
-const imageVariantOptions = computed(() => actionImageVariantOptions([...imageChoicesByPageId.value.values()].flatMap(choices => choices.selectable)))
+const imageVariantOptions = computed(() => actionImageVariantOptions([...imageChoicesByPageId.value.values()].flatMap(choices => choices.selectable), selectedProcessor.value?.processor.inputs?.images.preferredImageType))
 const perPageImageRows = computed(() => scopedPages.value.map(page => ({
   id: page.id,
   name: page.name,
@@ -510,7 +510,7 @@ watch(selectedProcessorId, () => {
   if (typed && selectedProcessorRequiresImages.value) {
     selectedImageVariants.value = []
     Object.keys(pageImageVariants).forEach(key => Reflect.deleteProperty(pageImageVariants, key))
-    const defaults = defaultActionImageVariants(scopedPages.value.map(selectablePageImages), multipleImages.value)
+    const defaults = defaultActionImageVariants(scopedPages.value.map(selectablePageImages), multipleImages.value, selectedProcessor.value?.processor.inputs?.images.preferredImageType)
     imageVariantMode.value = defaults.length ? 'global' : 'perPage'
     selectedImageVariants.value = defaults
   }

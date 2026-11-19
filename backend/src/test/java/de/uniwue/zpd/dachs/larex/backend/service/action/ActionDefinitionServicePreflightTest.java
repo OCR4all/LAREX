@@ -135,6 +135,35 @@ class ActionDefinitionServicePreflightTest {
     }
 
     @Test
+    void parsesPreferredImageTypeAndRejectsTypesOutsideAcceptedList() {
+        when(endpointAuthService.normalizeAuthType(any())).thenReturn("hmac");
+        var typed = new ActionProcessorDefinition();
+        typed.setParsedJson("{\"targets\":[\"PAGE\"],\"inputs\":{\"images\":{\"level\":\"required\",\"imageTypes\":[\"BINARY\",\"GRAYSCALE\"],\"preferredImageType\":\" grayscale \"}}}");
+        assertThat(service.readInputRequirements(typed).images().preferredImageType())
+                .isEqualTo(de.uniwue.zpd.dachs.larex.backend.entity.ImageType.GRAYSCALE);
+        String yaml = """
+                version: 1
+                id: typed-processor
+                name: Typed processor
+                endpoint:
+                  url: http://processor.localhost/dispatch
+                  auth: {type: hmac, secretRef: processor-v1}
+                inputs:
+                  images: {level: required, imageTypes: [BINARY, GRAYSCALE], preferredImageType: %s}
+                outputs:
+                  images: {enabled: true, variant: binary}
+                """;
+        assertThat(service.validateYaml(yaml.formatted("GRAYSCALE"), null).diagnostics())
+                .noneMatch(diagnostic -> diagnostic.path().equals("inputs.images.preferredImageType"));
+        for (String invalid : java.util.List.of("COLOR", "UNKNOWN", "sepia", "[GRAYSCALE]")) {
+            assertThat(service.validateYaml(yaml.formatted(invalid), null).diagnostics())
+                    .anyMatch(diagnostic -> diagnostic.path().equals("inputs.images.preferredImageType"));
+        }
+        assertThat(service.validateYaml(yaml.formatted("GRAYSCALE").replace("imageTypes: [BINARY, GRAYSCALE], ", ""), null).diagnostics())
+                .noneMatch(diagnostic -> diagnostic.path().equals("inputs.images.preferredImageType"));
+    }
+
+    @Test
     void declaresSeveralOutputImageVariants() {
         when(endpointAuthService.normalizeAuthType(any())).thenReturn("hmac");
         when(endpointAuthService.hasSecret("processor-v1")).thenReturn(true);

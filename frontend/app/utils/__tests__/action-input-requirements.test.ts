@@ -76,6 +76,17 @@ describe('image choices and defaults', () => {
     expect(defaultActionImageVariants([[binary, { ...binary, id: 'duplicate' }]], false)).toEqual([])
   })
 
+  it('lists and defaults to variants of the preferred type before alphabetical order', () => {
+    const preferring = { ...requirement, imageTypes: ['BINARY' as const, 'GRAYSCALE' as const], preferredImageType: 'GRAYSCALE' as const }
+    const gray = { id: 'gray', variant: 'scan', imageType: 'GRAYSCALE' as const }
+    expect(selectableActionImages([binary, gray], preferring, true)).toEqual([gray, binary])
+    expect(selectableActionImages([binary, gray], { level: 'OPTIONAL', requiredForTargets: [], preferredImageType: 'GRAYSCALE' }, false)).toEqual([gray, binary])
+    expect(actionImageVariantOptions([binary, gray], 'GRAYSCALE').map(option => option.value)).toEqual(['scan', 'processed'])
+    expect(defaultActionImageVariants([[binary, gray], [binary, gray]], false, 'GRAYSCALE')).toEqual(['scan'])
+    expect(defaultActionImageVariants([[binary, gray], [binary]], false, 'GRAYSCALE')).toEqual(['processed'])
+    expect(defaultActionImageVariants([[binary, gray]], false)).toEqual(['processed'])
+  })
+
   it('orders confirmed choices by variant, filename, and ID without mutating inputs', () => {
     const images = [{ ...binary, id: 'z', fileName: 'b.png' }, { ...binary, id: 'b', fileName: 'a.png' }, { ...binary, id: 'a', fileName: 'a.png' }]
     expect(selectableActionImages(images, requirement, true).map(image => image.id)).toEqual(['a', 'b', 'z'])

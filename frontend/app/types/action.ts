@@ -17,6 +17,7 @@ export interface ActionInputRequirement {
   requiredForTargets: ActionTarget[]
   multiple?: boolean
   imageTypes?: KnownImageType[]
+  preferredImageType?: KnownImageType | null
 }
 
 export interface ActionInputRequirements {

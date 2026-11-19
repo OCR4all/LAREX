@@ -474,6 +474,24 @@ class ActionRunServiceTest {
     }
 
     @Test
+    void automaticSelectionPrefersDeclaredImageType() {
+        var binary = new PageImage("binary.png", "binary.png", "image/png", 1L, "a-binary", "page", null);
+        binary.setImageType(de.uniwue.zpd.dachs.larex.backend.entity.ImageType.BINARY);
+        var gray = new PageImage("gray.png", "gray.png", "image/png", 1L, "z-gray", "page", null);
+        gray.setImageType(de.uniwue.zpd.dachs.larex.backend.entity.ImageType.GRAYSCALE);
+        var requirement = new ActionDto.InputRequirement(ActionDto.InputLevel.REQUIRED, List.of(), false,
+                List.of(de.uniwue.zpd.dachs.larex.backend.entity.ImageType.BINARY, de.uniwue.zpd.dachs.larex.backend.entity.ImageType.GRAYSCALE),
+                de.uniwue.zpd.dachs.larex.backend.entity.ImageType.GRAYSCALE);
+        List<PageImage> automatic = ReflectionTestUtils.invokeMethod(service, "selectImagesForPage", "page", List.of(binary, gray), null, requirement);
+        assertThat(automatic).containsExactly(gray);
+        var explicit = new ActionDto.ImageVariantSelection("GLOBAL", "a-binary", null, false);
+        List<PageImage> chosen = ReflectionTestUtils.invokeMethod(service, "selectImagesForPage", "page", List.of(binary, gray), explicit, requirement);
+        assertThat(chosen).containsExactly(binary);
+        List<PageImage> withoutPreferred = ReflectionTestUtils.invokeMethod(service, "selectImagesForPage", "page", List.of(binary), null, requirement);
+        assertThat(withoutPreferred).containsExactly(binary);
+    }
+
+    @Test
     void workflowTypesOnlyNarrowProcessorRulesAndPromoteOptionalImagesToRequired() {
         var fixture = prepareImpact();
         var binary = de.uniwue.zpd.dachs.larex.backend.entity.ImageType.BINARY;

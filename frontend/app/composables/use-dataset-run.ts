@@ -173,7 +173,7 @@ export function useDatasetRun(options: {
     return Object.entries(counts).sort((left, right) => right[1] - left[1])
   })
 
-  const variantOptions = computed(() => actionImageVariantOptions(activeItems.value.flatMap(selectableImages)))
+  const variantOptions = computed(() => actionImageVariantOptions(activeItems.value.flatMap(selectableImages), selectedProcessor.value?.inputs.images.preferredImageType))
 
   function resolvedImages(item: TrainingInputItem): TrainingInputImage[] {
     const compatible = compatibleImages(item)
@@ -366,7 +366,7 @@ export function useDatasetRun(options: {
     const retained = globalVariants.value.filter(variant => validVariants.has(variant))
     globalVariants.value = retained.length
       ? (multipleImages.value ? retained : retained.slice(0, 1))
-      : defaultActionImageVariants(activeItems.value.map(selectableImages), multipleImages.value)
+      : defaultActionImageVariants(activeItems.value.map(selectableImages), multipleImages.value, selectedProcessor.value?.inputs.images.preferredImageType)
     for (const item of activeItems.value) {
       const ids = new Set(selectableImages(item).map(image => image.id))
       const retainedIds = (itemImageIdLists.value[item.itemId] ?? []).filter(id => ids.has(id))

@@ -4060,7 +4060,7 @@ public class ActionRunService {
         ActionDto.InputLevel imageLevel = run.getKind() == ActionRun.Kind.EVALUATION
                 ? images.levelFor(ActionTarget.PAGE) : ActionDto.InputLevel.REQUIRED;
         return new ActionDto.InputRequirements(
-                new ActionDto.InputRequirement(imageLevel, List.of(), images.multiple(), images.imageTypes()),
+                new ActionDto.InputRequirement(imageLevel, List.of(), images.multiple(), images.imageTypes(), images.preferredImageType()),
                 new ActionDto.InputRequirement(ActionDto.InputLevel.REQUIRED, List.of()));
     }
 
@@ -4077,7 +4077,7 @@ public class ActionRunService {
         if (!images.acceptsAnyTarget()) throw new IllegalArgumentException("imageTypes requires enabled image input");
         if (!images.imageTypes().isEmpty() && !images.imageTypes().containsAll(requestedTypes))
             throw new IllegalArgumentException("Step imageTypes must be a subset of the processor's accepted image types");
-        return new ActionDto.InputRequirement(ActionDto.InputLevel.REQUIRED, List.of(), images.multiple(), requestedTypes.stream().distinct().toList());
+        return new ActionDto.InputRequirement(ActionDto.InputLevel.REQUIRED, List.of(), images.multiple(), requestedTypes.stream().distinct().toList(), images.preferredImageType());
     }
 
     private ActionDto.InputRequirements effectiveInputRequirements(ActionProcessorDefinition definition, Map<String, Object> parameters) {
@@ -4163,7 +4163,7 @@ public class ActionRunService {
     private ActionDto.InputRequirements resolvedInputRequirements(ActionDto.InputRequirements requirements,
                                                                   ActionTarget target) {
         return new ActionDto.InputRequirements(
-                new ActionDto.InputRequirement(requirements.images().levelFor(target), List.of(), requirements.images().multiple(), requirements.images().imageTypes()),
+                new ActionDto.InputRequirement(requirements.images().levelFor(target), List.of(), requirements.images().multiple(), requirements.images().imageTypes(), requirements.images().preferredImageType()),
                 new ActionDto.InputRequirement(requirements.xml().levelFor(target), List.of())
         );
     }
@@ -4203,7 +4203,8 @@ public class ActionRunService {
                                                 ActionDto.InputRequirement imageRequirement) {
         List<PageImage> sortedImages = images.stream()
                 .filter(image -> imageRequirement.imageTypes().isEmpty() || imageRequirement.acceptsType(imageTypes.typeOf(image)))
-                .sorted(Comparator.comparing(PageImage::getVariant, String.CASE_INSENSITIVE_ORDER)
+                .sorted(Comparator.comparingInt((PageImage image) -> imageRequirement.preferenceRank(imageTypes.typeOf(image)))
+                        .thenComparing(PageImage::getVariant, String.CASE_INSENSITIVE_ORDER)
                         .thenComparing(PageImage::getFileName, String.CASE_INSENSITIVE_ORDER)
                         .thenComparing(image -> Objects.toString(image.getId(), "")))
                 .toList();

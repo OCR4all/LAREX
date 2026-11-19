@@ -69,7 +69,7 @@ public class ActionDefinitionService {
     private static final TypeReference<List<ActionTarget>> ACTION_TARGET_LIST = new TypeReference<>() {};
     private static final TypeReference<Map<String, Object>> JSON_OBJECT = new TypeReference<>() {};
     private static final String OUTPUT_VARIANT_PATTERN = "[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}";
-    private static final Set<String> INPUT_REQUIREMENT_FIELDS = Set.of("level", "requiredForTargets", "multiple", "imageTypes");
+    private static final Set<String> INPUT_REQUIREMENT_FIELDS = Set.of("level", "requiredForTargets", "multiple", "imageTypes", "preferredImageType");
 
     private final ActionProcessorDefinitionRepository definitionRepository;
     private final ActionProcessorWorkspaceAvailabilityRepository availabilityRepository;
@@ -1530,7 +1530,27 @@ public class ActionDefinitionService {
                 }
             }
         }
-        return new ActionDto.InputRequirement(level, requiredForTargets, multiple, imageTypes);
+        ImageType preferredImageType = null;
+        if (rawMap.containsKey("preferredImageType")) {
+            if (!"inputs.images".equals(path)) {
+                diagnostics.add(error(path + ".preferredImageType", "preferredImageType is only supported for image inputs"));
+            } else {
+                try {
+                    preferredImageType = ImageType.valueOf(((String) rawMap.get("preferredImageType")).trim().toUpperCase(Locale.ROOT));
+                    if (preferredImageType == ImageType.UNKNOWN) throw new IllegalArgumentException();
+                } catch (IllegalArgumentException | ClassCastException | NullPointerException error) {
+                    diagnostics.add(error(path + ".preferredImageType", "preferredImageType must be COLOR, GRAYSCALE, or BINARY"));
+                    preferredImageType = null;
+                }
+                if (preferredImageType != null && !imageTypes.isEmpty() && !imageTypes.contains(preferredImageType)) {
+                    diagnostics.add(error(path + ".preferredImageType", "preferredImageType must be one of imageTypes"));
+                }
+                if (level == InputLevel.NONE && requiredForTargets.isEmpty()) {
+                    diagnostics.add(error(path + ".preferredImageType", "preferredImageType requires enabled image input"));
+                }
+            }
+        }
+        return new ActionDto.InputRequirement(level, requiredForTargets, multiple, imageTypes, preferredImageType);
     }
 
     private InputLevel parseInputLevel(String rawLevel,

@@ -493,6 +493,8 @@ inputs:
     # Optional: accept only these detected types (COLOR, GRAYSCALE, BINARY).
     # Omit imageTypes to accept any type; variants are selected separately.
     # imageTypes: [BINARY]
+    # Optional: preselect variants of this type when several types are accepted.
+    # preferredImageType: BINARY
   xml:
     level: optional
 
