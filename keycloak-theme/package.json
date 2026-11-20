@@ -41,7 +41,7 @@
     "tailwind-merge": "^3.3.1",
     "tailwindcss": "^4.1.11",
     "three": "^0.180.0",
-    "zod": "^4.0.14",
+    "zod": "^4.6.6",
     "@keycloakify/email-native": "~260007.0.0"
   },
   "devDependencies": {
