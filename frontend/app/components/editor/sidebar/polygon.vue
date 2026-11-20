@@ -3,7 +3,8 @@ import { LazyUiConfirmModal } from '#components'
 import { PolygonType, type ReadingOrder } from '@/models/editor'
 import type { Region, TextRegion } from '@/models/editor/region'
 import type { Glyph, TextLine, Word } from '@/models/editor/text'
-import { findGlyphRecursive, findWordRecursive, toPolygonElementType } from '@/utils/editor/pcgts-editor-primitives'
+import { findGlyphRecursive, findRegionRecursive, findTextLineRecursive, findWordRecursive, toPolygonElementType } from '@/utils/editor/pcgts-editor-primitives'
+import { findParentTable } from '@/utils/editor/table/table-model'
 import { PAGE_FRAME_LABELS, isPageFrameType } from '@/utils/editor/page-frame'
 import type { AvailableItem } from '@/components/editor/reading-order'
 import type { TreeItemData } from '@/components/editor/sidebar/structure-tree'
@@ -104,7 +105,7 @@ const accordionModel = computed({
   }
 })
 
-const items = [
+const baseItems = [
   {
     label: 'Structure',
     icon: 'i-lucide-table-of-contents',
@@ -136,6 +137,20 @@ const items = [
     slot: 'settings'
   }
 ]
+
+const selectedTableId = computed(() => {
+  const id = props.selectedPolygonId
+  const regions = props.document?.page?.regions
+  if (!id || !regions) return null
+  const hit = findRegionRecursive(regions, id)
+  if (hit) return hit.region.kind === 'TableRegion' ? hit.region.id : findParentTable(regions, id)?.id ?? null
+  const line = findTextLineRecursive(regions, id)
+  return line ? findParentTable(regions, line.parentTextRegion.id)?.id ?? null : null
+})
+
+const items = computed(() => selectedTableId.value
+  ? [baseItems[0]!, { label: 'Table', icon: 'i-lucide-table', slot: 'table' }, ...baseItems.slice(1)]
+  : baseItems)
 
 const collapsedPopoverSlot = ref<string | null>(null)
 
@@ -580,6 +595,15 @@ watch(() => props.collapsed, (collapsed) => {
                 />
               </div>
             </template>
+            <template v-else-if="item.slot === 'table' && selectedTableId && editorStore.activeCanvasId">
+              <div class="p-3">
+                <EditorTableMinimap
+                  :canvas-id="editorStore.activeCanvasId"
+                  :table-id="selectedTableId"
+                  :read-only="isPageLocked"
+                />
+              </div>
+            </template>
             <template v-else-if="item.slot === 'metadata'">
               <div data-tour="editor-layout-metadata-panel">
                 <EditorSidebarMetadata
@@ -659,6 +683,16 @@ watch(() => props.collapsed, (collapsed) => {
             :page="page"
             :commander="commander"
             :regions="allRegionsForRelations"
+            :read-only="isPageLocked"
+          />
+        </div>
+      </template>
+      <template #table>
+        <div class="p-3">
+          <EditorTableMinimap
+            v-if="selectedTableId && editorStore.activeCanvasId"
+            :canvas-id="editorStore.activeCanvasId"
+            :table-id="selectedTableId"
             :read-only="isPageLocked"
           />
         </div>

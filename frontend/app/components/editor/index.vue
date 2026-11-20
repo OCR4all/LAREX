@@ -20,7 +20,7 @@ import { PolygonType, type RegionKind, type Relation } from '@/models/editor'
 import type { MergeSettings } from '@/components/editor/slideover/merge-settings.vue'
 import type { ActionProcessingRenderTarget, CommentOverlayLabel, ElementOverlayLabel, RenderablePolygon } from '@/types/editor/rendering'
 import type { ActionTargetSelection } from '@/types/action'
-import type { SelectionFocusMode, SelectionFocusOptions } from '@/types/editor/canvas-controls'
+import type { CanvasContextMenuItem, SelectionFocusMode, SelectionFocusOptions } from '@/types/editor/canvas-controls'
 import { getViewModePolygonType, visibilityService } from '@/services/editor/visibility-service'
 import {
   isCollaborationCanvasViewMode,
@@ -637,15 +637,7 @@ function saveRegionComment(): void {
   closeRegionComment()
 }
 
-type UiContextMenuItem = {
-  label?: string
-  icon?: string
-  color?: 'error' | 'warning' | 'success' | 'primary' | 'neutral'
-  disabled?: boolean
-  children?: UiContextMenuItem[]
-  dotColor?: string
-  onSelect?: (e: Event) => void
-}
+type UiContextMenuItem = CanvasContextMenuItem
 
 const mapContextMenuItems = (items: EditorContextMenuItem[] = []): UiContextMenuItem[] => {
   return items.map(item => ({
@@ -1299,6 +1291,13 @@ canvasControls.hoverPolygonById = handleHoverPolygon
 canvasControls.unhoverPolygon = handleUnhoverPolygon
 canvasControls.hoverPolylineById = handleHoverPolyline
 canvasControls.unhoverPolyline = handleUnhoverPolyline
+canvasControls.tableContextMenuItemsForPolygon = (polygonId, event) => {
+  const polygon = polygons.find(candidate => candidate.id === polygonId)
+  if (!polygon || !canShowCanvasContent.value || !isCanvasWritable.value) return []
+  closeRegionComment()
+  editorCommands.showTableContextMenuForPolygon(event, polygon as RenderablePolygon)
+  return mapContextMenuItems(editorCommands.contextMenuItems.value || [])
+}
 
 const regionIds = computed(() => polygons.map(polygon => polygon.id))
 const baselineIds = computed(() => polylines.map(polyline => polyline.id))

@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import type { ComponentPublicInstance } from 'vue'
-import { useDebounceFn } from '@vueuse/core'
+import { createReusableTemplate, useDebounceFn } from '@vueuse/core'
 import { TooltipProvider } from 'reka-ui'
 import { LazyDictionarySlideoverBrowser } from '#components'
 import type { TextContentVariantData } from '@/models/editor'
 import type { TextLine } from '@/models/editor/text'
-import type { Region } from '@/models/editor/region'
+import type { Region, TextRegion } from '@/models/editor/region'
+import { buildTableModel, type TableModel } from '@/utils/editor/table/table-model'
+import { cellsInRowOrder, tableLayoutRows, type TableLayoutSlot } from '@/utils/editor/table/table-layout'
 import { UpdateTextlineCommentCommand } from '@/commands/editor'
 import { getEditorSession } from '@/session/editor/editor-session'
 import { useEditorCollaboration } from '@/composables/editor/use-editor-collaboration'
@@ -65,6 +67,8 @@ type FullTextLine = {
 }
 
 const props = defineProps<{ canvasId?: string | null }>()
+
+const [DefineLineRow, ReuseLineRow] = createReusableTemplate<{ line: FullTextLine }>()
 
 const editorStore = useEditorStore()
 const uiStore = useEditorUiStore()
@@ -174,7 +178,61 @@ const fullTextLines = computed<FullTextLine[]>(() => {
 const fullTextLineById = computed(() =>
   new Map(fullTextLines.value.map(line => [line.id, line]))
 )
-const orderedTextlineIds = computed(() => fullTextLines.value.map(line => line.id))
+type TableLayout = {
+  model: TableModel
+  rows: TableLayoutSlot[][]
+  linesByCell: Map<string, FullTextLine[]>
+}
+
+const tableLayouts = computed(() => {
+  const layouts = new Map<string, TableLayout>()
+  const visit = (regions: Region[] | undefined) => {
+    for (const region of regions ?? []) {
+      if (region.kind === 'TableRegion') {
+        const model = buildTableModel(region)
+        const cellIds = new Set(model.cells.map(cell => cell.regionId))
+        const linesByCell = new Map((region.regions ?? [])
+          .filter(cell => cellIds.has(cell.id) && cell.kind === 'TextRegion')
+          .map(cell => [cell.id, ((cell as TextRegion).textLines ?? []).flatMap(textline => fullTextLineById.value.get(textline.id) ?? [])]))
+        if ([...linesByCell.values()].some(lines => lines.length > 0)) {
+          layouts.set(region.id, { model, rows: tableLayoutRows(model), linesByCell })
+        }
+      }
+      visit(region.regions)
+    }
+  }
+  visit(editorDocument.value?.page?.regions)
+  return layouts
+})
+
+const tableIdByTextlineId = computed(() => {
+  const owners = new Map<string, string>()
+  for (const [tableId, layout] of tableLayouts.value) {
+    for (const lines of layout.linesByCell.values()) lines.forEach(line => owners.set(line.id, tableId))
+  }
+  return owners
+})
+
+const displayLines = computed<(FullTextLine & { tableId?: string })[]>(() => {
+  const shownTables = new Set<string>()
+  return fullTextLines.value.flatMap((line) => {
+    const tableId = tableIdByTextlineId.value.get(line.id)
+    if (!tableId) return [line]
+    if (shownTables.has(tableId)) return []
+    shownTables.add(tableId)
+    return [{ ...line, id: `table:${tableId}`, tableId }]
+  })
+})
+
+function tableCellLines(tableId: string, cellId: string): FullTextLine[] {
+  return tableLayouts.value.get(tableId)?.linesByCell.get(cellId) ?? []
+}
+
+const orderedTextlineIds = computed(() => displayLines.value.flatMap((line) => {
+  const layout = line.tableId ? tableLayouts.value.get(line.tableId) : undefined
+  if (!layout) return [line.id]
+  return cellsInRowOrder(layout.model).flatMap(cell => (layout.linesByCell.get(cell.regionId) ?? []).map(cellLine => cellLine.id))
+}))
 const orderedTextlineIdSet = computed(() => new Set(orderedTextlineIds.value))
 
 const selectedTextlineId = computed(() => {
@@ -953,34 +1011,8 @@ onBeforeUnmount(() => {
       class="flex h-full min-h-0 w-full flex-col bg-default dark:bg-[color-mix(in_srgb,var(--ui-bg)_72%,black)]"
       aria-label="Full transcription"
     >
-      <div
-        v-if="isLoading && fullTextLines.length === 0"
-        class="flex flex-1 flex-col gap-3 overflow-hidden p-4"
-      >
-        <USkeleton v-for="line in 8" :key="line" class="h-9 w-full" />
-      </div>
-
-      <div
-        v-else-if="fullTextLines.length === 0"
-        class="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center text-muted"
-      >
-        <Icon name="i-lucide-text-cursor-input" class="size-8 opacity-50" />
-        <p class="text-sm font-medium text-default">
-          No text lines on this page
-        </p>
-        <p class="text-xs">
-          Create text-line annotations to start the transcription.
-        </p>
-      </div>
-
-      <div
-        v-else
-        ref="scrollContainer"
-        class="grid min-h-0 flex-1 content-start grid-cols-[auto_minmax(0,1fr)] gap-x-1 overflow-y-auto p-2"
-      >
+      <DefineLineRow v-slot="{ line }">
         <div
-          v-for="line in fullTextLines"
-          :key="line.id"
           :data-textline-id="line.id"
           class="group relative col-span-2 grid min-w-0 cursor-text grid-cols-subgrid items-start rounded-md px-2 py-0.5 transition-colors"
           :class="selectedTextlineId === line.id
@@ -1366,6 +1398,72 @@ onBeforeUnmount(() => {
             </div>
           </div>
         </div>
+      </DefineLineRow>
+
+      <div
+        v-if="isLoading && fullTextLines.length === 0"
+        class="flex flex-1 flex-col gap-3 overflow-hidden p-4"
+      >
+        <USkeleton v-for="line in 8" :key="line" class="h-9 w-full" />
+      </div>
+
+      <div
+        v-else-if="fullTextLines.length === 0"
+        class="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center text-muted"
+      >
+        <Icon name="i-lucide-text-cursor-input" class="size-8 opacity-50" />
+        <p class="text-sm font-medium text-default">
+          No text lines on this page
+        </p>
+        <p class="text-xs">
+          Create text-line annotations to start the transcription.
+        </p>
+      </div>
+
+      <div
+        v-else
+        ref="scrollContainer"
+        class="grid min-h-0 flex-1 content-start grid-cols-[auto_minmax(0,1fr)] gap-x-1 overflow-y-auto p-2"
+      >
+        <template v-for="line in displayLines" :key="line.id">
+          <div
+            v-if="line.tableId"
+            class="col-span-2 overflow-x-auto px-2 py-2"
+            :data-table-id="line.tableId"
+          >
+            <table class="border-collapse">
+              <tbody>
+                <tr v-for="(slots, rowIndex) in tableLayouts.get(line.tableId)?.rows ?? []" :key="rowIndex">
+                  <template v-for="slot in slots" :key="slot.kind === 'cell' ? slot.cell.regionId : `${slot.row}:${slot.col}`">
+                    <td v-if="slot.kind === 'empty'" class="border border-dashed border-default" />
+                    <td
+                      v-else
+                      :rowspan="slot.cell.rowSpan"
+                      :colspan="slot.cell.colSpan"
+                      class="min-w-64 border border-accented p-1 align-top"
+                      :class="slot.cell.header ? 'bg-muted/50' : ''"
+                    >
+                      <div
+                        v-if="tableCellLines(line.tableId, slot.cell.regionId).length > 0"
+                        class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-1"
+                      >
+                        <ReuseLineRow
+                          v-for="cellLine in tableCellLines(line.tableId, slot.cell.regionId)"
+                          :key="cellLine.id"
+                          :line="cellLine"
+                        />
+                      </div>
+                      <p v-else class="px-2 py-1 text-xs italic text-dimmed">
+                        No text lines
+                      </p>
+                    </td>
+                  </template>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <ReuseLineRow v-else :line="line" />
+        </template>
         <!-- Scroll space after the last line, so it can clear the floating toolbar. -->
         <div class="col-span-2 h-[12.5vh] shrink-0" aria-hidden="true" />
       </div>

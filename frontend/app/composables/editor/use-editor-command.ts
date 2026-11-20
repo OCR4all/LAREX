@@ -17,6 +17,7 @@ import { useOverlayDialogs } from '@/composables/editor/use-overlay-dialogs'
 import { findRegionRecursive, toPolygonElementType, type PolygonElementType } from '@/utils/editor/pcgts-editor-primitives'
 import { buildTableModel, readTableCells } from '@/utils/editor/table/table-model'
 import { canApplyTableOperation, cellsRemovedBy, type TableOperation } from '@/utils/editor/table/table-structure'
+import { withTableReadingOrder, type TableReadingDirection } from '@/utils/editor/table/table-reading-order'
 import { isPageFrameType } from '@/utils/editor/page-frame'
 
 const log = createScopedLogger('EditorCommand')
@@ -490,6 +491,15 @@ export function useEditorCommand(
     }
   }
 
+  function generateTableReadingOrder(tableId: string, direction: TableReadingDirection): void {
+    const session = getEditorSession(canvasId)
+    const table = findSessionRegion(tableId)
+    if (!session?.document.value?.page || !table) return
+    commander.execute(new UpdateReadingOrderCommand({
+      readingOrder: withTableReadingOrder(session.document.value.page.readingOrder, buildTableModel(table), direction)
+    }), { canvasId, session })
+  }
+
   function assignTextLinesToCells(tableId: string): void {
     const { moved } = commander.execute(new AssignTextLinesToCellsCommand({ tableId }), getCommandContext())
     useToast().add({
@@ -861,13 +871,37 @@ export function useEditorCommand(
       ...(table && !table.grid?.rows?.length
         ? [{ id: 'create-grid-from-cells', label: 'Create Grid from Cells', icon: 'i-lucide-grid-3x3' }]
         : []),
-      { id: 'assign-lines-to-cells', label: 'Assign Text Lines to Cells', icon: 'i-lucide-table-properties' }
+      { id: 'assign-lines-to-cells', label: 'Assign Text Lines to Cells', icon: 'i-lucide-table-properties' },
+      {
+        id: 'table-reading-order',
+        label: 'Generate Reading Order',
+        icon: 'i-lucide-list-ordered',
+        submenu: [
+          { id: 'table-reading-order-rows', label: 'Row by Row', icon: 'i-lucide-arrow-right' },
+          { id: 'table-reading-order-columns', label: 'Column by Column', icon: 'i-lucide-arrow-down' }
+        ]
+      }
     ]
   }
 
   /**
    * Show context menu for a polygon at the given screen position
    */
+  function showTableContextMenuForPolygon(event: MouseEvent, polygon: RenderablePolygon): void {
+    tableMenuOperations.clear()
+    const selection = getPolygonSelectionContext(polygon)
+    const selectionItems = selection && polygon.tableCell ? selectionTableMenuItems(selection.polygons) : []
+    contextMenuTarget.value = selection && selectionItems.length > 0
+      ? { type: 'selection', element: polygon, selection }
+      : { type: 'polygon', element: polygon }
+    contextMenuX.value = event.clientX
+    contextMenuY.value = event.clientY
+    contextMenuItems.value = polygon.tableCell
+      ? [...selectionItems, ...tableCellMenuItems(polygon).flatMap(item => item.submenu ?? [item])]
+      : polygon.regionKind === 'TableRegion' ? tableMenuItems(polygon) : []
+    contextMenuVisible.value = true
+  }
+
   function showContextMenuForPolygon(event: MouseEvent, polygon: RenderablePolygon): void {
     const selection = getPolygonSelectionContext(polygon)
     if (selection) {
@@ -1511,6 +1545,10 @@ export function useEditorCommand(
           }
         }
         break
+      case 'table-reading-order-rows':
+      case 'table-reading-order-columns':
+        if (target.type === 'polygon') generateTableReadingOrder(target.element!.id, item.id.endsWith('rows') ? 'rows' : 'columns')
+        break
       case 'assign-lines-to-cells':
         if (target.type === 'polygon') assignTextLinesToCells(target.element!.id)
         break
@@ -1725,6 +1763,7 @@ export function useEditorCommand(
     duplicatePolyline,
 
     showContextMenuForPolygon,
+    showTableContextMenuForPolygon,
     showRegionTypeMenuForPolygon,
     showContextMenuForPolyline,
     showContextMenuForCanvas,
