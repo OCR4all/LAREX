@@ -91,6 +91,8 @@ public class WorkspaceDto {
         private final boolean allowEditorsToEditPageDescription;
         private final boolean allowEditorsToEditPageTags;
         private final boolean defaultReviewRequired;
+        private final boolean recordPageXmlAuthors;
+        private final boolean pageXmlCreatorFromUser;
         private final AuthorizationCapabilitiesDto.WorkspaceCapabilities capabilities;
         private final ProjectDefaultsPropagationResult projectDefaultsPropagation;
 
@@ -101,6 +103,7 @@ public class WorkspaceDto {
                           Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
                           boolean allowEditorsToEditPageName, boolean allowEditorsToEditPageDescription, boolean allowEditorsToEditPageTags,
                           boolean defaultReviewRequired,
+                          boolean recordPageXmlAuthors, boolean pageXmlCreatorFromUser,
                           AuthorizationCapabilitiesDto.WorkspaceCapabilities capabilities,
                           ProjectDefaultsPropagationResult projectDefaultsPropagation) {
             this.id = id;
@@ -123,6 +126,8 @@ public class WorkspaceDto {
             this.allowEditorsToEditPageDescription = allowEditorsToEditPageDescription;
             this.allowEditorsToEditPageTags = allowEditorsToEditPageTags;
             this.defaultReviewRequired = defaultReviewRequired;
+            this.recordPageXmlAuthors = recordPageXmlAuthors;
+            this.pageXmlCreatorFromUser = pageXmlCreatorFromUser;
             this.capabilities = capabilities;
             this.projectDefaultsPropagation = projectDefaultsPropagation;
         }
@@ -148,6 +153,8 @@ public class WorkspaceDto {
         public boolean isAllowEditorsToEditPageDescription() { return allowEditorsToEditPageDescription; }
         public boolean isAllowEditorsToEditPageTags() { return allowEditorsToEditPageTags; }
         public boolean isDefaultReviewRequired() { return defaultReviewRequired; }
+        public boolean isRecordPageXmlAuthors() { return recordPageXmlAuthors; }
+        public boolean isPageXmlCreatorFromUser() { return pageXmlCreatorFromUser; }
         public AuthorizationCapabilitiesDto.WorkspaceCapabilities getCapabilities() { return capabilities; }
         public ProjectDefaultsPropagationResult getProjectDefaultsPropagation() { return projectDefaultsPropagation; }
     }
@@ -160,6 +167,7 @@ public class WorkspaceDto {
                                        Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
                                        boolean allowEditorsToEditPageName, boolean allowEditorsToEditPageDescription, boolean allowEditorsToEditPageTags,
                                        boolean defaultReviewRequired,
+                                       boolean recordPageXmlAuthors, boolean pageXmlCreatorFromUser,
                                        AuthorizationCapabilitiesDto.WorkspaceCapabilities capabilities,
                                        ProjectDefaultsPropagationResult projectDefaultsPropagation) {
             super(id, "Personal Workspace", description, avatar, created, updated, true, ownerUserId, codecId, labelSetId, dictionaryId, tagSetId,
@@ -167,6 +175,7 @@ public class WorkspaceDto {
                     defaultGtIndex, defaultRecognitionIndices,
                     allowEditorsToEditPageName, allowEditorsToEditPageDescription, allowEditorsToEditPageTags,
                     defaultReviewRequired,
+                    recordPageXmlAuthors, pageXmlCreatorFromUser,
                     capabilities, projectDefaultsPropagation);
         }
     }
@@ -179,6 +188,7 @@ public class WorkspaceDto {
                                    Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
                                    boolean allowEditorsToEditPageName, boolean allowEditorsToEditPageDescription, boolean allowEditorsToEditPageTags,
                                    boolean defaultReviewRequired,
+                                   boolean recordPageXmlAuthors, boolean pageXmlCreatorFromUser,
                                    AuthorizationCapabilitiesDto.WorkspaceCapabilities capabilities,
                                    ProjectDefaultsPropagationResult projectDefaultsPropagation) {
             super(id, name, description, avatar, created, updated, false, ownerUserId, codecId, labelSetId, dictionaryId, tagSetId,
@@ -186,6 +196,7 @@ public class WorkspaceDto {
                     defaultGtIndex, defaultRecognitionIndices,
                     allowEditorsToEditPageName, allowEditorsToEditPageDescription, allowEditorsToEditPageTags,
                     defaultReviewRequired,
+                    recordPageXmlAuthors, pageXmlCreatorFromUser,
                     capabilities, projectDefaultsPropagation);
         }
     }
@@ -247,7 +258,9 @@ public class WorkspaceDto {
             Boolean allowEditorsToEditPageName,
             Boolean allowEditorsToEditPageDescription,
             Boolean allowEditorsToEditPageTags,
-            Boolean defaultReviewRequired
+            Boolean defaultReviewRequired,
+            Boolean recordPageXmlAuthors,
+            Boolean pageXmlCreatorFromUser
     ) {}
 
     public record UpdatePersonalWorkspaceRequest(
@@ -266,7 +279,9 @@ public class WorkspaceDto {
             Boolean allowEditorsToEditPageName,
             Boolean allowEditorsToEditPageDescription,
             Boolean allowEditorsToEditPageTags,
-            Boolean defaultReviewRequired
+            Boolean defaultReviewRequired,
+            Boolean recordPageXmlAuthors,
+            Boolean pageXmlCreatorFromUser
     ) {}
 
     // Invitation DTOs (only for team workspaces)

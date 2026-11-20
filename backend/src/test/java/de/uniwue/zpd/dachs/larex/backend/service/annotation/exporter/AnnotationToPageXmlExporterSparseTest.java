@@ -4,7 +4,10 @@ import com.maxnth.page4j.pagexml.PageXmlVersion;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.geometry.PointDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.geometry.PolygonDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.metadata.LabelDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.metadata.LabelsDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.metadata.MetadataDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.metadata.MetadataItemDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.region.RegionDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.region.RegionKind;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.text.TextContentVariantDto;
@@ -265,6 +268,21 @@ class AnnotationToPageXmlExporterSparseTest {
         assertTrue(cause != null && cause.getMessage().contains("'" + input + "' is not a PAGE XML language"), String.valueOf(error));
     }
 
+    @Test
+    void writesAuthorMetadataItemWithToolLabel() throws Exception {
+        AnnotationToPageXmlExporter exporter = new AnnotationToPageXmlExporter(new DtoToPage4jMapper());
+        MetadataItemDto author = new MetadataItemDto("author", "annotator", "Ada Lovelace", "2026-02-14T10:00:00",
+            List.of(new LabelsDto(null, null, null, null, List.of(new LabelDto("LAREX", "tool", null)))));
+        PageDto dto = createPageDto(textRegionWithLines(List.of(), null), null, new MetadataDto(
+            "Ada Lovelace (LAREX)", "2026-02-14T10:00:00", "2026-02-14T10:00:00", null, null, null, List.of(author)));
+
+        String xml = exporter.export(dto, null);
+
+        assertTrue(xml.contains("<Creator>Ada Lovelace (LAREX)</Creator>"), xml);
+        assertTrue(xml.matches("(?s).*<MetadataItem[^>]*value=\"Ada Lovelace\"[^>]*>\\s*<Labels>\\s*<Label[^>]*type=\"tool\"[^>]*/>.*"), xml);
+        assertTrue(xml.matches("(?s).*<Label[^>]*value=\"LAREX\"[^>]*/>.*"), xml);
+    }
+
     private PageDto createPageDtoWithMetadata(
         RegionDto region,
         String pagePrimaryLanguage,
@@ -272,6 +290,11 @@ class AnnotationToPageXmlExporterSparseTest {
         String comments,
         String externalRef
     ) {
+        return createPageDto(region, pagePrimaryLanguage,
+            new MetadataDto(creator, "2026-02-14T10:00:00", "2026-02-14T10:00:00", comments, externalRef));
+    }
+
+    private PageDto createPageDto(RegionDto region, String pagePrimaryLanguage, MetadataDto metadata) {
         return new PageDto(
             "img.png",
             1000,
@@ -279,7 +302,7 @@ class AnnotationToPageXmlExporterSparseTest {
             null,
             null,
             null,
-            new MetadataDto(creator, "2026-02-14T10:00:00", "2026-02-14T10:00:00", comments, externalRef),
+            metadata,
             null,
             null,
             null,

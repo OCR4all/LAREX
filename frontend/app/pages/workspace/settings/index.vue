@@ -35,6 +35,8 @@ interface Workspace {
   allowEditorsToEditPageDescription?: boolean
   allowEditorsToEditPageTags?: boolean
   defaultReviewRequired?: boolean
+  recordPageXmlAuthors?: boolean
+  pageXmlCreatorFromUser?: boolean
   created?: string
   updated?: string
 }
@@ -118,7 +120,9 @@ const form = reactive({
   allowEditorsToEditPageName: false,
   allowEditorsToEditPageDescription: false,
   allowEditorsToEditPageTags: false,
-  defaultReviewRequired: false
+  defaultReviewRequired: false,
+  recordPageXmlAuthors: true,
+  pageXmlCreatorFromUser: true
 })
 
 function formatRecognitionIndices(value?: number[] | null): string {
@@ -350,6 +354,8 @@ watchEffect(() => {
     form.allowEditorsToEditPageDescription = workspace.value.allowEditorsToEditPageDescription ?? false
     form.allowEditorsToEditPageTags = workspace.value.allowEditorsToEditPageTags ?? false
     form.defaultReviewRequired = workspace.value.defaultReviewRequired ?? false
+    form.recordPageXmlAuthors = workspace.value.recordPageXmlAuthors ?? true
+    form.pageXmlCreatorFromUser = workspace.value.pageXmlCreatorFromUser ?? true
   }
 })
 
@@ -374,6 +380,8 @@ const cancelEditing = () => {
     form.allowEditorsToEditPageDescription = workspace.value.allowEditorsToEditPageDescription ?? false
     form.allowEditorsToEditPageTags = workspace.value.allowEditorsToEditPageTags ?? false
     form.defaultReviewRequired = workspace.value.defaultReviewRequired ?? false
+    form.recordPageXmlAuthors = workspace.value.recordPageXmlAuthors ?? true
+    form.pageXmlCreatorFromUser = workspace.value.pageXmlCreatorFromUser ?? true
   }
   isEditing.value = false
 }
@@ -430,7 +438,9 @@ const saveWorkspace = async () => {
         allowEditorsToEditPageName: form.allowEditorsToEditPageName,
         allowEditorsToEditPageDescription: form.allowEditorsToEditPageDescription,
         allowEditorsToEditPageTags: form.allowEditorsToEditPageTags,
-        defaultReviewRequired: form.defaultReviewRequired
+        defaultReviewRequired: form.defaultReviewRequired,
+        recordPageXmlAuthors: form.recordPageXmlAuthors,
+        pageXmlCreatorFromUser: form.pageXmlCreatorFromUser
       }
     })
 
@@ -684,6 +694,13 @@ async function openDeleteSlideover() {
           />
         </UFormField>
 
+        <USeparator />
+        <WorkspacePageXmlAttributionSettings
+          v-model:creator-from-user="form.pageXmlCreatorFromUser"
+          v-model:record-authors="form.recordPageXmlAuthors"
+          :disabled="!isEditing"
+        />
+
         <div class="flex gap-2">
           <template v-if="isEditing">
             <UButton
@@ -909,6 +926,13 @@ async function openDeleteSlideover() {
                 />
               </div>
             </template>
+
+            <USeparator />
+            <WorkspacePageXmlAttributionSettings
+              v-model:creator-from-user="form.pageXmlCreatorFromUser"
+              v-model:record-authors="form.recordPageXmlAuthors"
+              :disabled="!isEditing || !canSetWorkspacePresets"
+            />
           </template>
 
           <div class="flex gap-2">

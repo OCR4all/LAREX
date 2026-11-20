@@ -3,6 +3,9 @@ package de.uniwue.zpd.dachs.larex.backend.service.annotation;
 import de.uniwue.zpd.dachs.larex.backend.dto.UserDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.metadata.MetadataDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.metadata.LabelDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.metadata.LabelsDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.metadata.MetadataItemDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageImage;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
@@ -13,6 +16,8 @@ import de.uniwue.zpd.dachs.larex.backend.exception.AnnotationAlreadyExistsExcept
 import de.uniwue.zpd.dachs.larex.backend.entity.Library;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceQueryService;
+import de.uniwue.zpd.dachs.larex.backend.entity.workspace.TeamWorkspace;
 import de.uniwue.zpd.dachs.larex.backend.service.version.PageXmlVersionService;
 import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.application.AnnotationProcessingService;
@@ -46,6 +51,7 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -56,6 +62,9 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class AnnotationProcessingServiceTest {
+
+    private static final List<LabelsDto> TOOL_LABELS =
+            List.of(new LabelsDto(null, null, null, null, List.of(new LabelDto("LAREX", "tool", null))));
 
     @TempDir
     Path tempDir;
@@ -84,6 +93,8 @@ class AnnotationProcessingServiceTest {
     private ApplicationEventPublisher applicationEventPublisher;
     @Mock
     private WorkspaceQuotaRefreshService workspaceQuotaRefreshService;
+    @Mock
+    private WorkspaceQueryService workspaceQueryService;
 
     @Test
     void parseXmlToAnnotation_returnsCachedDtoWhenFingerprintMatches() throws Exception {
@@ -221,7 +232,7 @@ class AnnotationProcessingServiceTest {
         when(pageRepository.findByIdAndProjectId("page-1", "project-1")).thenReturn(Optional.of(page));
         when(pageXmlRepository.findByPage_Id("page-1")).thenReturn(Optional.empty());
         when(userService.getUserById("user-1"))
-                .thenReturn(Optional.of(new UserDto("user-1", "tester", null, null, null, null)));
+                .thenReturn(Optional.of(new UserDto("user-1", "tester", null, "Test", "User", null)));
         when(pageXmlExporter.writeValidated(any(PageDto.class), isNull(), any(Path.class)))
                 .thenReturn(new PageXmlWriteResult(10L, List.of(), "2024-07-15", pageDto()));
         when(hierarchicalFileStorageService.storeFromPath(
@@ -260,7 +271,90 @@ class AnnotationProcessingServiceTest {
         verify(pageXmlExporter).writeValidated(writtenPage.capture(), isNull(), any(Path.class));
         assertEquals(1200, writtenPage.getValue().imageWidth());
         assertEquals(1800, writtenPage.getValue().imageHeight());
-        assertEquals("tester", writtenPage.getValue().metadata().creator());
+        assertEquals("Test User (LAREX)", writtenPage.getValue().metadata().creator());
+    }
+
+    @Test
+    void saveAnnotationToXml_keepsCreatorAndRecordsEditorsAsAuthorItems() throws Exception {
+        AnnotationProcessingService service = service();
+        PageXml pageXml = pageXml("annotations/page.xml");
+        prepareXmlPath(pageXml.getFilePath(), "<PcGts/>");
+        MetadataItemDto otherEditor = new MetadataItemDto("author", "annotator", "Bob Builder", "2026-01-01T00:00:00", null);
+        MetadataItemDto previousSave = new MetadataItemDto("author", "annotator", "Ada Lovelace", "2026-01-02T00:00:00", TOOL_LABELS);
+        MetadataItemDto processingStep = new MetadataItemDto("processingStep", "ocr", "kraken", null, null);
+        PageDto input = pageDto(new MetadataDto(
+                "Transkribus", "2026-01-01T00:00:00", null, null, null, null,
+                List.of(otherEditor, previousSave, processingStep)));
+
+        when(pageXmlRepository.findById("xml-1")).thenReturn(Optional.of(pageXml));
+        when(userService.getUserById("user-1"))
+                .thenReturn(Optional.of(new UserDto("user-1", "ada", null, " Ada ", "Lovelace", null)));
+        when(pageXmlRepository.save(pageXml)).thenReturn(pageXml);
+        when(pageXmlExporter.writeValidated(any(), eq(pageXml), any(Path.class)))
+                .thenReturn(new PageXmlWriteResult(1L, List.of(), "2019-07-15", pageDto()));
+
+        service.saveAnnotationToXml("xml-1", input, "user-1");
+
+        ArgumentCaptor<PageDto> written = ArgumentCaptor.forClass(PageDto.class);
+        verify(pageXmlExporter).writeValidated(written.capture(), eq(pageXml), any(Path.class));
+        MetadataDto metadata = written.getValue().metadata();
+        assertEquals("Transkribus", metadata.creator());
+        assertEquals(3, metadata.items().size());
+        assertSame(otherEditor, metadata.items().get(0));
+        assertEquals("Ada Lovelace", metadata.items().get(1).value());
+        assertEquals(metadata.lastChange(), metadata.items().get(1).date());
+        assertEquals(TOOL_LABELS, metadata.items().get(1).labels());
+        assertSame(processingStep, metadata.items().get(2));
+    }
+
+    @Test
+    void saveAnnotationToXml_addsAuthorItemAndFallsBackToUsername() throws Exception {
+        AnnotationProcessingService service = service();
+        PageXml pageXml = pageXml("annotations/page.xml");
+        prepareXmlPath(pageXml.getFilePath(), "<PcGts/>");
+
+        when(pageXmlRepository.findById("xml-1")).thenReturn(Optional.of(pageXml));
+        when(userService.getUserById("user-1"))
+                .thenReturn(Optional.of(new UserDto("user-1", "tester", null, null, "  ", null)));
+        when(pageXmlRepository.save(pageXml)).thenReturn(pageXml);
+        when(pageXmlExporter.writeValidated(any(), eq(pageXml), any(Path.class)))
+                .thenReturn(new PageXmlWriteResult(1L, List.of(), "2019-07-15", pageDto()));
+
+        service.saveAnnotationToXml("xml-1", pageDto(), "user-1");
+
+        ArgumentCaptor<PageDto> written = ArgumentCaptor.forClass(PageDto.class);
+        verify(pageXmlExporter).writeValidated(written.capture(), eq(pageXml), any(Path.class));
+        MetadataDto metadata = written.getValue().metadata();
+        assertEquals("tester (LAREX)", metadata.creator());
+        assertTrue(metadata.lastChange().matches("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z"), metadata.lastChange());
+        assertEquals(metadata.lastChange(), metadata.created());
+        assertEquals(List.of(new MetadataItemDto("author", "annotator", "tester", metadata.lastChange(), TOOL_LABELS)),
+                metadata.items());
+    }
+
+    @Test
+    void saveAnnotationToXml_followsWorkspaceAttributionSettings() throws Exception {
+        AnnotationProcessingService service = service();
+        PageXml pageXml = pageXml("annotations/page.xml");
+        prepareXmlPath(pageXml.getFilePath(), "<PcGts/>");
+        TeamWorkspace workspace = new TeamWorkspace("Team", null, "owner");
+        workspace.setRecordPageXmlAuthors(false);
+        workspace.setPageXmlCreatorFromUser(false);
+        MetadataItemDto existing = new MetadataItemDto("author", "annotator", "Bob Builder", "2026-01-01T00:00:00", null);
+
+        when(pageXmlRepository.findById("xml-1")).thenReturn(Optional.of(pageXml));
+        when(workspaceQueryService.findWorkspaceById("ws-1")).thenReturn(Optional.of(workspace));
+        when(pageXmlRepository.save(pageXml)).thenReturn(pageXml);
+        when(pageXmlExporter.writeValidated(any(), eq(pageXml), any(Path.class)))
+                .thenReturn(new PageXmlWriteResult(1L, List.of(), "2019-07-15", pageDto()));
+
+        service.saveAnnotationToXml("xml-1", pageDto(new MetadataDto(null, null, null, null, null, null, List.of(existing))), "user-1");
+
+        ArgumentCaptor<PageDto> written = ArgumentCaptor.forClass(PageDto.class);
+        verify(pageXmlExporter).writeValidated(written.capture(), eq(pageXml), any(Path.class));
+        assertEquals("LAREX", written.getValue().metadata().creator());
+        assertEquals(List.of(existing), written.getValue().metadata().items());
+        verify(userService, never()).getUserById(any());
     }
 
     @Test
@@ -295,7 +389,8 @@ class AnnotationProcessingServiceTest {
                 userService,
                 annotationReadCache,
                 applicationEventPublisher,
-                workspaceQuotaRefreshService
+                workspaceQuotaRefreshService,
+                workspaceQueryService
         );
         ReflectionTestUtils.setField(service, "uploadDir", tempDir.toString());
         return service;
@@ -329,10 +424,14 @@ class AnnotationProcessingServiceTest {
     }
 
     private PageDto pageDto() {
-        return pageDto(null);
+        return pageDto((MetadataDto) null);
     }
 
     private PageDto pageDto(String creator) {
+        return pageDto(creator == null ? null : new MetadataDto(creator, null, null, null, null));
+    }
+
+    private PageDto pageDto(MetadataDto metadata) {
         return new PageDto(
                 "img.png",
                 1000,
@@ -340,7 +439,7 @@ class AnnotationProcessingServiceTest {
                 null,
                 null,
                 null,
-                creator == null ? null : new MetadataDto(creator, null, null, null, null),
+                metadata,
                 "pcgts-1",
                 null,
                 null,

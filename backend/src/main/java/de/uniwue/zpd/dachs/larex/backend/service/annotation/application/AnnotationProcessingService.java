@@ -2,15 +2,21 @@ package de.uniwue.zpd.dachs.larex.backend.service.annotation.application;
 
 import com.maxnth.page4j.pagexml.PageXmlVersion;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.metadata.LabelDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.metadata.LabelsDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.metadata.MetadataItemDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageImage;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.entity.StoredFile.StoredFileType;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
+import de.uniwue.zpd.dachs.larex.backend.entity.workspace.AbstractWorkspace;
 import de.uniwue.zpd.dachs.larex.backend.exception.AnnotationAlreadyExistsException;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceQueryService;
 import de.uniwue.zpd.dachs.larex.backend.service.version.PageXmlVersionService;
+import de.uniwue.zpd.dachs.larex.backend.service.user.UserDisplayNames;
 import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.cache.AnnotationReadCache;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.events.AnnotationSavedEvent;
@@ -38,8 +44,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.Paths;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -54,7 +62,11 @@ import java.util.Optional;
 public class AnnotationProcessingService {
 
     private static final Logger log = LoggerFactory.getLogger(AnnotationProcessingService.class);
-    private static final DateTimeFormatter PAGE_TIME_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+    private static final DateTimeFormatter PAGE_TIME_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX");
+    private static final String AUTHOR_ITEM_TYPE = "author";
+    private static final String AUTHOR_ITEM_NAME = "annotator";
+    private static final String APPLICATION_NAME = "LAREX";
+    private static final String TOOL_LABEL_TYPE = "tool";
 
     private final PageRepository pageRepository;
     private final PageXmlRepository pageXmlRepository;
@@ -68,6 +80,7 @@ public class AnnotationProcessingService {
     private final AnnotationReadCache annotationReadCache;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final WorkspaceQuotaRefreshService workspaceQuotaRefreshService;
+    private final WorkspaceQueryService workspaceQueryService;
 
     @Value("${file.upload-dir}")
     private String uploadDir;
@@ -84,7 +97,8 @@ public class AnnotationProcessingService {
             UserService userService,
             AnnotationReadCache annotationReadCache,
             ApplicationEventPublisher applicationEventPublisher,
-            WorkspaceQuotaRefreshService workspaceQuotaRefreshService) {
+            WorkspaceQuotaRefreshService workspaceQuotaRefreshService,
+            WorkspaceQueryService workspaceQueryService) {
 
         this.pageRepository = pageRepository;
         this.pageXmlRepository = pageXmlRepository;
@@ -98,6 +112,7 @@ public class AnnotationProcessingService {
         this.annotationReadCache = annotationReadCache;
         this.applicationEventPublisher = applicationEventPublisher;
         this.workspaceQuotaRefreshService = workspaceQuotaRefreshService;
+        this.workspaceQueryService = workspaceQueryService;
     }
 
     /**
@@ -229,7 +244,7 @@ public class AnnotationProcessingService {
         Path xmlPath = Paths.get(uploadDir, xml.getFilePath());
         XmlSchema schema = xml.getSchema();
 
-        PageDto saveReadyPageDto = enrichMetadataForSave(pageDto, userId, initializeCreator);
+        PageDto saveReadyPageDto = enrichMetadataForSave(pageDto, userId, initializeCreator, workspaceIdOf(xml.getPage()));
 
         if (schema == XmlSchema.PAGE_XML) {
             long writeStartedAt = System.nanoTime();
@@ -305,7 +320,7 @@ public class AnnotationProcessingService {
         }
 
         String workspaceId = page.getProject().getLibrary().getWorkspaceId();
-        PageDto saveReadyPageDto = enrichMetadataForSave(useStoredImageDimensions(page, pageDto), userId, true);
+        PageDto saveReadyPageDto = enrichMetadataForSave(useStoredImageDimensions(page, pageDto), userId, true, workspaceId);
 
         Path tempPath = Files.createTempFile("larex-initial-annotation-", ".xml");
         try {
@@ -380,13 +395,16 @@ public class AnnotationProcessingService {
         return schema == XmlSchema.PAGE_XML || schema == XmlSchema.ALTO_XML;
     }
 
-    private PageDto enrichMetadataForSave(PageDto dto, String userId, boolean initializeCreator) {
+    private PageDto enrichMetadataForSave(PageDto dto, String userId, boolean initializeCreator, String workspaceId) {
         if (dto == null) {
             return null;
         }
 
-        String now = LocalDateTime.now().format(PAGE_TIME_FORMAT);
-        String fallbackCreator = resolveFallbackCreator(userId);
+        String now = OffsetDateTime.now(ZoneOffset.UTC).format(PAGE_TIME_FORMAT);
+        Optional<AbstractWorkspace> workspace = Optional.ofNullable(workspaceId).flatMap(workspaceQueryService::findWorkspaceById);
+        boolean recordAuthors = workspace.map(AbstractWorkspace::isRecordPageXmlAuthors).orElse(true);
+        boolean creatorFromUser = workspace.map(AbstractWorkspace::isPageXmlCreatorFromUser).orElse(true);
+        String userName = recordAuthors || creatorFromUser ? resolveUserName(userId) : null;
 
         var metadata = dto.metadata();
         String creator = normalize(metadata != null ? metadata.creator() : null);
@@ -395,7 +413,12 @@ public class AnnotationProcessingService {
         String externalRef = normalize(metadata != null ? metadata.externalRef() : null);
         var userDefined = metadata != null ? metadata.userDefined() : null;
         var items = metadata != null ? metadata.items() : null;
-        String saveCreator = initializeCreator || creator == null ? fallbackCreator : creator;
+        if (recordAuthors) {
+            items = withAuthor(items, userName, now);
+        }
+        String saveCreator = initializeCreator || creator == null
+            ? (creatorFromUser ? userName + " (" + APPLICATION_NAME + ")" : APPLICATION_NAME)
+            : creator;
 
         var saveMetadata = new de.uniwue.zpd.dachs.larex.backend.dto.page.metadata.MetadataDto(
             saveCreator,
@@ -521,17 +544,54 @@ public class AnnotationProcessingService {
         return trimmed.isEmpty() ? null : trimmed;
     }
 
-    private String resolveFallbackCreator(String userId) {
+    private static String workspaceIdOf(Page page) {
+        if (page == null || page.getProject() == null || page.getProject().getLibrary() == null) {
+            return null;
+        }
+        return page.getProject().getLibrary().getWorkspaceId();
+    }
+
+    private String resolveUserName(String userId) {
         String normalizedUserId = normalize(userId);
         if (normalizedUserId == null) {
             return "unknown";
         }
+        return UserDisplayNames.of(userService.getUserById(normalizedUserId).orElse(null), normalizedUserId);
+    }
 
-        String username = userService.getUserById(normalizedUserId)
-            .map(user -> normalize(user.username()))
-            .orElse(null);
+    private static List<MetadataItemDto> withAuthor(List<MetadataItemDto> items, String userName, String now) {
+        List<MetadataItemDto> result = new ArrayList<>();
+        boolean updated = false;
+        for (MetadataItemDto item : items != null ? items : List.<MetadataItemDto>of()) {
+            if (!updated && isAuthorItem(item, userName)) {
+                result.add(new MetadataItemDto(item.type(), item.name(), item.value(), now, withToolLabel(item.labels())));
+                updated = true;
+            } else {
+                result.add(item);
+            }
+        }
+        if (!updated) {
+            result.add(new MetadataItemDto(AUTHOR_ITEM_TYPE, AUTHOR_ITEM_NAME, userName, now, withToolLabel(null)));
+        }
+        return result;
+    }
 
-        return username != null ? username : normalizedUserId;
+    private static List<LabelsDto> withToolLabel(List<LabelsDto> groups) {
+        List<LabelsDto> result = groups != null ? new ArrayList<>(groups) : new ArrayList<>();
+        boolean present = result.stream()
+            .filter(group -> group.labels() != null)
+            .flatMap(group -> group.labels().stream())
+            .anyMatch(label -> TOOL_LABEL_TYPE.equals(label.type()) && APPLICATION_NAME.equals(label.value()));
+        if (!present) {
+            result.add(new LabelsDto(null, null, null, null, List.of(new LabelDto(APPLICATION_NAME, TOOL_LABEL_TYPE, null))));
+        }
+        return result;
+    }
+
+    private static boolean isAuthorItem(MetadataItemDto item, String userName) {
+        return AUTHOR_ITEM_TYPE.equals(item.type())
+            && AUTHOR_ITEM_NAME.equals(item.name())
+            && userName.equals(item.value());
     }
 
     private String buildInitialXmlFilename(String pageName) {

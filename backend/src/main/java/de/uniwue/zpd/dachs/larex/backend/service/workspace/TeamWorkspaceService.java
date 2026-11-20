@@ -129,6 +129,8 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
                                                        Boolean allowEditorsToEditPageDescription,
                                                        Boolean allowEditorsToEditPageTags,
                                                        Boolean defaultReviewRequired,
+                                                       Boolean recordPageXmlAuthors,
+                                                       Boolean pageXmlCreatorFromUser,
                                                        String userId) {
         Optional<TeamWorkspace> workspaceOpt = teamWorkspaceRepository.findById(workspaceId);
 
@@ -170,6 +172,12 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
             }
             if (defaultReviewRequired != null) {
                 workspace.setDefaultReviewRequired(defaultReviewRequired);
+            }
+            if (recordPageXmlAuthors != null) {
+                workspace.setRecordPageXmlAuthors(recordPageXmlAuthors);
+            }
+            if (pageXmlCreatorFromUser != null) {
+                workspace.setPageXmlCreatorFromUser(pageXmlCreatorFromUser);
             }
 
             Codec codec = null;

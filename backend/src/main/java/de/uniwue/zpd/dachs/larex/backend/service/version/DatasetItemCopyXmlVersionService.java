@@ -9,6 +9,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.dataset.DatasetItemCopyFileR
 import de.uniwue.zpd.dachs.larex.backend.repository.dataset.DatasetItemCopyXmlVersionRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshService;
 import de.uniwue.zpd.dachs.larex.backend.service.upload.UploadPathService;
+import de.uniwue.zpd.dachs.larex.backend.service.user.UserDisplayNames;
 import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlConversionService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlPrettyPrinter;
@@ -112,7 +113,7 @@ public class DatasetItemCopyXmlVersionService {
                         version.getFileSize(),
                         version.getUserId(),
                         usersById.get(version.getUserId()) == null ? null : usersById.get(version.getUserId()).username(),
-                        buildDisplayName(usersById.get(version.getUserId()), version.getUserId()),
+                        UserDisplayNames.of(usersById.get(version.getUserId()), version.getUserId()),
                         version.getComment(),
                         version.getCreated()
                 ))
@@ -224,25 +225,6 @@ public class DatasetItemCopyXmlVersionService {
             return "unknown";
         }
         return value.replaceAll("[^a-zA-Z0-9._-]", "_");
-    }
-
-    private String buildDisplayName(UserDto user, String fallbackUserId) {
-        if (user == null) {
-            return fallbackUserId;
-        }
-        if (user.firstName() != null && user.lastName() != null) {
-            return user.firstName() + " " + user.lastName();
-        }
-        if (user.firstName() != null) {
-            return user.firstName();
-        }
-        if (user.lastName() != null) {
-            return user.lastName();
-        }
-        if (user.username() != null && !user.username().isBlank()) {
-            return user.username();
-        }
-        return fallbackUserId;
     }
 
     private void scheduleWorkspaceUsageRefresh(DatasetItemCopyFile copyXmlFile) {

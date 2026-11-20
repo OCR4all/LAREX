@@ -112,6 +112,8 @@ public class WorkspaceService {
                                                            Boolean allowEditorsToEditPageDescription,
                                                            Boolean allowEditorsToEditPageTags,
                                                            Boolean defaultReviewRequired,
+                                                           Boolean recordPageXmlAuthors,
+                                                           Boolean pageXmlCreatorFromUser,
                                                            String userId) {
         Optional<AbstractWorkspace> workspaceOpt = workspaceQueryService.findWorkspaceById(workspaceId);
         if (workspaceOpt.isEmpty()) return Optional.empty();
@@ -125,7 +127,7 @@ public class WorkspaceService {
                     workspaceId, description, avatar, codecId, labelSetId, dictionaryId, tagSetId,
                     normalizationProfileId, validationRulesetId, defaultGtIndex, defaultRecognitionIndices,
                     allowEditorsToEditPageName, allowEditorsToEditPageDescription, allowEditorsToEditPageTags,
-                    defaultReviewRequired, userId
+                    defaultReviewRequired, recordPageXmlAuthors, pageXmlCreatorFromUser, userId
             );
             updated = personal.map(pw -> (AbstractWorkspace) pw);
         } else {
@@ -133,7 +135,7 @@ public class WorkspaceService {
                     workspaceId, name, description, avatar, codecId, labelSetId, dictionaryId, tagSetId,
                     normalizationProfileId, validationRulesetId, defaultGtIndex, defaultRecognitionIndices,
                     allowEditorsToEditPageName, allowEditorsToEditPageDescription, allowEditorsToEditPageTags,
-                    defaultReviewRequired, userId
+                    defaultReviewRequired, recordPageXmlAuthors, pageXmlCreatorFromUser, userId
             );
             updated = team.map(tw -> (AbstractWorkspace) tw);
         }

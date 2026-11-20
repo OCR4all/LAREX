@@ -81,6 +81,12 @@ public abstract class AbstractWorkspace {
     @Column(name = "default_review_required", nullable = false)
     private boolean defaultReviewRequired = false;
 
+    @Column(name = "record_page_xml_authors", nullable = false)
+    private boolean recordPageXmlAuthors = true;
+
+    @Column(name = "page_xml_creator_from_user", nullable = false)
+    private boolean pageXmlCreatorFromUser = true;
+
     protected AbstractWorkspace() {}
 
     protected AbstractWorkspace(String ownerUserId, String description) {
@@ -230,6 +236,22 @@ public abstract class AbstractWorkspace {
 
     public void setDefaultReviewRequired(boolean defaultReviewRequired) {
         this.defaultReviewRequired = defaultReviewRequired;
+    }
+
+    public boolean isRecordPageXmlAuthors() {
+        return recordPageXmlAuthors;
+    }
+
+    public void setRecordPageXmlAuthors(boolean recordPageXmlAuthors) {
+        this.recordPageXmlAuthors = recordPageXmlAuthors;
+    }
+
+    public boolean isPageXmlCreatorFromUser() {
+        return pageXmlCreatorFromUser;
+    }
+
+    public void setPageXmlCreatorFromUser(boolean pageXmlCreatorFromUser) {
+        this.pageXmlCreatorFromUser = pageXmlCreatorFromUser;
     }
 
     public boolean isAllowEditorsToEditPageTags() {

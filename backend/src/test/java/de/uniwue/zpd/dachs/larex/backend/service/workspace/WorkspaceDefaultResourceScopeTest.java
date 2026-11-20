@@ -46,7 +46,7 @@ class WorkspaceDefaultResourceScopeTest {
         when(codecs.findById("foreign-codec")).thenReturn(Optional.of(foreign));
 
         assertThatThrownBy(() -> personalService().updatePersonalWorkspace(own.getId(), "description", null,
-                "foreign-codec", null, null, null, null, null, null, null, null, null, null, null, "owner"))
+                "foreign-codec", null, null, null, null, null, null, null, null, null, null, null, null, null, "owner"))
                 .isInstanceOf(ResourceNotFoundException.class);
 
         verify(personalWorkspaces, never()).save(any());
@@ -60,7 +60,7 @@ class WorkspaceDefaultResourceScopeTest {
         when(personalWorkspaces.save(own)).thenReturn(own);
 
         var result = personalService().updatePersonalWorkspace(own.getId(), "description", null,
-                "own-codec", null, null, null, null, null, null, null, null, null, null, null, "owner");
+                "own-codec", null, null, null, null, null, null, null, null, null, null, null, null, null, "owner");
 
         assertThat(result.orElseThrow().getCodec()).isSameAs(codec);
     }
@@ -73,7 +73,7 @@ class WorkspaceDefaultResourceScopeTest {
         when(workspaceAccess.isUserAdministrator("team-workspace", "owner")).thenReturn(true);
 
         assertThatThrownBy(() -> teamService().updateTeamWorkspace("team-workspace", "Team", "description", null,
-                null, "foreign-label-set", null, null, null, null, null, null, null, null, null, null, "owner"))
+                null, "foreign-label-set", null, null, null, null, null, null, null, null, null, null, null, null, "owner"))
                 .isInstanceOf(ResourceNotFoundException.class);
 
         verify(teamWorkspaces, never()).save(any());
