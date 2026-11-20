@@ -25,11 +25,7 @@ export const useNotificationPreferences = () => {
     desktopPermission: 'default'
   }))
 
-  const { isSupported, permissionGranted } = useWebNotification({
-    title: '',
-    body: '',
-    icon: '/favicon.ico'
-  })
+  const isSupported = computed(() => import.meta.client && 'Notification' in window)
 
   /**
    * Initialize desktop permission state
@@ -71,7 +67,7 @@ export const useNotificationPreferences = () => {
   const showDesktopNotification = async (title: string, options?: NotificationOptions) => {
     if (import.meta.server) return
 
-    if (!isSupported.value || !permissionGranted.value) {
+    if (!isSupported.value || Notification.permission !== 'granted') {
       return
     }
 
@@ -247,7 +243,6 @@ export const useNotificationPreferences = () => {
     isSaving: computed(() => state.value.isSaving),
     desktopPermission: computed(() => state.value.desktopPermission),
     isDesktopSupported: isSupported,
-    isDesktopPermissionGranted: permissionGranted,
 
     fetchPreferences,
     initDesktopPermission,

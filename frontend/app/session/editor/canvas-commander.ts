@@ -24,6 +24,10 @@ export function getOrCreateSessionCommander(canvasId: string): Commander {
   return created
 }
 
+export function releaseSessionCommander(canvasId: string): void {
+  detachedCommanders.delete(canvasId)
+}
+
 export function undoSessionCommand(canvasId: string): boolean {
   const ctx = getSessionCommandContext(canvasId)
   if (!ctx) return false

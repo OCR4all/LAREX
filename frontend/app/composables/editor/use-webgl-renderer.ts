@@ -14,7 +14,7 @@ import { UniformStateCache } from '@/webgl/editor/uniform-state-cache'
 import { drawPolygonOutlineWithStyle } from '@/webgl/editor/polygon-outline-dispatch'
 import { resolvePolygonRenderStyle, withAlpha, type PolygonRenderPhase, type ResolvedPolygonRenderStyle } from '@/webgl/editor/polygon-style-resolver'
 import { PolygonType } from '@/models/editor'
-import { getViewModePolygonType, normalizeLayoutViewMode, visibilityService } from '@/services/editor/visibility-service'
+import { getViewModePolygonType, indexPolygonsById, normalizeLayoutViewMode, visibilityService } from '@/services/editor/visibility-service'
 import type { VisibilityContext } from '@/services/editor/visibility-service'
 import { computeElementConfidence, confidenceToHeatRgba, scaleConfidenceForHeatmap } from '@/utils/editor/confidence-heatmap'
 import { useEditorStore } from '@/stores/editor/editor.store'
@@ -24,6 +24,7 @@ import type { View, ImageSize, AspectRatioScale, Point, PcGts as DocumentModel }
 import { BASELINE_STYLE, RASTER_IMAGE_SHADOW, RENDER_SIZES, CANVAS_BACKGROUND, RENDER_THICKNESS, RENDER_COLORS, AUTO_PARENT_INDICATOR, RENDER_ALPHA, LINE_WIDTH_PRESETS, VERTEX_SIZE_PRESETS, TABLE_OVERLAY, type RGBA } from '@/utils/editor/editor-constants'
 import { WEBGL_CORE, WEBGL_GEOMETRY } from '@/webgl/editor/webgl-constants'
 import type { RenderablePolygon, WebGLRenderState } from '@/types/editor/rendering'
+import type { LabelSet } from '@/models/editor/labels'
 import { createScopedLogger } from '@/services/editor/logger-service'
 import { isPageFrameType } from '@/utils/editor/page-frame'
 import { sharesRowOrColumn } from '@/utils/editor/table/table-geometry'
@@ -42,6 +43,7 @@ interface RenderFrameContext {
   selectedPolygonIds: Set<string>
   selectedPolylineIds: Set<string>
   labelConflictIds: Set<string>
+  regionColors: { document: DocumentModel | undefined, labelSet: LabelSet | null, cache: Map<string, RGBA> }
 }
 
 interface GeometryCacheStats {
@@ -115,7 +117,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     return session?.document.value ?? undefined
   }
 
-  function getActiveLabelSet() {
+  function getActiveLabelSet(): LabelSet | null {
     const editorStore = useEditorStore()
     return editorStore.labelSet ?? null
   }
@@ -142,6 +144,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
       selectedPolygonIds: new Set(renderState.selectedPolygonIds.value),
       selectedPolylineIds: new Set(renderState.selectedPolylineIds.value),
       labelConflictIds: new Set(renderState.labelConflictIds ?? []),
+      regionColors: { document: getActiveDocument(), labelSet: getActiveLabelSet(), cache: new Map() },
       visibility: {
         selectedPolygonIndex: renderState.selectedPolygonIndex.value,
         selectedPolylineIndex: renderState.selectedPolylineIndex.value,
@@ -151,7 +154,8 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
         hiddenPolygonIds,
         hiddenPolylineIds,
         temporaryHoverPolygonId: editorUiStore.temporaryHoverPolygonId,
-        temporaryHoverPolylineId: editorUiStore.temporaryHoverPolylineId
+        temporaryHoverPolylineId: editorUiStore.temporaryHoverPolylineId,
+        polygonsById: indexPolygonsById(renderState.polygons)
       }
     }
   }
@@ -624,9 +628,11 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     document: DocumentModel | undefined = getActiveDocument(),
     labelSet = getActiveLabelSet()
   ): ResolvedPolygonRenderStyle {
+    const regionColors = renderFrameContext?.regionColors
     return resolvePolygonRenderStyle(polygon, {
       document,
       labelSet,
+      regionColorCache: regionColors && regionColors.document === document && regionColors.labelSet === labelSet ? regionColors.cache : undefined,
       showPersistentFill: editorUiStore.globalSettings.showPolygonLabelFill,
       labelConflict: activeLabelConflictIds.has(polygon.id),
       ...options

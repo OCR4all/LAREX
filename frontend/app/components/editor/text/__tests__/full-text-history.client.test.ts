@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as Vue from 'vue'
 import { compileScript, parse } from 'vue/compiler-sfc'
 import { ModuleKind, transpileModule } from 'typescript'
-import { useDebounceFn } from '@vueuse/core'
+import { createReusableTemplate, useDebounceFn } from '@vueuse/core'
 import { createTestDocument, createTestTextRegion } from '@/commands/editor/__tests__/test-utils'
 import { TextContentVariant, TextLine } from '@/models/editor/text'
 import { Polygon } from '@/models/editor/geometry'
@@ -15,6 +15,8 @@ import { Commander } from '@/commands/editor/commander'
 import * as pagePrimitives from '@/utils/editor/pcgts-editor-primitives'
 import * as navigation from '@/utils/editor/textline-navigation'
 import * as textVariants from '@/utils/editor/text-variants'
+import * as tableModel from '@/utils/editor/table/table-model'
+import * as tableLayout from '@/utils/editor/table/table-layout'
 import * as inputGuards from '../shared/text-input-guards'
 import * as readingDirection from '../line/reading-direction'
 import * as fullTextLines from '../shared/full-text-lines'
@@ -30,7 +32,7 @@ const passthrough = Vue.defineComponent({
 })
 const modules: Record<string, unknown> = {
   'vue': Vue,
-  '@vueuse/core': { useDebounceFn },
+  '@vueuse/core': { createReusableTemplate, useDebounceFn },
   'reka-ui': { TooltipProvider: passthrough },
   '#components': {},
   '@/commands/editor': {},
@@ -41,6 +43,8 @@ const modules: Record<string, unknown> = {
   '@/utils/editor/textline-navigation': navigation,
   '@/utils/editor/pcgts-editor-primitives': pagePrimitives,
   '@/utils/editor/text-variants': textVariants,
+  '@/utils/editor/table/table-model': tableModel,
+  '@/utils/editor/table/table-layout': tableLayout,
   '@/utils/fetch-keys': {},
   '@/utils/glyph-service': {},
   './shared/text-input-guards': inputGuards,

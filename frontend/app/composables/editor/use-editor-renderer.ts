@@ -20,6 +20,8 @@ import { useEditorCustomCursor } from './use-editor-custom-cursor'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import { watchShapes } from '@/utils/editor/watch-shapes'
 
+const ANIMATED_OVERLAY_FRAME_MS = 1000 / 30
+
 export type TriangulateFunction = (points: Point[]) => number[]
 
 export interface WebGLRenderer {
@@ -209,7 +211,6 @@ export function useEditorRenderer(
 
   const {
     scheduleRender,
-    forceRender,
     stats: renderQueueStats
   } = useRenderQueue(renderNow, {
     enableMonitoring: import.meta.env.DEV,
@@ -388,12 +389,16 @@ export function useEditorRenderer(
 
     webglRenderer.startReadingOrderAnimation()
 
-    const animate = () => {
+    let lastAnimatedRender = 0
+    const animate = (time: number) => {
       if (enabled && !enabled.value) {
         stopReadingOrderAnimation()
         return
       }
-      forceRender('animated-overlay')
+      if (time - lastAnimatedRender >= ANIMATED_OVERLAY_FRAME_MS) {
+        lastAnimatedRender = time
+        scheduleRender(RenderPriority.NORMAL, 'animated-overlay')
+      }
       animationFrameId = requestAnimationFrame(animate)
     }
 

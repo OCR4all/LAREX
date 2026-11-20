@@ -3,6 +3,7 @@
  * Replaces scattered visibility logic across multiple files with a single source of truth.
  */
 
+import { toRaw } from 'vue'
 import type { Point } from '@/models/editor'
 import type { ViewMode } from '@/types/editor/rendering'
 import { isPageFrameType } from '@/utils/editor/page-frame'
@@ -29,6 +30,13 @@ export interface VisibilityContext {
   hiddenPolylineIds?: Set<string>
   temporaryHoverPolygonId?: string | null
   temporaryHoverPolylineId?: string | null
+  polygonsById?: ReadonlyMap<string, Polygon>
+}
+
+export function indexPolygonsById(polygons: readonly Polygon[]): Map<string, Polygon> {
+  const index = new Map<string, Polygon>()
+  for (const polygon of toRaw(polygons)) index.set(polygon.id, polygon)
+  return index
 }
 
 export interface HierarchyInfo {
@@ -81,6 +89,10 @@ export class VisibilityService {
     const selectedPolygon = context.allPolygons[context.selectedPolygonIndex]
     if (purpose === 'interact') return !selectedPolygon
     return selectedPolygon?.id !== polygon.id
+  }
+
+  private findPolygon(id: string, context: VisibilityContext): Polygon | undefined {
+    return context.polygonsById ? context.polygonsById.get(id) : context.allPolygons.find(p => p.id === id)
   }
 
   private isPolygonHidden(polygonId: string, context: VisibilityContext): boolean {
@@ -248,7 +260,7 @@ export class VisibilityService {
       if (!polyline.parentId) {
         return true // Orphaned polyline
       }
-      const parent = allPolygons.find(p => p.id === polyline.parentId)
+      const parent = this.findPolygon(polyline.parentId, context)
       return parent ? !parent.parentId : false
     }
 
@@ -294,7 +306,7 @@ export class VisibilityService {
       if (!polyline.parentId) {
         return true // Orphaned polyline
       }
-      const parent = allPolygons.find(p => p.id === polyline.parentId)
+      const parent = this.findPolygon(polyline.parentId, context)
       return parent ? !parent.parentId : false
     }
 

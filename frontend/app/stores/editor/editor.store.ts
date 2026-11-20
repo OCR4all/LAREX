@@ -13,6 +13,7 @@ import { visibilityService } from '@/services/editor/visibility-service'
 import { Metadata, PcGts, Page, Polygon, Polyline, TextLine, isTextRegion, type Region, type TextRegion } from '@/models/editor'
 import type { Polygon as VisibilityPolygon, Polyline as VisibilityPolyline } from '@/services/editor/visibility-service'
 import { clearAllEditorSessions, ensureEditorSession, destroyEditorSession, getEditorSession } from '@/session/editor/editor-session'
+import { releaseSessionCommander } from '@/session/editor/canvas-commander'
 import { collectPolylinesFromPcGts, collectPolygonsFromPcGts } from './editor.collectors.store'
 import { createScopedLogger } from '@/services/editor/logger-service'
 import { convertPageDtoToPcGts, convertPcGtsToPageDto, type PageDto } from '@/services/editor/page-conversion.service'
@@ -469,6 +470,7 @@ export const useEditorStore = defineStore('editor', () => {
     delete canvases.value[id]
     uiStore.removeCanvasUiMode(id)
     destroyEditorSession(id)
+    releaseSessionCommander(id)
 
     if (activeCanvasId.value === id) {
       const keys = Object.keys(canvases.value)
@@ -487,6 +489,7 @@ export const useEditorStore = defineStore('editor', () => {
 
     for (const canvasId of Object.keys(canvases.value)) {
       uiStore.removeCanvasUiMode(canvasId)
+      releaseSessionCommander(canvasId)
     }
     clearAllEditorSessions()
     canvases.value = {}

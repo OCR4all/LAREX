@@ -22,6 +22,7 @@ export interface ResolvePolygonRenderStyleOptions {
   invalid?: boolean
   labelConflict?: boolean
   renderPhase?: PolygonRenderPhase
+  regionColorCache?: Map<string, RGBA>
 }
 
 /** Fixed stroke colors for text elements and page frames; regions are colored by their label instead. */
@@ -38,6 +39,22 @@ export function withAlpha(color: RGBA, alpha: number): RGBA {
 }
 
 function getRegionStrokeColor(
+  polygon: RenderablePolygon,
+  document?: PcGts | null,
+  labelSet?: LabelSet | null,
+  cache?: Map<string, RGBA>
+): RGBA {
+  if (!cache) return lookupRegionStrokeColor(polygon, document, labelSet)
+  const key = `${polygon.label}\u0000${polygon.regionKind}\u0000${polygon.regionSubtype}\u0000${polygon.regionCustom}`
+  let color = cache.get(key)
+  if (!color) {
+    color = lookupRegionStrokeColor(polygon, document, labelSet)
+    cache.set(key, color)
+  }
+  return color
+}
+
+function lookupRegionStrokeColor(
   polygon: RenderablePolygon,
   document?: PcGts | null,
   labelSet?: LabelSet | null
@@ -87,7 +104,7 @@ export function resolvePolygonRenderStyle(
   const textElementStrokeColor = polygon.type ? TEXT_ELEMENT_STROKE_COLORS[polygon.type] : undefined
   const isTextElement = !!textElementStrokeColor
   const baseStrokeColor = textElementStrokeColor
-    ?? getRegionStrokeColor(polygon, options.document, options.labelSet)
+    ?? getRegionStrokeColor(polygon, options.document, options.labelSet, options.regionColorCache)
   const persistentFill = !isTextElement && options.showPersistentFill
     ? withAlpha(baseStrokeColor, RENDER_ALPHA.FILL_LABEL_BACKGROUND)
     : null
