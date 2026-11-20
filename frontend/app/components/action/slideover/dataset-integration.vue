@@ -342,13 +342,10 @@ onMounted(load)
               :disabled="starting"
               @update:model-value="parameters[key] = $event"
             />
-            <UInput
+            <ActionParameterInput
               v-else
               :model-value="String(parameters[key] ?? '')"
-              :type="definition.type === 'number' || definition.type === 'integer' ? 'number' : 'text'"
-              :min="definition.min"
-              :max="definition.max"
-              :step="definition.type === 'integer' ? 1 : 'any'"
+              :definition="definition"
               :disabled="starting"
               class="w-full"
               @update:model-value="parameters[key] = coerceActionParameterInput(definition, $event)"

@@ -136,13 +136,10 @@ function createVariant(variant: string) {
           :disabled="disabled"
           @update:model-value="update(String(key), $event)"
         />
-        <UInput
+        <ActionParameterInput
           v-else
           :model-value="inputValue(String(key))"
-          :type="definition.type === 'number' || definition.type === 'integer' ? 'number' : 'text'"
-          :step="definition.type === 'integer' ? '1' : 'any'"
-          :min="definition.min"
-          :max="definition.max"
+          :definition="definition"
           :disabled="disabled"
           class="w-full"
           @update:model-value="update(String(key), coerceActionParameterInput(definition, $event))"

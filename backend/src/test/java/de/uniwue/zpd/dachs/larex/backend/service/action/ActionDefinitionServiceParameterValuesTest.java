@@ -139,6 +139,50 @@ class ActionDefinitionServiceParameterValuesTest {
     }
 
     @Test
+    void allowsSecretOnlyOnFreeTextStringParameters() {
+        ActionDto.ValidationResponse valid = service.validateYaml(secretYaml("""
+                    type: string
+                    secret: true
+                """), null);
+        ActionDto.ValidationResponse numeric = service.validateYaml(secretYaml("""
+                    type: integer
+                    secret: true
+                """), null);
+        ActionDto.ValidationResponse withChoices = service.validateYaml(secretYaml("""
+                    type: string
+                    secret: true
+                    default: a
+                    allowedValues:
+                      values:
+                        - { value: a, label: A }
+                """), null);
+
+        assertThat(valid.diagnostics()).isEmpty();
+        assertThat(valid.preview().parameters().get("token").hasSecretValue()).isTrue();
+        assertThat(numeric.diagnostics()).extracting(ActionDto.ValidationDiagnostic::message)
+                .contains("secret is only supported for free-text string parameters");
+        assertThat(withChoices.diagnostics()).extracting(ActionDto.ValidationDiagnostic::message)
+                .contains("secret is only supported for free-text string parameters");
+    }
+
+    private String secretYaml(String parameter) {
+        return """
+                version: 1
+                id: processor-v1
+                name: Processor
+                endpoint:
+                  url: http://processor.localhost/dispatch
+                inputs:
+                  xml: true
+                outputs:
+                  xml:
+                    enabled: true
+                parameters:
+                  token:
+                """ + parameter;
+    }
+
+    @Test
     void enforcesDiscoveredValuesForEveryMultipleSelection() {
         definition.setParsedJson(dynamicDefinitionJson()
                 .replace("\"default\": \"model-a\",", "\"multiple\": true,"));

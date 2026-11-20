@@ -1555,12 +1555,10 @@ function close() {
                       :disabled="navigationBusy"
                       @update:model-value="updateBooleanParameterValue(entry.key, $event)"
                     />
-                    <UInput
+                    <ActionParameterInput
                       v-else
                       :model-value="parameterInputValue(entry.key)"
-                      :type="entry.definition.type === 'number' || entry.definition.type === 'integer' ? 'number' : 'text'"
-                      :min="entry.definition.min"
-                      :max="entry.definition.max"
+                      :definition="entry.definition"
                       :disabled="navigationBusy"
                       @update:model-value="updateParameterInputValue(entry.key, entry.definition, $event)"
                     />

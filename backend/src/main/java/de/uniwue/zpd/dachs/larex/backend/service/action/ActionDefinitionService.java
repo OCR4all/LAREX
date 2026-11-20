@@ -1630,6 +1630,9 @@ public class ActionDefinitionService {
             if (parameter.allowsMultiple() && parameter.allowedValues() == null) {
                 diagnostics.add(error("parameters." + key + ".multiple", "multiple requires allowedValues"));
             }
+            if (parameter.hasSecretValue() && (!"string".equals(type) || parameter.allowedValues() != null)) {
+                diagnostics.add(error("parameters." + key + ".secret", "secret is only supported for free-text string parameters"));
+            }
             if (parameter.defaultValue() != null) {
                 if (parameter.allowsMultiple()) {
                     validateMultipleDefault("parameters." + key + ".default", parameter, diagnostics);

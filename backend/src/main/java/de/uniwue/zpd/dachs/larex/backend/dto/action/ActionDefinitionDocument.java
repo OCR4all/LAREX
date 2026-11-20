@@ -107,14 +107,26 @@ public record ActionDefinitionDocument(
                             String description,
                             Boolean required,
                             AllowedValues allowedValues,
-                            Boolean multiple) {
+                            Boolean multiple,
+                            Boolean secret) {
+        public Parameter(String type,
+                         Object defaultValue,
+                         Double min,
+                         Double max,
+                         String description,
+                         Boolean required,
+                         AllowedValues allowedValues,
+                         Boolean multiple) {
+            this(type, defaultValue, min, max, description, required, allowedValues, multiple, null);
+        }
+
         public Parameter(String type,
                          Object defaultValue,
                          Double min,
                          Double max,
                          String description,
                          Boolean required) {
-            this(type, defaultValue, min, max, description, required, null, null);
+            this(type, defaultValue, min, max, description, required, null, null, null);
         }
 
         public Parameter(String type,
@@ -124,11 +136,15 @@ public record ActionDefinitionDocument(
                          String description,
                          Boolean required,
                          AllowedValues allowedValues) {
-            this(type, defaultValue, min, max, description, required, allowedValues, null);
+            this(type, defaultValue, min, max, description, required, allowedValues, null, null);
         }
 
         public boolean allowsMultiple() {
             return Boolean.TRUE.equals(multiple);
+        }
+
+        public boolean hasSecretValue() {
+            return Boolean.TRUE.equals(secret);
         }
     }
 
