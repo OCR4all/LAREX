@@ -3094,6 +3094,10 @@ const {
         @force-unlock="forceUnlockActivePage"
       >
         <template #page-metadata>
+          <EditorTableProblems
+            :canvas-id="activeCanvasId"
+            :read-only="isActivePageLocked || !activeCanvasCanEdit || activeCanvasIsComparison"
+          />
           <EditorPageTags
             v-if="activePageMetadata && selectedWorkspace"
             :key="`${activePageMetadata.projectId}:${activePageMetadata.id}`"

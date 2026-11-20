@@ -33,7 +33,8 @@ const DESCRIPTIONS: Record<TableOperation['kind'], string> = {
   'delete-column': 'Delete table column',
   'merge-cells': 'Merge table cells',
   'split-cell': 'Split table cell',
-  'set-header-row': 'Change table header row'
+  'set-header-row': 'Change table header row',
+  'set-cell-header': 'Change table header cell'
 }
 
 function redistributeLines(sources: TextRegion[], cells: TextRegion[]): void {

@@ -1038,7 +1038,11 @@ watch(() => props.readOnly, (readOnly) => {
               </UFormField>
             </div>
 
-            <div class="grid grid-cols-2 gap-2">
+            <p v-if="genericRegionFormState.kind === 'TableRegion'" class="text-xs text-muted">
+              Rows, columns, the grid and the cells are edited in the Table panel.
+            </p>
+
+            <div v-else class="grid grid-cols-2 gap-2">
               <UFormField label="Rows" name="rows">
                 <UInput v-model.number="genericRegionFormState.rows" type="number" min="0" />
               </UFormField>
@@ -1079,7 +1083,7 @@ watch(() => props.readOnly, (readOnly) => {
               <UCheckbox v-model="genericRegionFormState.borderPresent" label="Border present" />
             </div>
 
-            <div class="space-y-2 rounded-md border border-default p-3">
+            <div v-if="genericRegionFormState.kind !== 'TableRegion'" class="space-y-2 rounded-md border border-default p-3">
               <span class="text-sm font-medium">Table Cell Role</span>
               <div class="grid grid-cols-2 gap-2">
                 <UFormField label="Row Index">
@@ -1100,7 +1104,7 @@ watch(() => props.readOnly, (readOnly) => {
               <UCheckbox v-model="genericRegionFormState.tableCellRole.header" label="Header cell" />
             </div>
 
-            <div class="space-y-2 rounded-md border border-default p-3">
+            <div v-if="genericRegionFormState.kind !== 'TableRegion' && genericRegionFormState.gridRows.length > 0" class="space-y-2 rounded-md border border-default p-3">
               <div class="flex items-center justify-between">
                 <span class="text-sm font-medium">Table Grid Rows</span>
                 <UButton

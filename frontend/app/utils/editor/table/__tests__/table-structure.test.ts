@@ -145,6 +145,11 @@ describe('applyTableOperation', () => {
     expect(model.cells.map(cell => cell.header)).toEqual([false, false, true, true])
   })
 
+  it('marks a single cell as header', () => {
+    const { model } = applyTableOperation(grid(2, 2), { kind: 'set-cell-header', cellId: 'c01', header: true }, counter())
+    expect(model.cells.map(cell => cell.header)).toEqual([false, true, false, false])
+  })
+
   it('leaves the original model untouched', () => {
     const original = grid(2, 2)
     const before = JSON.stringify(original)

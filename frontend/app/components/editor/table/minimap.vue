@@ -2,8 +2,8 @@
 import { isTextRegion } from '@/models/editor'
 import { UpdateReadingOrderCommand } from '@/commands/editor'
 import { getEditorSession } from '@/session/editor/editor-session'
-import { findRegionRecursive } from '@/utils/editor/pcgts-editor-primitives'
-import { buildTableModel, type TableCell } from '@/utils/editor/table/table-model'
+import { useTableSnapshot } from '@/composables/editor/use-table-snapshot'
+import type { TableCell } from '@/utils/editor/table/table-model'
 import { linesCrossingCells } from '@/utils/editor/table/table-checks'
 import { tableLayoutRows } from '@/utils/editor/table/table-layout'
 import { withTableReadingOrder, type TableReadingDirection } from '@/utils/editor/table/table-reading-order'
@@ -20,19 +20,15 @@ const props = withDefaults(defineProps<{
 
 const editorStore = useEditorStore()
 
-const page = computed(() => getEditorSession(props.canvasId)?.document.value?.page ?? null)
-const table = computed(() => {
-  const found = page.value ? findRegionRecursive(page.value.regions, props.tableId)?.region : undefined
-  return found?.kind === 'TableRegion' ? found : undefined
-})
-const model = computed(() => table.value ? buildTableModel(table.value) : undefined)
+const snapshot = useTableSnapshot(() => props.canvasId, () => props.tableId)
+const model = computed(() => snapshot.value?.model)
 const rows = computed(() => model.value ? tableLayoutRows(model.value) : [])
 
-const lineCountByCell = computed(() => new Map((table.value?.regions ?? []).map(region =>
+const lineCountByCell = computed(() => new Map((snapshot.value?.table.regions ?? []).map(region =>
   [region.id, isTextRegion(region) ? region.textLines?.length ?? 0 : 0])))
-const crossingByCell = computed(() => table.value ? linesCrossingCells(table.value) : new Map<string, string[]>())
+const crossingByCell = computed(() => snapshot.value ? linesCrossingCells(snapshot.value.table) : new Map<string, string[]>())
 const crossingCount = computed(() => [...crossingByCell.value.values()].reduce((sum, ids) => sum + ids.length, 0))
-const cellIdByLineId = computed(() => new Map((table.value?.regions ?? []).flatMap(region =>
+const cellIdByLineId = computed(() => new Map((snapshot.value?.table.regions ?? []).flatMap(region =>
   isTextRegion(region) ? (region.textLines ?? []).map(line => [line.id, region.id] as const) : [])))
 
 const runtime = computed(() => getTextViewRuntimeControls(props.canvasId, editorStore))
@@ -57,9 +53,10 @@ function describeCell(cell: TableCell): string {
 }
 
 function generateReadingOrder(direction: TableReadingDirection): void {
-  if (!model.value || !page.value) return
+  const current = snapshot.value
+  if (!current) return
   runtime.value?.commander?.execute(
-    new UpdateReadingOrderCommand({ readingOrder: withTableReadingOrder(page.value.readingOrder, model.value, direction) }),
+    new UpdateReadingOrderCommand({ readingOrder: withTableReadingOrder(current.page.readingOrder, current.model, direction) }),
     createTextViewCommandContext(props.canvasId)
   )
 }

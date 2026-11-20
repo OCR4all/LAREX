@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { Polygon } from '@/models/editor/geometry'
 import type { Region } from '@/models/editor/region'
-import { validateTable, validateTables } from '../table-validation'
+import { describeTableIssue, isRepairableTableIssue, validateTable, validateTables } from '../table-validation'
 
 function cell(id: string, rowIndex?: number, columnIndex?: number, extra: Record<string, unknown> = {}): Region {
   return {
@@ -30,11 +30,13 @@ function table(regions: Region[], overrides: Partial<Region> = {}): Region {
   } as Region
 }
 
-const codes = (region: Region) => validateTable(region).map(issue => issue.code)
+const GEOMETRY_CODES = new Set(['cell-geometry-mismatch', 'table-outline-mismatch'])
+const structural = (region: Region) => validateTable(region).filter(issue => !GEOMETRY_CODES.has(issue.code))
+const codes = (region: Region) => structural(region).map(issue => issue.code)
 
 describe('validateTable', () => {
   it('accepts a complete table', () => {
-    expect(validateTable(table([cell('a', 0, 0), cell('b', 0, 1), cell('c', 1, 0, { colSpan: 2 })], { rows: 2, columns: 2 }))).toEqual([])
+    expect(structural(table([cell('a', 0, 0), cell('b', 0, 1), cell('c', 1, 0, { colSpan: 2 })], { rows: 2, columns: 2 }))).toEqual([])
   })
 
   it('reports broken grids', () => {
@@ -75,6 +77,31 @@ describe('validateTable', () => {
 
   it('does not report uncovered positions for a table without cells', () => {
     expect(codes(table([]))).toEqual([])
+  })
+
+  it('compares the table and cell outlines with the grid, ignoring extra points on the edges', () => {
+    const square = (left: number, top: number) => new Polygon([[left, top], [left + 10, top], [left + 10, top + 10], [left, top + 10]])
+    const placed = (id: string, row: number, col: number) => ({ ...cell(id, row, col), coords: square(col * 10, row * 10) }) as Region
+    const matching = table([placed('a', 0, 0), placed('b', 0, 1), placed('c', 1, 0), placed('d', 1, 1)])
+    expect(validateTable(matching)).toEqual([])
+
+    const drifted = table([placed('a', 0, 0), placed('b', 0, 1), placed('c', 1, 0), { ...placed('d', 1, 1), coords: square(11, 11) } as Region], {
+      coords: new Polygon([[0, 0], [21, 0], [20, 20], [0, 20]])
+    })
+    expect(validateTable(drifted).map(issue => [issue.code, issue.regionIds])).toEqual([
+      ['table-outline-mismatch', ['t1']],
+      ['cell-geometry-mismatch', ['d']]
+    ])
+  })
+
+  it('reports lines crossing their cell and describes issues', () => {
+    const lines = [{ id: 'l', coords: new Polygon([[2, 2], [14, 2], [14, 4], [2, 4]]) }]
+    const crossing = table([{ ...cell('a', 0, 0), coords: new Polygon([[0, 0], [10, 0], [10, 10], [0, 10]]), textLines: lines } as Region])
+    const issue = validateTable(crossing).find(candidate => candidate.code === 'line-crosses-cell')!
+    expect(issue).toMatchObject({ regionIds: ['l'], row: 0, col: 0, severity: 'warning' })
+    expect(describeTableIssue(issue)).toBe('Text lines cross the border of their cell (row 1, column 1).')
+    expect(isRepairableTableIssue(issue)).toBe(true)
+    expect(isRepairableTableIssue({ code: 'cell-overlap', severity: 'error', regionIds: [] })).toBe(false)
   })
 })
 

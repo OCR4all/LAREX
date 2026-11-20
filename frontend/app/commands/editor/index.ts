@@ -87,3 +87,4 @@ export { AssignTextLinesToCellsCommand, type AssignTextLinesToCellsCommandData }
 export { TableStructureCommand, type TableStructureCommandData } from './table-structure-command'
 export { TableGridPointCommand, type TableGridPointCommandData, type TableGridPointEdit } from './table-grid-point-command'
 export { CreateGridFromCellsCommand, type CreateGridFromCellsCommandData } from './create-grid-from-cells-command'
+export { RepairTableCommand, type RepairTableCommandData } from './repair-table-command'

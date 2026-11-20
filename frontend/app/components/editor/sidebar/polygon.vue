@@ -597,7 +597,7 @@ watch(() => props.collapsed, (collapsed) => {
             </template>
             <template v-else-if="item.slot === 'table' && selectedTableId && editorStore.activeCanvasId">
               <div class="p-3">
-                <EditorTableMinimap
+                <EditorTableInspector
                   :canvas-id="editorStore.activeCanvasId"
                   :table-id="selectedTableId"
                   :read-only="isPageLocked"
@@ -689,7 +689,7 @@ watch(() => props.collapsed, (collapsed) => {
       </template>
       <template #table>
         <div class="p-3">
-          <EditorTableMinimap
+          <EditorTableInspector
             v-if="selectedTableId && editorStore.activeCanvasId"
             :canvas-id="editorStore.activeCanvasId"
             :table-id="selectedTableId"

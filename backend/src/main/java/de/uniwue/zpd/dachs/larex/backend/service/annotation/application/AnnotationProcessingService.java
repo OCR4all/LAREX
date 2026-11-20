@@ -248,6 +248,9 @@ public class AnnotationProcessingService {
                 annotationReadCache.evict(xmlId);
                 replaceAtomically(tempPath, xmlPath);
                 PageDto written = writeResult.written();
+                if (!writeResult.warnings().isEmpty()) {
+                    log.warn("PAGE XML {} has {} table problems: {}", xmlId, writeResult.warnings().size(), String.join(" ", writeResult.warnings()));
+                }
 
                 long newSize = Files.size(xmlPath);
                 xml.setFileSize(newSize);

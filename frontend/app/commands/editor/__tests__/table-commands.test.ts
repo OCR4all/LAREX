@@ -10,6 +10,7 @@ import { TableStructureCommand } from '../table-structure-command'
 import { TableGridPointCommand } from '../table-grid-point-command'
 import { CreateGridFromCellsCommand } from '../create-grid-from-cells-command'
 import { MoveElementCommand } from '../move-element-command'
+import { RepairTableCommand } from '../repair-table-command'
 import { createMockSession, createTestContext, createTestDocument, createTestReadingOrder, findRegionById } from './test-utils'
 
 vi.mock('@/stores/editor/editor.ui.store', () => ({ useEditorUiStore: () => ({ bumpReadingOrderVersion: vi.fn() }) }))
@@ -297,5 +298,41 @@ describe('MoveElementCommand on tables', () => {
     command.undo(ctx)
     expect(buildTableModel(region(getDocument, 't')).grid!.points[0]![0]).toEqual([0, 20])
     expect(region(getDocument, cellIds[0]!).coords.points[0]).toEqual([0, 20])
+  })
+})
+
+describe('RepairTableCommand', () => {
+  function brokenTable() {
+    const { ctx, getDocument } = setup([textRegion('t', rect(0, 20, 20, 0), [line('l', 11, 9, 19, 7)])])
+    const { cellIds } = new CreateTableGridCommand({ regionId: 't', rows: 2, columns: 2 }).execute(ctx)!
+    const table = region(getDocument, 't')
+    const [a, b, c, d] = cellIds.map(id => region(getDocument, id)) as TextRegion[]
+    a!.roles = { tableCellRole: { rowIndex: 0, columnIndex: 0, rowSpan: 0 } }
+    b!.coords = new Polygon(rect(10, 21, 20, 10))
+    c!.roles = undefined
+    d!.textLines = []
+    ;(a as TextRegion).textLines = [line('l', 11, 9, 19, 7)]
+    table.regions = [a!, b!, c!, d!].filter(cell => cell!.id !== cellIds[3])
+    table.rows = 5
+    return { ctx, getDocument, cellIds, table }
+  }
+
+  it('fixes spans, roles, missing cells, geometry, dimensions and misplaced lines, and undoes it', () => {
+    const { ctx, getDocument, cellIds, table } = brokenTable()
+    expect(validateTable(table).map(issue => issue.code)).toEqual(expect.arrayContaining(['dimension-mismatch', 'cell-missing-role', 'cell-invalid-span', 'uncovered-position', 'line-crosses-cell']))
+
+    const command = new RepairTableCommand({ tableId: 't' })
+    expect(command.execute(ctx)!.remaining).toEqual([])
+    const repaired = region(getDocument, 't')
+    const model = buildTableModel(repaired)
+    expect(model.cells.map(cell => [cell.row, cell.col])).toEqual([[0, 0], [0, 1], [1, 0], [1, 1]])
+    expect(model.cells.find(cell => cell.row === 1 && cell.col === 0)!.regionId).toBe(cellIds[2])
+    const created = model.cells.find(cell => cell.row === 1 && cell.col === 1)!.regionId
+    expect(lineIds(region(getDocument, created))).toEqual(['l'])
+
+    command.undo(ctx)
+    expect(region(getDocument, 't')).toBe(table)
+    command.execute(ctx)
+    expect(buildTableModel(region(getDocument, 't')).cells.find(cell => cell.row === 1 && cell.col === 1)!.regionId).toBe(created)
   })
 })

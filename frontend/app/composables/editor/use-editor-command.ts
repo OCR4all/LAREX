@@ -1,6 +1,6 @@
 import type { Commander } from '@/commands'
 import type { CommandContext } from '@/commands/editor/types'
-import { ConstrainToParentCommand, DeletePolygonCommand, DeletePolylineCommand, DeleteSelectedElementsCommand, ChangeRegionLabelCommand, ChangeRegionKindCommand, DuplicateElementCommand, SimplifyPolygonCommand, BufferPolygonCommand, FitToBoundingBoxCommand, ConvexHullCommand, ReparentElementCommand, UpdateReadingOrderCommand, CompoundCommand, CreateTableGridCommand, BuildTableFromRegionsCommand, AssignTextLinesToCellsCommand, TableStructureCommand, CreateGridFromCellsCommand } from '@/commands'
+import { ConstrainToParentCommand, DeletePolygonCommand, DeletePolylineCommand, DeleteSelectedElementsCommand, ChangeRegionLabelCommand, ChangeRegionKindCommand, DuplicateElementCommand, SimplifyPolygonCommand, BufferPolygonCommand, FitToBoundingBoxCommand, ConvexHullCommand, ReparentElementCommand, UpdateReadingOrderCommand, CompoundCommand, CreateTableGridCommand, BuildTableFromRegionsCommand, AssignTextLinesToCellsCommand, TableStructureCommand, CreateGridFromCellsCommand, RepairTableCommand } from '@/commands'
 import { MergeElementsCommand } from '@/commands/editor/merge-elements-command'
 import { getEditorSession } from '@/session/editor/editor-session'
 import type { RenderablePolygon, RenderablePolyline } from '@/types/editor/rendering'
@@ -14,10 +14,12 @@ import { clearLarexRegionLabelMetadata, findRegionLabelDefinitionForRegion, reso
 import { createScopedLogger } from '@/services/editor/logger-service'
 import type { MergeSettings } from '@/components/editor/slideover/merge-settings.vue'
 import { useOverlayDialogs } from '@/composables/editor/use-overlay-dialogs'
+import { showTableRepairResult } from '@/composables/editor/use-table-issues'
 import { findRegionRecursive, toPolygonElementType, type PolygonElementType } from '@/utils/editor/pcgts-editor-primitives'
 import { buildTableModel, readTableCells } from '@/utils/editor/table/table-model'
 import { canApplyTableOperation, cellsRemovedBy, type TableOperation } from '@/utils/editor/table/table-structure'
 import { withTableReadingOrder, type TableReadingDirection } from '@/utils/editor/table/table-reading-order'
+import { isRepairableTableIssue, validateTable } from '@/utils/editor/table/table-validation'
 import { isPageFrameType } from '@/utils/editor/page-frame'
 
 const log = createScopedLogger('EditorCommand')
@@ -868,6 +870,9 @@ export function useEditorCommand(
     }
     const table = findSessionRegion(polygon.id)
     return [
+      ...(table && validateTable(table).some(isRepairableTableIssue)
+        ? [{ id: 'repair-table', label: 'Repair Table', icon: 'i-lucide-wrench' }]
+        : []),
       ...(table && !table.grid?.rows?.length
         ? [{ id: 'create-grid-from-cells', label: 'Create Grid from Cells', icon: 'i-lucide-grid-3x3' }]
         : []),
@@ -1542,6 +1547,15 @@ export function useEditorCommand(
             commander.execute(new CreateGridFromCellsCommand({ tableId: target.element!.id }), commandCtx)
           } catch (error) {
             showTableError('Could not create table grid', error)
+          }
+        }
+        break
+      case 'repair-table':
+        if (target.type === 'polygon') {
+          try {
+            showTableRepairResult(commander.execute(new RepairTableCommand({ tableId: target.element!.id }), commandCtx)?.remaining.length ?? 0)
+          } catch (error) {
+            showTableError('Could not repair table', error)
           }
         }
         break

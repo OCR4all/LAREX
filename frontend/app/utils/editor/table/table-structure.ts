@@ -11,6 +11,7 @@ export type TableOperation
     | { kind: 'merge-cells', cellIds: string[] }
     | { kind: 'split-cell', cellId: string }
     | { kind: 'set-header-row', row: number, header: boolean }
+    | { kind: 'set-cell-header', cellId: string, header: boolean }
 
 export interface TableOperationResult {
   model: TableModel
@@ -285,6 +286,13 @@ function setHeaderRow(model: GriddedModel, row: number, header: boolean): TableO
   return emptyResult(model)
 }
 
+function setCellHeader(model: GriddedModel, cellId: string, header: boolean): TableOperationResult {
+  const cell = model.cells.find(candidate => candidate.regionId === cellId)
+  if (!cell) throw new Error(`Table has no cell ${cellId}`)
+  cell.header = header
+  return emptyResult(model)
+}
+
 function onColumns(model: GriddedModel, operation: (transposed: GriddedModel) => TableOperationResult): TableOperationResult {
   const result = operation(transpose(model))
   const restored = transpose(result.model as GriddedModel)
@@ -304,6 +312,7 @@ export function applyTableOperation(model: TableModel, operation: TableOperation
     case 'merge-cells': return mergeCells(draft, operation.cellIds)
     case 'split-cell': return splitCell(draft, operation.cellId, newCellId)
     case 'set-header-row': return setHeaderRow(draft, operation.row, operation.header)
+    case 'set-cell-header': return setCellHeader(draft, operation.cellId, operation.header)
   }
 }
 
