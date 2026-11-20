@@ -26,7 +26,7 @@ const configuration = reactive({
   authHost: 'auth.example.org',
   realm: 'larex-prod',
   docsUrl: 'https://docs.larex.kallimachos.de',
-  imageTag: '1.0.0-SNAPSHOT'
+  imageTag: '1.0.0'
 })
 
 const baseUrl = computed(() => {
