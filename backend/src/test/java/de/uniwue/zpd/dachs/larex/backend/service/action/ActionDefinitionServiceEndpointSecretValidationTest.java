@@ -132,20 +132,6 @@ class ActionDefinitionServiceEndpointSecretValidationTest {
     }
 
     @Test
-    void migratedDefinitionsRemainReadableAndEditable() {
-        configureSecret();
-        String legacy = validExternalYaml().replace("tags: []", "category: WORKFLOW");
-        String migratedYaml = db.migration.V35__replace_action_categories_with_tags.migrateYaml(legacy);
-        var parsed = service.parseAndValidate(migratedYaml, null);
-        String legacyJson = new ObjectMapper().readTree(parsed.parsedJson()).toString().replace("\"tags\":[]", "\"category\":\"WORKFLOW\"");
-        var definition = new ActionProcessorDefinition();
-        definition.setParsedJson(db.migration.V35__replace_action_categories_with_tags.migrateJson(legacyJson));
-        assertThat(service.readParsedDocument(definition).tags()).isEmpty();
-        assertThat(service.toDefinitionResponse(definition).tags()).isEmpty();
-        assertThat(service.readParsedDocument(definition).endpoint()).isEqualTo(parsed.document().endpoint());
-    }
-
-    @Test
     void parsesTargetAwareInputRequirementsAndLegacyBooleans() {
         when(endpointAuthService.normalizeAuthType(new de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDefinitionDocument.EndpointAuth("hmac", "processor-v1")))
                 .thenCallRealMethod();

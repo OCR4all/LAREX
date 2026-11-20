@@ -25,8 +25,7 @@ class AnnotationLeaseEpochSourceIntegrationTest {
             postgres.start();
             Flyway flyway = Flyway.configure()
                     .dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
-                    .baselineVersion("42").target("43").load();
-            flyway.baseline();
+                    .load();
             flyway.migrate();
             JdbcTemplate jdbc = new JdbcTemplate(new DriverManagerDataSource(
                     postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword()));

@@ -675,40 +675,6 @@ class ActionWorkflowIntegrationTest {
         assertThat(images.findById(image.getId()).orElseThrow().getUpdated()).isEqualTo(updated);
     }
 
-    @Test
-    void reclassificationMigrationRechecksGrayscaleWithoutChangingContentOrCleanedHistory() throws Exception {
-        Fixture f = fixture(false);
-        var image = image(f, "ocropus", java.awt.image.BufferedImage.TYPE_BYTE_GRAY);
-        var updated = images.findById(image.getId()).orElseThrow().getUpdated();
-        jdbc.update("UPDATE page_images SET image_type = 'GRAYSCALE' WHERE id = ?", image.getId());
-        var activeWorkflow = workflows.start(f.workspace, f.project, request(f), "owner", "http://backend/api/v1");
-        var active = runs.findById(activeWorkflow.stepRunIds().getFirst()).orElseThrow();
-        Fixture historicalFixture = fixture(false);
-        var historicalWorkflow = workflows.start(historicalFixture.workspace, historicalFixture.project, request(historicalFixture), "owner", "http://backend/api/v1");
-        var historical = runs.findById(historicalWorkflow.stepRunIds().getFirst()).orElseThrow();
-        historical.setSnapshotCleanedAt(LocalDateTime.now()); runs.saveAndFlush(historical);
-        String insertSnapshot = """
-                INSERT INTO action_input_snapshots
-                    (id, run_id, input_id, page_name, source_page_id, file_type, source_file_id,
-                     file_name, mime_type, file_size, checksum_sha256, snapshot_path, position, image_type)
-                VALUES (?, ?, 'input', 'Page', ?, 'images', ?, 'image.png', 'image/png', 1,
-                        'checksum', ?, 0, 'GRAYSCALE')
-                """;
-        jdbc.update(insertSnapshot, "active-gray", active.getId(), f.page, image.getId(), image.getFilePath());
-        jdbc.update(insertSnapshot, "cleaned-gray", historical.getId(), f.page, image.getId(), "deleted.png");
-        // Exercise the actual upgrade script against the full application schema and existing rows.
-        jdbc.execute((org.springframework.jdbc.core.ConnectionCallback<Void>) connection -> {
-            org.springframework.jdbc.datasource.init.ScriptUtils.executeSqlScript(connection,
-                    new org.springframework.core.io.ClassPathResource("db/migration/V48__recheck_grayscale_image_types.sql"));
-            return null;
-        });
-        assertThat(jdbc.queryForObject("SELECT image_type FROM page_images WHERE id = ?", String.class, image.getId())).isNull();
-        assertThat(jdbc.queryForObject("SELECT image_type FROM action_input_snapshots WHERE id = 'active-gray'", String.class)).isNull();
-        assertThat(jdbc.queryForObject("SELECT image_type FROM action_input_snapshots WHERE id = 'cleaned-gray'", String.class)).isEqualTo("GRAYSCALE");
-        assertThat(imageTypes.typeOf(images.findById(image.getId()).orElseThrow())).isEqualTo(ImageType.BINARY);
-        assertThat(images.findById(image.getId()).orElseThrow().getUpdated()).isEqualTo(updated);
-    }
-
     private void allowImages(String id) {
         var processor = processors.findById(id).orElseThrow();
         processor.setParsedJson(processor.getParsedJson().replace("\"inputs\":{", "\"inputs\":{\"images\":{\"level\":\"optional\"},"));

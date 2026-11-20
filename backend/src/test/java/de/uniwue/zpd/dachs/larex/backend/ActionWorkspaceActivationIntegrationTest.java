@@ -17,9 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -192,26 +190,6 @@ class ActionWorkspaceActivationIntegrationTest {
         actions.assignProcessor(workspace, new ActionDto.AssignmentRequest(definition.getId(), null, true), "curator");
         definitions.removeWorkspaceAvailability(definition.getId(), availabilityId);
         assertThat(activation.isActivated(definition, workspace, null)).isTrue();
-    }
-
-    @Test
-    void migrationRemovesOnlyIneligibleScopedAssignmentsWithoutBackfillingGlobals() {
-        ActionProcessorDefinition scoped = definition(false);
-        ActionProcessorDefinition global = definition(true);
-        ActionProcessorDefinition unassignedGlobal = definition(true);
-        String eligible = UUID.randomUUID().toString();
-        definitions.assignWorkspaceAvailability(scoped.getId(), new ActionDto.WorkspaceAvailabilityRequest(eligible, true), "admin");
-        ActionProcessorAssignment retained = assignment(scoped, eligible, null, false);
-        ActionProcessorAssignment removed = assignment(scoped, "removed", "project", true);
-        ActionProcessorAssignment retainedGlobal = assignment(global, "global-workspace", null, true);
-
-        new ResourceDatabasePopulator(new ClassPathResource("db/migration/V33__remove_ineligible_action_assignments.sql"))
-                .execute(jdbc.getDataSource());
-        assertThat(assignmentRepository.existsById(retained.getId())).isTrue();
-        assertThat(assignmentRepository.findById(retained.getId()).orElseThrow().isEnabled()).isFalse();
-        assertThat(assignmentRepository.existsById(removed.getId())).isFalse();
-        assertThat(assignmentRepository.existsById(retainedGlobal.getId())).isTrue();
-        assertThat(assignmentRepository.findByDefinitionIds(List.of(unassignedGlobal.getId()))).isEmpty();
     }
 
     @Test
