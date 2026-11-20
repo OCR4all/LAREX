@@ -1,6 +1,7 @@
 *
 !build.gradle.kts
 !settings.gradle.kts
+!gradle.properties
 !src/
 !src/**
 !docker/
