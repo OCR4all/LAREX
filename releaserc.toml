@@ -1,0 +1,22 @@
+[semantic_release]
+commit_message = "chore(release): {version}"
+tag_format = "v{version}"
+allow_zero_version = false
+version_variables = [
+  "VERSION:*:nf",
+  "backend/gradle.properties:version",
+  "frontend/package.json:version",
+  "keycloak-theme/package.json:version",
+  "docs/app/components/content/DeploymentInstaller.vue:imageTag",
+]
+
+[semantic_release.branches.main]
+match = "main"
+prerelease = false
+
+[semantic_release.changelog]
+exclude_commit_patterns = ['''^chore\(release\):''']
+
+[semantic_release.remote]
+type = "github"
+token = { env = "GH_TOKEN" }

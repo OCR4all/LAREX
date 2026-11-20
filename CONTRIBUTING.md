@@ -24,4 +24,9 @@ Before opening a pull request, run:
 
 ## Commit messages
 
-Use clear, imperative commit messages that describe what changed and why.
+Write commit subjects as [Conventional Commits](https://www.conventionalcommits.org/),
+for example `feat(editor): add table exports` or `fix(actions): reject uploads to failed runs`.
+Releases derive their version and changelog from these subjects: `feat` starts a minor
+release, `fix` and `perf` start a patch release, and a `!` after the type or a
+`BREAKING CHANGE:` footer starts a major release. See
+[CI/CD](https://docs.larex.kallimachos.de/deployment/cicd#versioning) for details.

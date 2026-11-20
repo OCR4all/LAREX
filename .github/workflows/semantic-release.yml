@@ -1,0 +1,70 @@
+name: Semantic Release
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Override the release level'
+        required: false
+        type: choice
+        options:
+          - auto
+          - patch
+          - minor
+          - major
+        default: auto
+
+permissions:
+  contents: read
+
+concurrency:
+  group: semantic-release
+  cancel-in-progress: false
+
+jobs:
+  version:
+    name: Version and Tag
+    if: >-
+      github.ref_name == 'main' && (github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN }}
+
+      - name: Reset main to the verified revision
+        env:
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: git reset --hard "$RELEASE_SHA"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Run python-semantic-release
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          FORCE_LEVEL: ${{ inputs.force || 'auto' }}
+        run: |
+          release_args=(version --no-vcs-release)
+          if [[ "$FORCE_LEVEL" != "auto" ]]; then
+            release_args+=("--${FORCE_LEVEL}")
+          fi
+          # PSR 10.6.1 is incompatible with GitPython 3.1.60+.
+          uvx --from python-semantic-release==10.6.1 \
+            --with 'gitpython<3.1.60' \
+            semantic-release -v -c releaserc.toml "${release_args[@]}"
