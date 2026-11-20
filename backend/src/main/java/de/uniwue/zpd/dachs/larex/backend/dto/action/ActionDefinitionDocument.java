@@ -108,7 +108,8 @@ public record ActionDefinitionDocument(
                             Boolean required,
                             AllowedValues allowedValues,
                             Boolean multiple,
-                            Boolean secret) {
+                            Boolean secret,
+                            Boolean multiline) {
         public Parameter(String type,
                          Object defaultValue,
                          Double min,
@@ -117,7 +118,7 @@ public record ActionDefinitionDocument(
                          Boolean required,
                          AllowedValues allowedValues,
                          Boolean multiple) {
-            this(type, defaultValue, min, max, description, required, allowedValues, multiple, null);
+            this(type, defaultValue, min, max, description, required, allowedValues, multiple, null, null);
         }
 
         public Parameter(String type,
@@ -126,7 +127,7 @@ public record ActionDefinitionDocument(
                          Double max,
                          String description,
                          Boolean required) {
-            this(type, defaultValue, min, max, description, required, null, null, null);
+            this(type, defaultValue, min, max, description, required, null, null, null, null);
         }
 
         public Parameter(String type,
@@ -136,7 +137,7 @@ public record ActionDefinitionDocument(
                          String description,
                          Boolean required,
                          AllowedValues allowedValues) {
-            this(type, defaultValue, min, max, description, required, allowedValues, null, null);
+            this(type, defaultValue, min, max, description, required, allowedValues, null, null, null);
         }
 
         public boolean allowsMultiple() {
@@ -145,6 +146,10 @@ public record ActionDefinitionDocument(
 
         public boolean hasSecretValue() {
             return Boolean.TRUE.equals(secret);
+        }
+
+        public boolean isMultiline() {
+            return Boolean.TRUE.equals(multiline);
         }
     }
 

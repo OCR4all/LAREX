@@ -1633,6 +1633,12 @@ public class ActionDefinitionService {
             if (parameter.hasSecretValue() && (!"string".equals(type) || parameter.allowedValues() != null)) {
                 diagnostics.add(error("parameters." + key + ".secret", "secret is only supported for free-text string parameters"));
             }
+            if (parameter.isMultiline() && (!"string".equals(type) || parameter.allowedValues() != null || parameter.allowsMultiple())) {
+                diagnostics.add(error("parameters." + key + ".multiline", "multiline is only supported for free-text string parameters"));
+            }
+            if (parameter.isMultiline() && parameter.hasSecretValue()) {
+                diagnostics.add(error("parameters." + key + ".multiline", "multiline cannot be combined with secret"));
+            }
             if (parameter.defaultValue() != null) {
                 if (parameter.allowsMultiple()) {
                     validateMultipleDefault("parameters." + key + ".default", parameter, diagnostics);

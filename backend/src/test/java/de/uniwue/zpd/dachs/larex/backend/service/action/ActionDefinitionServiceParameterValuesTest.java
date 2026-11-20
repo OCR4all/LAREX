@@ -165,6 +165,47 @@ class ActionDefinitionServiceParameterValuesTest {
                 .contains("secret is only supported for free-text string parameters");
     }
 
+    @Test
+    void allowsMultilineOnlyOnFreeTextStringParameters() {
+        ActionDto.ValidationResponse valid = service.validateYaml(secretYaml("""
+                    type: string
+                    multiline: true
+                """), null);
+        ActionDto.ValidationResponse numeric = service.validateYaml(secretYaml("""
+                    type: number
+                    multiline: true
+                """), null);
+        ActionDto.ValidationResponse withChoices = service.validateYaml(secretYaml("""
+                    type: string
+                    multiline: true
+                    default: a
+                    allowedValues:
+                      values:
+                        - { value: a, label: A }
+                """), null);
+        ActionDto.ValidationResponse withMultiple = service.validateYaml(secretYaml("""
+                    type: string
+                    multiline: true
+                    multiple: true
+                """), null);
+        ActionDto.ValidationResponse withSecret = service.validateYaml(secretYaml("""
+                    type: string
+                    multiline: true
+                    secret: true
+                """), null);
+
+        assertThat(valid.diagnostics()).isEmpty();
+        assertThat(valid.preview().parameters().get("token").isMultiline()).isTrue();
+        assertThat(numeric.diagnostics()).extracting(ActionDto.ValidationDiagnostic::message)
+                .contains("multiline is only supported for free-text string parameters");
+        assertThat(withChoices.diagnostics()).extracting(ActionDto.ValidationDiagnostic::message)
+                .contains("multiline is only supported for free-text string parameters");
+        assertThat(withMultiple.diagnostics()).extracting(ActionDto.ValidationDiagnostic::message)
+                .contains("multiline is only supported for free-text string parameters");
+        assertThat(withSecret.diagnostics()).extracting(ActionDto.ValidationDiagnostic::message)
+                .contains("multiline cannot be combined with secret");
+    }
+
     private String secretYaml(String parameter) {
         return """
                 version: 1

@@ -98,6 +98,7 @@ export interface ActionParameterDefinition {
   allowedValues?: ActionAllowedValues
   multiple?: boolean | null
   secret?: boolean | null
+  multiline?: boolean | null
 }
 
 export type ActionParameterScalar = string | number | boolean
