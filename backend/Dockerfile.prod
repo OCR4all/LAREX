@@ -4,7 +4,7 @@ LABEL description="Build stage for the LAREX backend"
 
 WORKDIR /app
 
-COPY --chown=gradle:gradle build.gradle.kts settings.gradle.kts gradle.properties ./
+COPY --chown=gradle:gradle build.gradle.kts settings.gradle.kts ./
 COPY --chown=gradle:gradle src ./src
 
 RUN gradle build --no-daemon -x test

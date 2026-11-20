@@ -45,9 +45,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Name branch build
+      - name: Read snapshot version
         id: version
-        run: echo "version=${GITHUB_REF_NAME}-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+        run: echo "version=$(tr -d '[:space:]' < VERSION)" >> "$GITHUB_OUTPUT"
 
       - name: Extract metadata for backend
         id: meta-backend
@@ -59,6 +59,7 @@ jobs:
           tags: |
             type=raw,value={{branch}}
             type=raw,value={{branch}}-{{sha}}
+            type=raw,value=${{ steps.version.outputs.version }},enable=${{ github.ref_name == 'next' }}
             type=sha,prefix=sha-
 
       - name: Extract metadata for frontend
@@ -71,6 +72,7 @@ jobs:
           tags: |
             type=raw,value={{branch}}
             type=raw,value={{branch}}-{{sha}}
+            type=raw,value=${{ steps.version.outputs.version }},enable=${{ github.ref_name == 'next' }}
             type=sha,prefix=sha-
 
       - name: Extract metadata for docs
@@ -83,6 +85,7 @@ jobs:
           tags: |
             type=raw,value={{branch}}
             type=raw,value={{branch}}-{{sha}}
+            type=raw,value=${{ steps.version.outputs.version }},enable=${{ github.ref_name == 'next' }}
             type=sha,prefix=sha-
 
       - name: Build and push backend image

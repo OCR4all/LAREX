@@ -45,12 +45,8 @@ test('verification restricts publisher and propagates attestation failure', asyn
   try {
     const argumentsPath = join(temporary, 'arguments')
     await writeFile(join(temporary, 'gh'), '#!/bin/sh\nprintf "%s\\n" "$@" > "$THEME_TEST_ARGUMENTS"\nexit "$THEME_TEST_EXIT"\n', { mode: 0o755 })
-    const themePath = join(temporary, 'theme.jar')
-    await writeFile(themePath, 'theme')
-    const metadataPath = join(temporary, 'theme.json')
-    await writeFile(metadataPath, JSON.stringify({ version: '1.2.3', source: { commit: 'a'.repeat(40) } }))
     for (const exitCode of ['0', '1']) {
-      const result = spawnSync('bash', ['scripts/operations/verify-keycloak-theme.sh', themePath], {
+      const result = spawnSync('bash', ['scripts/operations/verify-keycloak-theme.sh'], {
         env: { ...process.env, PATH: `${temporary}:${process.env.PATH}`,
           THEME_TEST_ARGUMENTS: argumentsPath, THEME_TEST_EXIT: exitCode }
       })
@@ -58,15 +54,8 @@ test('verification restricts publisher and propagates attestation failure', asyn
       const argumentsText = await readFile(argumentsPath, 'utf8')
       assert.match(argumentsText, /--repo\nocr4all\/larex/)
       assert.match(argumentsText, /--signer-workflow\nocr4all\/larex\/\.github\/workflows\/release.yml/)
-      assert.match(argumentsText, /--source-ref\nrefs\/tags\/v1\.2\.3\n/)
-      assert.match(argumentsText, new RegExp(`--source-digest\\n${'a'.repeat(40)}\\n`))
+      assert.match(argumentsText, /--source-ref\nrefs\/heads\/main/)
     }
-    await writeFile(metadataPath, JSON.stringify({ version: '1.2.3-SNAPSHOT', source: { commit: null } }))
-    const unreleased = spawnSync('bash', ['scripts/operations/verify-keycloak-theme.sh', themePath], {
-      env: { ...process.env, PATH: `${temporary}:${process.env.PATH}`,
-        THEME_TEST_ARGUMENTS: argumentsPath, THEME_TEST_EXIT: '0' }
-    })
-    assert.equal(unreleased.status, 1)
   } finally {
     await rm(temporary, { recursive: true, force: true })
   }

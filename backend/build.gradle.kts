@@ -6,6 +6,7 @@ plugins {
 }
 
 group = "de.uniwue.zpd.dachs.larex"
+version = "1.0.0-SNAPSHOT"
 description = "backend"
 
 java {
