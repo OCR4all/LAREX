@@ -1,7 +1,10 @@
 package de.uniwue.zpd.dachs.larex.backend.service.action;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.geometry.PolygonDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.layout.GridDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.region.RegionDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.region.RegionKind;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.text.TextLineDto;
 import org.springframework.stereotype.Service;
 
@@ -66,12 +69,23 @@ public class ActionResultPageMergeService {
         for (RegionDto region : regions) {
             RegionDto incoming = region.id() == null ? null : incomingRegions.get(region.id());
             if (incoming != null && selectedRegionIds.contains(region.id())) {
-                next.add(copyRegionDto(region, incoming.textLines(), incoming.nestedRegions()));
+                next.add(replaceRegionContent(region, incoming));
             } else {
                 next.add(copyRegionDto(region, region.textLines(), replaceRegions(region.nestedRegions(), selectedRegionIds, incomingRegions)));
             }
         }
         return next;
+    }
+
+    private RegionDto replaceRegionContent(RegionDto existing, RegionDto incoming) {
+        boolean tableStructure = existing.kind() == RegionKind.TableRegion
+                && incoming.kind() == RegionKind.TableRegion
+                && incoming.grid() != null;
+        if (!tableStructure) {
+            return copyRegionDto(existing, incoming.textLines(), incoming.nestedRegions());
+        }
+        return copyRegionDto(existing, incoming.textLines(), incoming.nestedRegions(),
+                incoming.coords(), incoming.grid(), incoming.rows(), incoming.columns());
     }
 
     private List<RegionDto> replaceTextLinesInRegions(List<RegionDto> regions,
@@ -163,17 +177,22 @@ public class ActionResultPageMergeService {
     }
 
     private RegionDto copyRegionDto(RegionDto source, List<TextLineDto> textLines, List<RegionDto> nestedRegions) {
+        return copyRegionDto(source, textLines, nestedRegions, source.coords(), source.grid(), source.rows(), source.columns());
+    }
+
+    private RegionDto copyRegionDto(RegionDto source, List<TextLineDto> textLines, List<RegionDto> nestedRegions,
+                                    PolygonDto coords, GridDto grid, Integer rows, Integer columns) {
         return new RegionDto(
                 source.id(),
                 source.kind(),
-                source.coords(),
+                coords,
                 textLines,
                 source.textContentVariants(),
                 source.alternativeImages(),
                 source.labels(),
                 source.userDefined(),
                 source.roles(),
-                source.grid(),
+                grid,
                 source.textStyle(),
                 source.type(),
                 source.orientation(),
@@ -204,8 +223,8 @@ public class ActionResultPageMergeService {
                 source.colourDepth(),
                 source.lineColour(),
                 source.lineSeparators(),
-                source.rows(),
-                source.columns(),
+                rows,
+                columns,
                 source.colour(),
                 source.penColour(),
                 source.borderPresent(),

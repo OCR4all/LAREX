@@ -5,7 +5,7 @@ import { PAGE_XML_PRIMARY_VERSION } from '@/utils/project-export'
 
 type ExportFormat = 'PAGE_XML' | 'ALTO_XML' | 'TXT' | 'PDF' | 'DOCX' | 'TEI' | 'CSV' | 'XLSX'
 type TextLevel = 'PAGE' | 'REGION' | 'TEXT_LINE'
-type SpreadsheetProfile = 'PAGE_METADATA' | 'TAGS' | 'REGIONS'
+type SpreadsheetProfile = 'PAGE_METADATA' | 'TAGS' | 'REGIONS' | 'TABLES'
 type PdfProfile = 'SEARCHABLE' | 'IMAGES_ONLY' | 'TEXT_PAGES' | 'PDFA_SEARCHABLE'
 type TeiProfile = 'STANDARD' | 'LAYOUT'
 type ExportDialogMode = 'page' | 'project' | 'basic' | 'package'
@@ -96,7 +96,8 @@ const teiProfileOptions: Array<{ label: string, value: TeiProfile }> = [
 const spreadsheetProfileOptions: Array<{ label: string, value: SpreadsheetProfile }> = [
   { label: 'Page metadata', value: 'PAGE_METADATA' },
   { label: 'Tags', value: 'TAGS' },
-  { label: 'Regions', value: 'REGIONS' }
+  { label: 'Regions', value: 'REGIONS' },
+  { label: 'Tables', value: 'TABLES' }
 ]
 
 const props = withDefaults(defineProps<{
@@ -176,7 +177,8 @@ const teiProfile = ref<TeiProfile>(props.initialTeiProfile)
 const spreadsheetSelection = reactive<Record<SpreadsheetProfile, boolean>>({
   PAGE_METADATA: props.initialSpreadsheetProfiles.includes('PAGE_METADATA'),
   TAGS: props.initialSpreadsheetProfiles.includes('TAGS'),
-  REGIONS: props.initialSpreadsheetProfiles.includes('REGIONS')
+  REGIONS: props.initialSpreadsheetProfiles.includes('REGIONS'),
+  TABLES: props.initialSpreadsheetProfiles.includes('TABLES')
 })
 const docxOptions = reactive<DocxOptions>({
   preserveLineBreaks: props.initialDocxOptions.preserveLineBreaks ?? true,

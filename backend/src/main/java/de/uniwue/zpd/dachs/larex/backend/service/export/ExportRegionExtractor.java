@@ -3,6 +3,7 @@ package de.uniwue.zpd.dachs.larex.backend.service.export;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.readingorder.ReadingOrderDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.region.RegionDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.region.RegionKind;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.text.TextContentVariantDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.text.TextLineDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.text.WordDto;
@@ -69,7 +70,11 @@ final class ExportRegionExtractor {
             regionById.put(region.id(), region);
             parentByRegionId.put(region.id(), parentRegionId);
             structuralOrder.add(region);
-            collectRegions(region.nestedRegions(), region.id(), regionById, parentByRegionId, structuralOrder);
+            List<RegionDto> children = region.nestedRegions();
+            if (children != null && region.kind() == RegionKind.TableRegion) {
+                children = children.stream().sorted(ExportTableExtractor.cellOrder()).toList();
+            }
+            collectRegions(children, region.id(), regionById, parentByRegionId, structuralOrder);
         }
     }
 

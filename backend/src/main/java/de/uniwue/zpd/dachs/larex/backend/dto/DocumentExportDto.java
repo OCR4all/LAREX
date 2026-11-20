@@ -14,7 +14,8 @@ public class DocumentExportDto {
     public enum SpreadsheetProfile {
         PAGE_METADATA,
         TAGS,
-        REGIONS
+        REGIONS,
+        TABLES
     }
 
     public enum PdfProfile {

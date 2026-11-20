@@ -69,7 +69,7 @@ export function normalizeSpreadsheetProfiles(value: unknown): SpreadsheetProfile
   if (Array.isArray(value)) {
     return value
       .map(item => typeof item === 'string' ? item : (item && typeof item === 'object' && 'value' in item && typeof item.value === 'string' ? item.value : null))
-      .filter((item): item is SpreadsheetProfile => item === 'PAGE_METADATA' || item === 'TAGS' || item === 'REGIONS')
+      .filter((item): item is SpreadsheetProfile => item === 'PAGE_METADATA' || item === 'TAGS' || item === 'REGIONS' || item === 'TABLES')
   }
   return ['PAGE_METADATA']
 }

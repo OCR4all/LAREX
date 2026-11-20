@@ -182,6 +182,16 @@ describe('TableStructureCommand', () => {
     expect(validateTable(table)).toEqual([])
   })
 
+  it('orders the lines of merged cells left to right when they share a row', () => {
+    const { ctx, getDocument, cellIds } = gridTable(1, 2)
+    ;(region(getDocument, cellIds[0]!) as TextRegion).textLines = [line('left', 1, 8.1, 9, 2.1)]
+    ;(region(getDocument, cellIds[1]!) as TextRegion).textLines = [line('right', 11, 8, 19, 2)]
+
+    new TableStructureCommand({ tableId: 't', operation: { kind: 'merge-cells', cellIds } }).execute(ctx)
+
+    expect(lineIds(region(getDocument, cellIds[0]!))).toEqual(['left', 'right'])
+  })
+
   it('keeps the lines of merged cells and restores everything on undo', () => {
     const { ctx, getDocument, cellIds } = gridTable(1, 2)
     const right = region(getDocument, cellIds[1]!) as TextRegion

@@ -7,13 +7,21 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.Font;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.VerticalAlignment;
+import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.ss.util.WorkbookUtil;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Component;
 
@@ -72,6 +80,10 @@ public class SpreadsheetExportWriter {
             writeCsv(outputStream, project, pages, profile);
             return;
         }
+        if (profile == DocumentExportDto.SpreadsheetProfile.TABLES) {
+            writeTablesXlsx(outputStream, project, pages);
+            return;
+        }
         writeXlsx(outputStream, project, pages, profile);
     }
 
@@ -125,6 +137,7 @@ public class SpreadsheetExportWriter {
             case PAGE_METADATA -> pageMetadataRows(project, pages);
             case TAGS -> tagRows(project, pages);
             case REGIONS -> regionRows(project, pages);
+            case TABLES -> tableCellRows(project, pages);
         };
     }
 
@@ -225,6 +238,105 @@ public class SpreadsheetExportWriter {
             }
         }
         return rows;
+    }
+
+    private List<List<String>> tableCellRows(Project project, List<ExportPage> pages) {
+        List<List<String>> rows = new ArrayList<>();
+        rows.add(List.of(
+                "workspaceId", "projectId", "projectName", "pageId", "pageName", "tableId", "tableRows", "tableColumns",
+                "cellId", "rowIndex", "columnIndex", "rowSpan", "colSpan", "header", "text"
+        ));
+        for (ExportPage page : pages) {
+            for (ExportTable table : ExportTableExtractor.extractTables(page.pageDto(), page.regions())) {
+                for (ExportTable.Cell cell : table.cells()) {
+                    rows.add(List.of(
+                            nullToEmpty(project.getLibrary().getWorkspaceId()),
+                            nullToEmpty(project.getId()),
+                            nullToEmpty(project.getName()),
+                            nullToEmpty(page.page().getId()),
+                            nullToEmpty(page.page().getName()),
+                            nullToEmpty(table.id()),
+                            Integer.toString(table.rows()),
+                            Integer.toString(table.columns()),
+                            nullToEmpty(cell.id()),
+                            Integer.toString(cell.row()),
+                            Integer.toString(cell.col()),
+                            Integer.toString(cell.rowSpan()),
+                            Integer.toString(cell.colSpan()),
+                            Boolean.toString(cell.header()),
+                            cell.text()
+                    ));
+                }
+            }
+        }
+        return rows;
+    }
+
+    private void writeTablesXlsx(OutputStream outputStream, Project project, List<ExportPage> pages) throws IOException {
+        try (XSSFWorkbook workbook = new XSSFWorkbook()) {
+            Sheet index = workbook.createSheet("Tables");
+            Row indexHeader = index.createRow(0);
+            List<String> indexColumns = List.of("sheet", "pageId", "pageName", "tableId", "rows", "columns");
+            for (int column = 0; column < indexColumns.size(); column++) {
+                indexHeader.createCell(column).setCellValue(indexColumns.get(column));
+            }
+
+            CellStyle wrapped = workbook.createCellStyle();
+            wrapped.setWrapText(true);
+            wrapped.setVerticalAlignment(VerticalAlignment.TOP);
+            CellStyle headerStyle = workbook.createCellStyle();
+            headerStyle.cloneStyleFrom(wrapped);
+            Font bold = workbook.createFont();
+            bold.setBold(true);
+            headerStyle.setFont(bold);
+
+            Set<String> sheetNames = new HashSet<>(Set.of("tables"));
+            int indexRow = 1;
+            for (ExportPage page : pages) {
+                for (ExportTable table : ExportTableExtractor.extractTables(page.pageDto(), page.regions())) {
+                    String sheetName = uniqueSheetName(page.page().getName() + " " + table.id(), sheetNames);
+                    writeTableSheet(workbook.createSheet(sheetName), table, wrapped, headerStyle);
+                    Row row = index.createRow(indexRow++);
+                    List<String> values = List.of(sheetName, nullToEmpty(page.page().getId()), nullToEmpty(page.page().getName()),
+                            nullToEmpty(table.id()), Integer.toString(table.rows()), Integer.toString(table.columns()));
+                    for (int column = 0; column < values.size(); column++) {
+                        row.createCell(column).setCellValue(values.get(column));
+                    }
+                }
+            }
+            for (int column = 0; column < indexColumns.size(); column++) {
+                index.autoSizeColumn(column);
+            }
+            workbook.write(outputStream);
+        }
+    }
+
+    private void writeTableSheet(Sheet sheet, ExportTable table, CellStyle wrapped, CellStyle headerStyle) {
+        for (int rowIndex = 0; rowIndex < table.rows(); rowIndex++) {
+            sheet.createRow(rowIndex);
+        }
+        for (ExportTable.Cell cell : table.cells()) {
+            Cell target = sheet.getRow(cell.row()).createCell(cell.col());
+            target.setCellValue(cell.text());
+            target.setCellStyle(cell.header() ? headerStyle : wrapped);
+            if (cell.rowSpan() > 1 || cell.colSpan() > 1) {
+                sheet.addMergedRegion(new CellRangeAddress(
+                        cell.row(), cell.row() + cell.rowSpan() - 1, cell.col(), cell.col() + cell.colSpan() - 1));
+            }
+        }
+        for (int column = 0; column < table.columns(); column++) {
+            sheet.setColumnWidth(column, 30 * 256);
+        }
+    }
+
+    static String uniqueSheetName(String requested, Set<String> taken) {
+        String base = WorkbookUtil.createSafeSheetName(requested == null || requested.isBlank() ? "Table" : requested.strip());
+        String name = base;
+        for (int counter = 2; !taken.add(name.toLowerCase(Locale.ROOT)); counter++) {
+            String suffix = " (" + counter + ")";
+            name = base.substring(0, Math.min(base.length(), 31 - suffix.length())) + suffix;
+        }
+        return name;
     }
 
     private List<DocumentExportDto.SpreadsheetProfile> resolveSpreadsheetProfiles(List<DocumentExportDto.SpreadsheetProfile> spreadsheetProfiles) {

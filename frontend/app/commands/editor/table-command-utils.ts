@@ -65,10 +65,21 @@ export function invalidateRegionTrees(ctx: CommandContext | undefined, regions: 
   invalidateMultiplePolygonGeometry(ctx.canvasId, ids)
 }
 
+function verticalExtent(points: GridPoint[]): [number, number] {
+  const ys = points.map(point => point[1])
+  return [Math.min(...ys), Math.max(...ys)]
+}
+
 export function compareLinesTopToBottom(a: TextLine, b: TextLine): number {
-  const [ax, ay] = centroid(shapePoints(a))
-  const [bx, by] = centroid(shapePoints(b))
-  return by - ay || ax - bx
+  const aPoints = shapePoints(a)
+  const bPoints = shapePoints(b)
+  const [ax, ay] = centroid(aPoints)
+  const [bx, by] = centroid(bPoints)
+  const [aMin, aMax] = verticalExtent(aPoints)
+  const [bMin, bMax] = verticalExtent(bPoints)
+  const overlap = Math.min(aMax, bMax) - Math.max(aMin, bMin)
+  const sameRow = overlap > 0.5 * Math.min(aMax - aMin, bMax - bMin)
+  return (sameRow ? ax - bx : 0) || by - ay
 }
 
 export function resortLinesIntoCells(cells: TextRegion[]): number {

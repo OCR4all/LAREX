@@ -272,11 +272,11 @@ export function useEditorInteractions(
     }
   }
 
-  function getShiftClickedPolygonIndex(point: Point, viewMode: ViewMode | undefined): number {
+  function hoverablePolygonAt(point: Point, viewMode: ViewMode | undefined, focusedIndex: number): number {
     return getHoverablePolygonAtPoint(
       polygons,
       point,
-      selectedPolygonIndex.value,
+      focusedIndex,
       selectedPolylineIndex.value,
       polylines,
       canvasControls.spatialIndex,
@@ -284,6 +284,17 @@ export function useEditorInteractions(
       hiddenPolygonIdSet.value,
       hiddenPolylineIdSet.value
     )
+  }
+
+  function getShiftClickedPolygonIndex(point: Point, viewMode: ViewMode | undefined): number {
+    const hit = hoverablePolygonAt(point, viewMode, selectedPolygonIndex.value)
+    if (hit >= 0) return hit
+    const tableId = polygons[selectedPolygonIndex.value]?.tableCell?.tableId
+    if (!tableId) return -1
+    const tableIndex = polygons.findIndex(polygon => polygon.id === tableId)
+    if (tableIndex < 0) return -1
+    const cell = hoverablePolygonAt(point, viewMode, tableIndex)
+    return cell >= 0 && polygons[cell]?.tableCell?.tableId === tableId ? cell : -1
   }
 
   function replaceSelectionFromCurrentIndices(viewMode: ViewMode | undefined): void {
@@ -1029,6 +1040,15 @@ export function useEditorInteractions(
         editorCommands.showContextMenuForPolygon(event, selectedPolygon)
         return
       }
+    }
+
+    const selectedIds = new Set(selectedPolygonIds.value)
+    const selectedAtPoint = selectedIds.size > 1
+      ? polygons.find(polygon => selectedIds.has(polygon.id) && isPointInPolygon(point, polygon.points))
+      : undefined
+    if (selectedAtPoint) {
+      editorCommands.showContextMenuForPolygon(event, selectedAtPoint)
+      return
     }
 
     editorCommands.showContextMenuForCanvas(event)

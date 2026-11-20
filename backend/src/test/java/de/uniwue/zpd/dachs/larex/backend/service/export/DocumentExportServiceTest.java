@@ -850,6 +850,45 @@ class DocumentExportServiceTest {
     }
 
     @Test
+    void exportProjectTables_writesOneRowPerCellAsCsvAndASheetPerTableAsXlsx() throws Exception {
+        Project project = project("project-1", "Demo Project");
+        Page page = page(project, "page-1", "Alpha", "alpha.xml", null);
+        project.setPages(new ArrayList<>(List.of(page)));
+        when(projectRepository.findWithAssociationsById("project-1")).thenReturn(Optional.of(project));
+        when(annotationProcessingService.parseXmlToAnnotation("xml-page-1")).thenReturn(tablePage());
+
+        DocumentExportService.DocumentExportResult csv = service.exportProject("ws-1", "project-1", "user-1",
+                new DocumentExportDto.ProjectExportRequest(DocumentExportDto.ExportFormat.CSV, null, null, false, null, null, null, null,
+                        List.of(DocumentExportDto.SpreadsheetProfile.TABLES), null));
+        List<String> lines = new String(csv.bytes(), StandardCharsets.UTF_8).lines().toList();
+        assertEquals("Demo Project-tables.csv", csv.fileName());
+        assertEquals("workspaceId,projectId,projectName,pageId,pageName,tableId,tableRows,tableColumns,cellId,rowIndex,columnIndex,rowSpan,colSpan,header,text", lines.getFirst());
+        assertEquals(List.of("head", "left", "right"), lines.stream().skip(1).map(line -> line.substring(line.lastIndexOf(',') + 1)).toList());
+        assertTrue(lines.get(1).contains(",t,2,2,c00,0,0,1,2,true,head"), lines.get(1));
+
+        DocumentExportService.DocumentExportResult xlsx = service.exportProject("ws-1", "project-1", "user-1",
+                new DocumentExportDto.ProjectExportRequest(DocumentExportDto.ExportFormat.XLSX, null, null, false, null, null, null, null,
+                        List.of(DocumentExportDto.SpreadsheetProfile.TABLES), null));
+        try (org.apache.poi.xssf.usermodel.XSSFWorkbook workbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook(new ByteArrayInputStream(xlsx.bytes()))) {
+            assertEquals(List.of("Tables", "Alpha t"), List.of(workbook.getSheetName(0), workbook.getSheetName(1)));
+            org.apache.poi.ss.usermodel.Sheet table = workbook.getSheetAt(1);
+            assertEquals("head", table.getRow(0).getCell(0).getStringCellValue());
+            assertTrue(workbook.getFontAt(table.getRow(0).getCell(0).getCellStyle().getFontIndex()).getBold());
+            assertEquals("right", table.getRow(1).getCell(1).getStringCellValue());
+            assertEquals("A1:B1", table.getMergedRegion(0).formatAsString());
+        }
+    }
+
+    @Test
+    void uniqueSheetNamesStayWithinTheExcelLimit() {
+        java.util.Set<String> taken = new HashSet<>();
+        String first = SpreadsheetExportWriter.uniqueSheetName("A very long page name that exceeds the limit: t1", taken);
+        String second = SpreadsheetExportWriter.uniqueSheetName("A very long page name that exceeds the limit: t1", taken);
+        assertEquals(31, first.length());
+        assertTrue(second.endsWith(" (2)") && second.length() <= 31, second);
+    }
+
+    @Test
     void exportPagePdf_supportsUnicodeText() throws Exception {
         Path imagePath = tempDir.resolve("images/unicode.png");
         Files.createDirectories(imagePath.getParent());
@@ -1011,6 +1050,36 @@ class DocumentExportServiceTest {
             }
         }
         return null;
+    }
+
+    private PageDto tablePage() throws IOException {
+        Path source = tempDir.resolve("table.xml");
+        Files.writeString(source, """
+                <PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15">
+                  <Metadata><Creator>tester</Creator><Created>2026-11-20T10:00:00</Created><LastChange>2026-11-20T10:00:00</LastChange></Metadata>
+                  <Page imageFilename="alpha.png" imageWidth="1000" imageHeight="1500">
+                    <TableRegion id="t" rows="2" columns="2">
+                      <Coords points="0,0 200,0 200,200 0,200"/>
+                      <TextRegion id="c11"><Coords points="100,100 200,100 200,200 100,200"/>
+                        <Roles><TableCellRole rowIndex="1" columnIndex="1"/></Roles>
+                        <TextEquiv><Unicode>right</Unicode></TextEquiv></TextRegion>
+                      <TextRegion id="c00"><Coords points="0,0 200,0 200,100 0,100"/>
+                        <Roles><TableCellRole rowIndex="0" columnIndex="0" colSpan="2" header="true"/></Roles>
+                        <TextEquiv><Unicode>head</Unicode></TextEquiv></TextRegion>
+                      <TextRegion id="c10"><Coords points="0,100 100,100 100,200 0,200"/>
+                        <Roles><TableCellRole rowIndex="1" columnIndex="0"/></Roles>
+                        <TextEquiv><Unicode>left</Unicode></TextEquiv></TextRegion>
+                      <Grid>
+                        <GridPoints index="0" points="0,0 100,0 200,0"/>
+                        <GridPoints index="1" points="0,100 100,100 200,100"/>
+                        <GridPoints index="2" points="0,200 100,200 200,200"/>
+                      </Grid>
+                    </TableRegion>
+                  </Page>
+                </PcGts>
+                """);
+        return new de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlToAnnotationParser(
+                new de.uniwue.zpd.dachs.larex.backend.service.annotation.mapping.Page4jToDtoMapper()).parse(source, null);
     }
 
     private PageDto pageDto(String imageFilename, List<RegionDto> regions, ReadingOrderDto readingOrder) {

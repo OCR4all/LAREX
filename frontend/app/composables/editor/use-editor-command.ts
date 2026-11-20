@@ -5,7 +5,7 @@ import { MergeElementsCommand } from '@/commands/editor/merge-elements-command'
 import { getEditorSession } from '@/session/editor/editor-session'
 import type { RenderablePolygon, RenderablePolyline } from '@/types/editor/rendering'
 import type { ActionTargetSelection } from '@/types/action'
-import type { ReadingOrder, ReadingOrderNode, ReadingOrderGroup, Region, RegionRef, RegionKind } from '@/models/editor'
+import type { ReadingOrder, ReadingOrderNode, ReadingOrderGroup, Region, RegionRef, RegionKind, TextContentVariantData } from '@/models/editor'
 import { ALL_REGION_KINDS, ALL_TEXT_REGION_SUBTYPES, ALL_GRAPHIC_REGION_SUBTYPES, ALL_CHART_REGION_SUBTYPES, canContainTextLines, isTextRegion, PolygonType } from '@/models/editor'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import type { LabelDefinition } from '@/models/editor/labels'
@@ -20,6 +20,8 @@ import { buildTableModel, readTableCells } from '@/utils/editor/table/table-mode
 import { canApplyTableOperation, cellsRemovedBy, type TableOperation } from '@/utils/editor/table/table-structure'
 import { withTableReadingOrder, type TableReadingDirection } from '@/utils/editor/table/table-reading-order'
 import { isRepairableTableIssue, validateTable } from '@/utils/editor/table/table-validation'
+import { tableToCsv, tableToHtml, type TableExportFormat } from '@/utils/editor/table/table-export'
+import { resolveFullTextLineValue } from '@/components/editor/text/shared/full-text-lines'
 import { isPageFrameType } from '@/utils/editor/page-frame'
 
 const log = createScopedLogger('EditorCommand')
@@ -456,7 +458,8 @@ export function useEditorCommand(
         : []),
       tableOperationItem(tableId, { kind: 'set-header-row', row, header: !cell.header }, cell.header ? 'Unmark Header Row' : 'Mark as Header Row', 'i-lucide-heading'),
       tableOperationItem(tableId, { kind: 'delete-row', row }, 'Delete Row', 'i-lucide-trash-2', true),
-      tableOperationItem(tableId, { kind: 'delete-column', col }, 'Delete Column', 'i-lucide-trash-2', true)
+      tableOperationItem(tableId, { kind: 'delete-column', col }, 'Delete Column', 'i-lucide-trash-2', true),
+      ...tableActionItems(tableId)
     ]
     return [{ id: 'table-cell', label: 'Table', icon: 'i-lucide-table', submenu }]
   }
@@ -500,6 +503,26 @@ export function useEditorCommand(
     commander.execute(new UpdateReadingOrderCommand({
       readingOrder: withTableReadingOrder(session.document.value.page.readingOrder, buildTableModel(table), direction)
     }), { canvasId, session })
+  }
+
+  function exportTable(tableId: string, format: TableExportFormat): void {
+    const table = findSessionRegion(tableId)
+    if (!table) return
+    const model = buildTableModel(table)
+    const gtIndex = editorStore.projectTextDefaultGtIndex ?? 0
+    const recognitionIndices = editorStore.projectTextDefaultRecognitionIndices ?? [1]
+    const texts = new Map((table.regions ?? []).map(cell => [cell.id, isTextRegion(cell)
+      ? (cell.textLines ?? [])
+          .map(line => resolveFullTextLineValue(line.textContentVariants as TextContentVariantData[] | undefined, gtIndex, recognitionIndices).text)
+          .join('\n')
+      : '']))
+    const content = format === 'csv' ? `\uFEFF${tableToCsv(model, texts)}` : tableToHtml(model, texts, `Table ${tableId}`)
+    const url = URL.createObjectURL(new Blob([content], { type: format === 'csv' ? 'text/csv;charset=utf-8' : 'text/html;charset=utf-8' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${tableId}.${format}`
+    link.click()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
 
   function assignTextLinesToCells(tableId: string): void {
@@ -868,7 +891,11 @@ export function useEditorCommand(
     if (tableCellCount(polygon.id) === 0) {
       return [{ id: 'create-table-grid', label: 'Create Table Grid...', icon: 'i-lucide-grid-3x3' }]
     }
-    const table = findSessionRegion(polygon.id)
+    return tableActionItems(polygon.id)
+  }
+
+  function tableActionItems(tableId: string): ContextMenuItem[] {
+    const table = findSessionRegion(tableId)
     return [
       ...(table && validateTable(table).some(isRepairableTableIssue)
         ? [{ id: 'repair-table', label: 'Repair Table', icon: 'i-lucide-wrench' }]
@@ -884,6 +911,15 @@ export function useEditorCommand(
         submenu: [
           { id: 'table-reading-order-rows', label: 'Row by Row', icon: 'i-lucide-arrow-right' },
           { id: 'table-reading-order-columns', label: 'Column by Column', icon: 'i-lucide-arrow-down' }
+        ]
+      },
+      {
+        id: 'table-export',
+        label: 'Export Table',
+        icon: 'i-lucide-download',
+        submenu: [
+          { id: 'table-export-csv', label: 'CSV', icon: 'i-lucide-file-spreadsheet' },
+          { id: 'table-export-html', label: 'HTML', icon: 'i-lucide-file-code' }
         ]
       }
     ]
@@ -1288,6 +1324,38 @@ export function useEditorCommand(
   /**
    * Handle context menu item selection
    */
+  function runTableAction(itemId: string, tableId: string, commandCtx: CommandContext | undefined): boolean {
+    switch (itemId) {
+      case 'create-grid-from-cells':
+        try {
+          commander.execute(new CreateGridFromCellsCommand({ tableId }), commandCtx)
+        } catch (error) {
+          showTableError('Could not create table grid', error)
+        }
+        return true
+      case 'repair-table':
+        try {
+          showTableRepairResult(commander.execute(new RepairTableCommand({ tableId }), commandCtx)?.remaining.length ?? 0)
+        } catch (error) {
+          showTableError('Could not repair table', error)
+        }
+        return true
+      case 'table-export-csv':
+      case 'table-export-html':
+        exportTable(tableId, itemId === 'table-export-csv' ? 'csv' : 'html')
+        return true
+      case 'table-reading-order-rows':
+      case 'table-reading-order-columns':
+        generateTableReadingOrder(tableId, itemId.endsWith('rows') ? 'rows' : 'columns')
+        return true
+      case 'assign-lines-to-cells':
+        assignTextLinesToCells(tableId)
+        return true
+      default:
+        return false
+    }
+  }
+
   async function handleContextMenuSelect(item: ContextMenuItem): Promise<void> {
     if (!contextMenuTarget.value) return
 
@@ -1300,6 +1368,11 @@ export function useEditorCommand(
       await runTableOperation(tableOperation.tableId, tableOperation.operation)
       return
     }
+
+    const targetPolygon = target.element as RenderablePolygon | undefined
+    const targetTableId = targetPolygon?.tableCell?.tableId
+      ?? (targetPolygon?.regionKind === 'TableRegion' ? targetPolygon.id : undefined)
+    if (targetTableId && runTableAction(item.id, targetTableId, commandCtx)) return
 
     if (target.type === 'selection' && target.selection) {
       const selection = target.selection
@@ -1540,31 +1613,6 @@ export function useEditorCommand(
       case 'convert-to-table':
       case 'create-table-grid':
         if (target.type === 'polygon') openTableGrid(target.element!.id, target.element as RenderablePolygon)
-        break
-      case 'create-grid-from-cells':
-        if (target.type === 'polygon') {
-          try {
-            commander.execute(new CreateGridFromCellsCommand({ tableId: target.element!.id }), commandCtx)
-          } catch (error) {
-            showTableError('Could not create table grid', error)
-          }
-        }
-        break
-      case 'repair-table':
-        if (target.type === 'polygon') {
-          try {
-            showTableRepairResult(commander.execute(new RepairTableCommand({ tableId: target.element!.id }), commandCtx)?.remaining.length ?? 0)
-          } catch (error) {
-            showTableError('Could not repair table', error)
-          }
-        }
-        break
-      case 'table-reading-order-rows':
-      case 'table-reading-order-columns':
-        if (target.type === 'polygon') generateTableReadingOrder(target.element!.id, item.id.endsWith('rows') ? 'rows' : 'columns')
-        break
-      case 'assign-lines-to-cells':
-        if (target.type === 'polygon') assignTextLinesToCells(target.element!.id)
         break
     }
   }

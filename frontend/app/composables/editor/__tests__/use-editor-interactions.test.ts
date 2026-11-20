@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { reactive, ref } from 'vue'
+import type { TableCellPosition } from '@/types/editor/rendering'
 import { Commander } from '@/commands'
 import { usePolygonEditing } from '../use-polygon-editing'
 import { usePolylineEditing } from '../use-polyline-editing'
@@ -65,7 +66,7 @@ async function loadUseEditorInteractions() {
 async function createHarness(
   mode: Mode,
   options: {
-    polygons?: Array<{ id: string, points: Array<{ x: number, y: number }>, parentId?: string, type?: string }>
+    polygons?: Array<{ id: string, points: Array<{ x: number, y: number }>, parentId?: string, type?: string, tableCell?: TableCellPosition }>
     polylines?: Array<{ id: string, points: Array<{ x: number, y: number }>, parentId?: string, type?: string }>
     readOnly?: boolean
     realEditing?: boolean
@@ -397,6 +398,34 @@ describe('useEditorInteractions', () => {
     click(harness, 50, true)
     expect(harness.selectedPolygonIds.value).toEqual([])
     expect(harness.selectedPolygonIndex.value).toBe(-1)
+  })
+
+  const tablePolygons = () => [
+    { id: 't', type: 'region', points: [
+      { x: -0.9, y: -0.5 }, { x: 0.9, y: -0.5 }, { x: 0.9, y: 0.5 }, { x: -0.9, y: 0.5 }
+    ] },
+    ...siblingPolygons('region', 't').map((cell, col) => ({ ...cell, tableCell: { tableId: 't', row: 0, col, rowSpan: 1, colSpan: 1, header: false } }))
+  ]
+
+  it('adds sibling cells of the same table with Shift-click', async () => {
+    const harness = await createHarness('select', { realEditing: true, polygons: tablePolygons() })
+    click(harness, 50)
+    click(harness, 50)
+    expect(harness.selectedPolygonIds.value).toEqual(['a'])
+    click(harness, 150, true)
+    expect(harness.selectedPolygonIds.value).toEqual(['a', 'b'])
+  })
+
+  it('opens the context menu for a selected cell that is not the active one', async () => {
+    const harness = await createHarness('select', { realEditing: true, polygons: tablePolygons() })
+    click(harness, 50)
+    click(harness, 50)
+    click(harness, 150, true)
+    harness.interactions.handleCanvasContextMenu(eventStub({ clientX: 150, clientY: 100 }))
+    expect(harness.editorCommands.showContextMenuForPolygon).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ id: 'b' })
+    )
   })
 
   it('starts a selection with Shift-click and preserves it on empty or hidden polygons', async () => {
