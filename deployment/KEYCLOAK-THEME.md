@@ -20,7 +20,7 @@ sha256sum --check "larex-keycloak-theme-$version.jar.sha256"
 gh attestation verify "larex-keycloak-theme-$version.jar" \
   --repo ocr4all/larex \
   --signer-workflow ocr4all/larex/.github/workflows/release.yml \
-  --source-ref refs/heads/main
+  --source-ref "refs/tags/v$version"
 mkdir -p config/keycloak
 cp "larex-keycloak-theme-$version.jar" config/keycloak/theme.jar
 chmod 644 config/keycloak/theme.jar
@@ -37,8 +37,9 @@ On macOS use `shasum -a 256 --check` instead of `sha256sum --check`.
 Provenance verification requires a current [GitHub CLI](https://cli.github.com/)
 and access to the GitHub attestations API. Verification must succeed before
 installation. For an exact source pin, add `--source-digest <release-commit>` to
-the `gh attestation verify` command, using the commit from the intended GitHub
-release. Compare it with `config/keycloak/theme.json` when using a bundle.
+the `gh attestation verify` command, using the commit that the `v<version>` tag
+points to. For a bundle, the verification script reads the version and source
+commit from `config/keycloak/theme.json` and pins both.
 
 Checksums detect corruption; they do not prove publisher identity. The wizard
 checks downloaded bytes against its asset manifest, which comes from the same

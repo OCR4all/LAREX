@@ -6,7 +6,6 @@ plugins {
 }
 
 group = "de.uniwue.zpd.dachs.larex"
-version = "1.0.0-SNAPSHOT"
 description = "backend"
 
 java {
@@ -17,9 +16,6 @@ java {
 
 repositories {
 	mavenCentral()
-	maven("https://central.sonatype.com/repository/maven-snapshots/") {
-		content { includeModule("com.maxnth", "page4j") }
-	}
 }
 
 val pageAudit: SourceSet = sourceSets.create("pageAudit") {
@@ -31,7 +27,7 @@ configurations[pageAudit.implementationConfigurationName].extendsFrom(configurat
 configurations[pageAudit.runtimeOnlyConfigurationName].extendsFrom(configurations.runtimeOnly.get())
 
 dependencies {
-	implementation("com.maxnth:page4j:1.0.0-20261115.200710-2")
+	implementation("com.maxnth:page4j:1.0.0")
 	implementation("com.github.ben-manes.caffeine:caffeine:3.3.1")
 
 	implementation("org.springframework.boot:spring-boot-starter-cache")

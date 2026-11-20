@@ -2,9 +2,8 @@ name: Release
 
 on:
   push:
-    branches: [main]
-    paths:
-      - 'VERSION'
+    tags:
+      - 'v*.*.*'
   workflow_dispatch:
     inputs:
       skip_tests:
@@ -29,17 +28,29 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
 
-      - name: Read VERSION file
+      - name: Read version from release tag
         id: version
         run: |
-          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
-            echo "Releases must be created from the main branch: $GITHUB_REF" >&2
+          if [[ "$GITHUB_REF" != refs/tags/v* ]]; then
+            echo "Releases must run from a v<version> tag: $GITHUB_REF" >&2
             exit 1
           fi
-          VERSION=$(cat VERSION | tr -d '[:space:]')
+          VERSION="${GITHUB_REF_NAME#v}"
           if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Release VERSION must be a stable semantic version (for example 1.2.3): $VERSION" >&2
+            echo "Release tag must name a stable semantic version (for example v1.2.3): $GITHUB_REF_NAME" >&2
+            exit 1
+          fi
+          FILE_VERSION=$(tr -d '[:space:]' < VERSION)
+          if [[ "$FILE_VERSION" != "$VERSION" ]]; then
+            echo "VERSION file ($FILE_VERSION) does not match release tag $GITHUB_REF_NAME" >&2
+            exit 1
+          fi
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" FETCH_HEAD; then
+            echo "Release tag $GITHUB_REF_NAME does not point to a commit on main" >&2
             exit 1
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
@@ -93,7 +104,7 @@ jobs:
           tags: |
             type=raw,value=${{ needs.version.outputs.version }}
             type=raw,value=${{ needs.version.outputs.version }},suffix=-{{sha}}
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest
             type=sha,prefix=sha-
 
       - name: Extract metadata for frontend
@@ -104,7 +115,7 @@ jobs:
           tags: |
             type=raw,value=${{ needs.version.outputs.version }}
             type=raw,value=${{ needs.version.outputs.version }},suffix=-{{sha}}
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest
             type=sha,prefix=sha-
 
       - name: Extract metadata for docs
@@ -115,7 +126,7 @@ jobs:
           tags: |
             type=raw,value=${{ needs.version.outputs.version }}
             type=raw,value=${{ needs.version.outputs.version }},suffix=-{{sha}}
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest
             type=sha,prefix=sha-
 
       - name: Build and push backend image
@@ -298,12 +309,26 @@ jobs:
             dist/larex-release-${{ needs.version.outputs.version }}.json
             dist/larex-keycloak-theme-${{ needs.version.outputs.version }}.jar
 
+      - name: Extract release notes from changelog
+        env:
+          RELEASE_VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          awk -v heading="## v$RELEASE_VERSION " '
+            index($0, heading) == 1 { found = 1; next }
+            found && /^## v/ { exit }
+            found { print }
+          ' CHANGELOG.md > dist/release-notes.md
+          if ! grep -q '[^[:space:]]' dist/release-notes.md; then
+            echo "CHANGELOG.md has no entry for v$RELEASE_VERSION" >&2
+            exit 1
+          fi
+
       - name: Create Release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: v${{ needs.version.outputs.version }}
           name: Release v${{ needs.version.outputs.version }}
-          generate_release_notes: true
+          body_path: dist/release-notes.md
           draft: false
           prerelease: false
           files: |
@@ -314,42 +339,3 @@ jobs:
             dist/larex-keycloak-theme-${{ needs.version.outputs.version }}.jar
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  sync-versions:
-    name: Sync Version Files
-    needs: [version, create-release]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Setup Git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Run version sync
-        run: |
-          chmod +x ./scripts/release/version-sync.sh
-          ./scripts/release/version-sync.sh
-
-      - name: Check for changes
-        id: changes
-        run: |
-          if git diff --quiet; then
-            echo "has_changes=false" >> $GITHUB_OUTPUT
-          else
-            echo "has_changes=true" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Commit and push version sync
-        if: steps.changes.outputs.has_changes == 'true'
-        run: |
-          git add -A
-          git commit -m "chore: sync version ${{ needs.version.outputs.version }} across packages"
-          git push

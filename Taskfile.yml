@@ -480,38 +480,6 @@ tasks:
     cmds:
       - echo "Current version {{.VERSION}}"
 
-  ver:sync:
-    desc: Sync VERSION file to all projects
-    cmds:
-      - ./scripts/release/version-sync.sh
-
-  ver:bump:major:
-    desc: Bump major version (X.0.0)
-    cmds:
-      - |
-        IFS='.' read -r major minor patch < VERSION
-        echo "$((major + 1)).0.0" > VERSION
-      - task: ver:sync
-      - task: ver
-
-  ver:bump:minor:
-    desc: Bump minor version (0.X.0)
-    cmds:
-      - |
-        IFS='.' read -r major minor patch < VERSION
-        echo "${major}.$((minor + 1)).0" > VERSION
-      - task: ver:sync
-      - task: ver
-
-  ver:bump:patch:
-    desc: Bump patch version (0.0.X)
-    cmds:
-      - |
-        IFS='.' read -r major minor patch < VERSION
-        echo "${major}.${minor}.$((patch + 1))" > VERSION
-      - task: ver:sync
-      - task: ver
-
   # ============================================================================
   # Release
   # ============================================================================
