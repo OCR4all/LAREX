@@ -226,7 +226,7 @@ const pageLockLabel = computed(() => {
         v-if="displayEntity"
         class="flex flex-1 items-center h-full gap-3 min-w-0 overflow-hidden"
       >
-        <div class="flex items-center gap-2 min-w-0">
+        <div class="flex items-center gap-2 shrink-0">
           <UTooltip :delay-duration="300" :content="{ side: 'top' }" :ui="{ ...tooltipUi, content: `${tooltipUi.content} px-2 py-1` }">
             <template #default>
               <div :class="['flex items-center justify-center w-5 h-5 rounded', iconColorClass]">
@@ -247,29 +247,29 @@ const pageLockLabel = computed(() => {
           </div>
         </div>
 
-        <div class="h-4 w-px bg-neutral-300/50 dark:bg-neutral-700/50" />
+        <div class="h-4 w-px shrink-0 bg-neutral-300/50 dark:bg-neutral-700/50" />
 
         <div class="flex items-center gap-1.5 min-w-0">
           <span class="text-[10px] uppercase tracking-wider text-neutral-500 font-medium">ID</span>
-          <span class="text-xs font-mono text-neutral-700 dark:text-neutral-300 truncate max-w-40">{{ displayEntity.id }}</span>
+          <span class="min-w-0 text-xs font-mono text-neutral-700 dark:text-neutral-300 truncate" :title="displayEntity.id">{{ displayEntity.id }}</span>
         </div>
 
         <template v-if="displayEntity.label">
-          <div class="h-4 w-px bg-neutral-300/50 dark:bg-neutral-700/50" />
-          <div class="flex items-center gap-1.5 min-w-0">
+          <div class="h-4 w-px shrink-0 bg-neutral-300/50 dark:bg-neutral-700/50" />
+          <div class="flex items-center gap-1.5 min-w-0 shrink-[0.25]">
             <span class="text-[10px] uppercase tracking-wider text-neutral-500 font-medium">Label</span>
-            <span class="text-xs text-neutral-700 dark:text-neutral-300 truncate max-w-40">{{ displayEntity.label }}</span>
+            <span class="min-w-0 text-xs text-neutral-700 dark:text-neutral-300 truncate max-w-40">{{ displayEntity.label }}</span>
           </div>
         </template>
 
         <template v-if="displayEntity.childCount != null && displayEntity.childCount > 0">
-          <div class="h-4 w-px bg-neutral-300/50 dark:bg-neutral-700/50" />
-          <span class="text-xs text-neutral-500">
+          <div class="h-4 w-px shrink-0 bg-neutral-300/50 dark:bg-neutral-700/50" />
+          <span class="shrink-0 whitespace-nowrap text-xs text-neutral-500">
             {{ displayEntity.childCount }} {{ displayEntity.childCount === 1 ? 'child' : 'children' }}
           </span>
         </template>
 
-        <span v-if="isHovered" class="text-[10px] uppercase tracking-wider text-neutral-400 dark:text-neutral-600 font-medium">
+        <span v-if="isHovered" class="shrink-0 text-[10px] uppercase tracking-wider text-neutral-400 dark:text-neutral-600 font-medium">
           Hovered
         </span>
       </div>
