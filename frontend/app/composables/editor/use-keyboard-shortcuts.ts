@@ -6,6 +6,9 @@ import { DRAWING_MODES, type DrawingMode, VIEW_MODES } from '@/composables/edito
 import type { ViewMode } from '@/types/editor/rendering'
 import { PolygonType } from '@/models/editor'
 import { isPageFrameType, type PageFrameKind } from '@/utils/editor/page-frame'
+import { findRegionRecursive } from '@/utils/editor/pcgts-editor-primitives'
+import { neighbourCell, type TableDirection } from '@/utils/editor/table/table-layout'
+import { buildTableModel } from '@/utils/editor/table/table-model'
 import {
   SHORTCUT_DEFINITIONS,
   SHORTCUT_HELP_GROUPS,
@@ -46,6 +49,12 @@ export function getTextViewHistoryDraft(canvasId: string | null | undefined) {
   return canvasId ? textViewScopeRegistry.get(canvasId)?.historyDraft : undefined
 }
 
+interface NavigablePolygon {
+  id: string
+  type?: string
+  tableCell?: { tableId: string }
+}
+
 export interface KeyboardShortcutsOptions {
   canvasId: Ref<string | null>
   isDrawingMode: Ref<boolean>
@@ -53,7 +62,7 @@ export interface KeyboardShortcutsOptions {
   viewMode: Ref<ViewMode>
   selectedPolygonIds: Ref<string[]>
   selectedPolylineIds: Ref<string[]>
-  polygons: Ref<{ id: string, type?: string }[]> | ComputedRef<{ id: string, type?: string }[]>
+  polygons: Ref<NavigablePolygon[]> | ComputedRef<NavigablePolygon[]>
   polylines: Ref<{ id: string }[]> | ComputedRef<{ id: string }[]>
   selectedPolygonIndex: Ref<number>
   selectedPolylineIndex: Ref<number>
@@ -212,6 +221,18 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
       commander.execute(command, ctx)
     }
 
+    return true
+  }
+
+  const navigateTableCells = (direction: TableDirection): boolean => {
+    if (isInputFocused()) return false
+    const tableId = polygons.value[selectedPolygonIndex.value]?.tableCell?.tableId
+    const regions = canvasId.value ? getEditorSession(canvasId.value)?.document.value?.page?.regions : undefined
+    const table = tableId && regions ? findRegionRecursive(regions, tableId)?.region : undefined
+    if (!table) return false
+    const target = neighbourCell(buildTableModel(table), polygons.value[selectedPolygonIndex.value]!.id, direction)
+    const targetIndex = target ? polygons.value.findIndex(polygon => polygon.id === target.regionId) : -1
+    if (targetIndex >= 0) callbacks.selectPolygonByIndex(targetIndex)
     return true
   }
 
@@ -413,6 +434,14 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
         return navigateElements('next')
       case 'prevElement':
         return navigateElements('prev')
+      case 'tableCellUp':
+        return navigateTableCells('up')
+      case 'tableCellDown':
+        return navigateTableCells('down')
+      case 'tableCellLeft':
+        return navigateTableCells('left')
+      case 'tableCellRight':
+        return navigateTableCells('right')
       case 'zoomIn':
         if (isInputFocused()) return false
         callbacks.zoomIn()

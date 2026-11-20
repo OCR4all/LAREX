@@ -9,6 +9,7 @@ import { CreateTableGridCommand } from '../create-table-grid-command'
 import { TableStructureCommand } from '../table-structure-command'
 import { TableGridPointCommand } from '../table-grid-point-command'
 import { CreateGridFromCellsCommand } from '../create-grid-from-cells-command'
+import { MoveElementCommand } from '../move-element-command'
 import { createMockSession, createTestContext, createTestDocument, createTestReadingOrder, findRegionById } from './test-utils'
 
 vi.mock('@/stores/editor/editor.ui.store', () => ({ useEditorUiStore: () => ({ bumpReadingOrderVersion: vi.fn() }) }))
@@ -244,6 +245,22 @@ describe('TableGridPointCommand', () => {
     expect(has(cellIds[0]!)).toBe(false)
     expect(() => new TableGridPointCommand({ tableId: 't', edit: { kind: 'remove', points: [{ x: 10, y: 10 }] } }).execute(ctx)).toThrow()
   })
+
+  it('moves a whole row line, re-sorts lines into their new cells and undoes it', () => {
+    const { ctx, getDocument } = setup([textRegion('t', rect(0, 20, 20, 0), [line('low', 1, 9, 9, 7)])])
+    const { cellIds } = new CreateTableGridCommand({ regionId: 't', rows: 2, columns: 2 }).execute(ctx)!
+    expect(lineIds(region(getDocument, cellIds[2]!))).toEqual(['low'])
+
+    const command = new TableGridPointCommand({ tableId: 't', edit: { kind: 'move-line', line: { axis: 'row', index: 1 }, delta: -4 } })
+    expect(command.execute(ctx)).toBe(true)
+    expect(region(getDocument, cellIds[1]!).coords.points.map(([, y]) => y)).toEqual([20, 20, 6, 6])
+    expect(lineIds(region(getDocument, cellIds[0]!))).toEqual(['low'])
+    expect(lineIds(region(getDocument, cellIds[2]!))).toEqual([])
+
+    command.undo(ctx)
+    expect(lineIds(region(getDocument, cellIds[2]!))).toEqual(['low'])
+    expect(new TableGridPointCommand({ tableId: 't', edit: { kind: 'move-line', line: { axis: 'row', index: 1 }, delta: 12 } }).execute(ctx)).toBe(false)
+  })
 })
 
 describe('CreateGridFromCellsCommand', () => {
@@ -261,5 +278,24 @@ describe('CreateGridFromCellsCommand', () => {
 
     command.undo(ctx)
     expect(region(getDocument, 't')).toBe(table)
+  })
+})
+
+describe('MoveElementCommand on tables', () => {
+  it('moves cells, their lines and the grid with the table, and undoes all of it', () => {
+    const { ctx, getDocument } = setup([textRegion('t', rect(0, 20, 20, 0), [line('l', 1, 18, 9, 12)])])
+    const { cellIds } = new CreateTableGridCommand({ regionId: 't', rows: 2, columns: 2 }).execute(ctx)!
+    const command = new MoveElementCommand({ elementId: 't', elementType: 'polygon', delta: { x: 5, y: -1 } })
+
+    command.execute(ctx)
+    const table = region(getDocument, 't')
+    expect(buildTableModel(table).grid!.points[0]![0]).toEqual([5, 19])
+    expect(region(getDocument, cellIds[0]!).coords.points[0]).toEqual([5, 19])
+    expect((region(getDocument, cellIds[0]!) as TextRegion).textLines![0]!.coords.points[0]).toEqual([6, 17])
+    expect(validateTable(table)).toEqual([])
+
+    command.undo(ctx)
+    expect(buildTableModel(region(getDocument, 't')).grid!.points[0]![0]).toEqual([0, 20])
+    expect(region(getDocument, cellIds[0]!).coords.points[0]).toEqual([0, 20])
   })
 })

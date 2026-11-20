@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import { createGridTableModel } from '../table-builder'
-import { applyTableOperation, canApplyTableOperation, gridHasPoint, insertGridAddPoint, moveGridPoint, removeGridAddPoints, splitPolylineInHalf } from '../table-structure'
+import {
+  applyTableOperation,
+  canApplyTableOperation,
+  gridHasPoint,
+  gridLineAt,
+  gridLinePoints,
+  insertGridAddPoint,
+  moveGridLine,
+  moveGridPoint,
+  removeGridAddPoints,
+  splitPolylineInHalf
+} from '../table-structure'
 import type { TableModel } from '../table-model'
 
 function grid(rows: number, columns: number, headerRows = 0): TableModel {
@@ -171,5 +182,42 @@ describe('insertGridAddPoint', () => {
     const model = insertGridAddPoint(grid(2, 2), [5, 10], [5, 11])!
     expect(removeGridAddPoints(model, [[5, 11]])!.grid!.addPoints).toEqual([])
     expect(() => removeGridAddPoints(model, [[10, 10]])).toThrow()
+  })
+})
+
+describe('grid lines', () => {
+  it('finds the row or column line a point lies on', () => {
+    const model = grid(2, 2)
+    expect(gridLineAt(model, [5, 10])).toEqual({ axis: 'row', index: 1 })
+    expect(gridLineAt(model, [20, 15])).toEqual({ axis: 'column', index: 2 })
+    expect(gridLineAt(model, [5, 5])).toBeUndefined()
+  })
+
+  it('lists the corners and add points of a line in order', () => {
+    const model = insertGridAddPoint(grid(2, 2), [5, 10], [5, 11])!
+    expect(gridLinePoints(model, { axis: 'row', index: 1 })).toEqual([[0, 10], [5, 11], [10, 10], [20, 10]])
+    expect(gridLineAt(model, [2.5, 10.5])).toEqual({ axis: 'row', index: 1 })
+  })
+
+  it('moves a row line with its add points and leaves the other lines alone', () => {
+    const model = insertGridAddPoint(grid(2, 2), [5, 10], [5, 11])!
+    const moved = moveGridLine(model, { axis: 'row', index: 1 }, -3)!
+    expect(ys(moved)).toEqual([20, 7, 0])
+    expect(moved.grid!.addPoints[0]!.top).toEqual([[5, 8]])
+    expect(model.grid!.points[1]![0]).toEqual([0, 10])
+  })
+
+  it('moves a column line through the transposed grid', () => {
+    const moved = moveGridLine(grid(1, 3), { axis: 'column', index: 1 }, 4)!
+    expect(moved.grid!.points[0]!.map(point => point[0])).toEqual([0, 14, 20, 30])
+    expect(layout(moved)).toEqual(layout(grid(1, 3)))
+  })
+
+  it('refuses moves that would cross a neighbouring line or its add points', () => {
+    expect(moveGridLine(grid(2, 1), { axis: 'row', index: 1 }, 10)).toBeUndefined()
+    expect(moveGridLine(grid(2, 1), { axis: 'row', index: 0 }, -10)).toBeUndefined()
+    expect(moveGridLine(grid(2, 1), { axis: 'row', index: 0 }, 5)).toBeDefined()
+    const withPoint = insertGridAddPoint(grid(2, 1), [0, 15], [0, 15])!
+    expect(moveGridLine(withPoint, { axis: 'row', index: 1 }, 6)).toBeUndefined()
   })
 })

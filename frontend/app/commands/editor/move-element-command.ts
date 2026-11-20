@@ -1,5 +1,6 @@
 import type { Command, CommandContext } from './types'
 import { PcGts, isTextRegion } from '@/models/editor'
+import { Polygon } from '@/models/editor/geometry'
 import type { Point, Region, TextLine, Word } from '@/models/editor'
 import { invalidateMultiplePolygonGeometry } from '@/composables/editor/use-geometry-cache-integrations'
 import { visibilityService } from '@/services/editor/visibility-service'
@@ -37,6 +38,7 @@ export class MoveElementCommand implements Command {
   private delta: Point
   private moveWithChildren: boolean
   private savedPoints: SavedPoints[] = []
+  private savedGrids: { region: Region, grid: NonNullable<Region['grid']> }[] = []
 
   constructor(data: MoveElementCommandData) {
     this.elementId = data.elementId
@@ -51,6 +53,7 @@ export class MoveElementCommand implements Command {
     if (!session || !pcGts) return
 
     this.savedPoints = []
+    this.savedGrids = []
 
     if (this.elementType === 'polyline') {
       this.moveBaseline(pcGts)
@@ -97,7 +100,7 @@ export class MoveElementCommand implements Command {
 
     this.saveAndMoveRegion(regionHit.region)
 
-    if (this.moveWithChildren) {
+    if (this.moveWithChildren || regionHit.region.kind === 'TableRegion') {
       this.moveRegionChildren(regionHit.region)
     }
   }
@@ -109,6 +112,15 @@ export class MoveElementCommand implements Command {
       points: [...region.coords.points]
     })
     region.coords.points = this.applyDelta(region.coords.points)
+    if (region.grid) {
+      this.savedGrids.push({ region, grid: region.grid })
+      const shift = (polygon: Polygon | undefined) => polygon ? new Polygon(this.applyDelta(polygon.points), polygon.conf) : undefined
+      region.grid = {
+        ...region.grid,
+        rows: region.grid.rows?.map(row => ({ ...row, points: shift(row.points)! })),
+        addPoints: region.grid.addPoints?.map(entry => ({ ...entry, leftPoints: shift(entry.leftPoints), topPoints: shift(entry.topPoints) }))
+      }
+    }
   }
 
   private saveAndMoveTextLine(hit: TextLineHit): void {
@@ -226,6 +238,11 @@ export class MoveElementCommand implements Command {
           coords.points = [...saved.points]
         }
       }
+    }
+
+    for (const { region, grid } of this.savedGrids) {
+      const current = findRegionRecursive(pcGts.page.regions, region.id)?.region
+      if (current) current.grid = grid
     }
 
     session.document.value = new PcGts(pcGts.metadata, pcGts.page, pcGts.pcGtsId)

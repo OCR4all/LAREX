@@ -19,7 +19,8 @@ import { clampToWorldBounds, getImageBounds } from '@/utils/editor/coordinates'
 import { areAllPointsWithinParentBounds } from '@/utils/editor/parent-constraint-utils'
 import { findRegionRecursive } from '@/utils/editor/pcgts-editor-primitives'
 import { buildTableModel } from '@/utils/editor/table/table-model'
-import { gridHasPoint, insertGridAddPoint } from '@/utils/editor/table/table-structure'
+import { gridHasPoint, gridLineAt, gridLinePoints, insertGridAddPoint, moveGridLine, type GridLineRef } from '@/utils/editor/table/table-structure'
+import type { TableModel } from '@/utils/editor/table/table-model'
 
 export interface HoveredEdgeInfo {
   polygonIndex: number
@@ -49,6 +50,19 @@ interface LinkedTableDrag {
   inserted: boolean
   nodes: { points: Point[], index: number }[]
   originals: { points: Point[], original: Point[] }[]
+}
+
+interface TableLineDrag {
+  tableId: string
+  model: TableModel
+  line: GridLineRef
+  start: Point
+  delta: number
+  nodes: { points: Point[], index: number, original: Point }[]
+}
+
+export interface PolygonEditingModifiers {
+  altKey?: boolean
 }
 
 /**
@@ -177,6 +191,7 @@ export function usePolygonEditing(
   const isInvalidPosition = ref<boolean>(false)
   let blockedByParentBounds = false
   let linkedTableDrag: LinkedTableDrag | null = null
+  let tableLineDrag: TableLineDrag | null = null
 
   function tableIdOf(polygon: RenderablePolygon): string | undefined {
     return polygon.tableCell?.tableId ?? (polygon.regionKind === 'TableRegion' ? polygon.id : undefined)
@@ -254,6 +269,37 @@ export function usePolygonEditing(
     for (const node of linkedTableDrag?.nodes ?? []) node.points[node.index] = { ...point }
   }
 
+  function startTableLineDrag(point: Point, selectedPolygonIndex: number): TableLineDrag | null {
+    const polygon = polygons[selectedPolygonIndex]
+    const tableId = polygon ? tableIdOf(polygon) : undefined
+    const edge = getClosestEdge(polygons, point, selectedPolygonIndex, view)
+    if (!polygon || !tableId || !edge) return null
+    const model = gridTableModel(tableId)
+    const a = polygon.points[edge.edgeStartIndex]
+    const b = polygon.points[(edge.edgeStartIndex + 1) % polygon.points.length]
+    if (!model?.grid || !a || !b) return null
+    const line = gridLineAt(model, [(a.x + b.x) / 2, (a.y + b.y) / 2])
+    if (!line) return null
+
+    const linePoints = gridLinePoints(model, line)
+    const onLine = (candidate: Point) => linePoints.some(([x, y]) => Math.abs(candidate.x - x) <= 1e-9 && Math.abs(candidate.y - y) <= 1e-9)
+    const drag: TableLineDrag = { tableId, model, line, start: { ...point }, delta: 0, nodes: [] }
+    for (const points of linkedTablePointLists(tableId)) {
+      points.forEach((candidate, index) => {
+        if (onLine(candidate)) drag.nodes.push({ points, index, original: { ...candidate } })
+      })
+    }
+    return drag
+  }
+
+  function placeTableLineNodes(drag: TableLineDrag, delta: number): void {
+    for (const node of drag.nodes) {
+      node.points[node.index] = drag.line.axis === 'row'
+        ? { x: node.original.x, y: node.original.y + delta }
+        : { x: node.original.x + delta, y: node.original.y }
+    }
+  }
+
   // Geometry replacements (including undo/redo) invalidate node indices.
   watch(() => {
     const polygon = polygons.find(p => p.id === selectedNodes.value?.polygonId)
@@ -268,7 +314,7 @@ export function usePolygonEditing(
    * @returns True if dragging is active
    */
   function isDragging(): boolean {
-    return draggedNodeInfo.isDragging
+    return draggedNodeInfo.isDragging || tableLineDrag !== null
   }
 
   /**
@@ -348,12 +394,21 @@ export function usePolygonEditing(
    * @param canvas - Canvas element
    * @returns True if an editing operation was initiated
    */
-  function handleMouseDown(point: Point, selectedPolygonIndex: Ref<number>, _canvas: HTMLCanvasElement | null): boolean {
+  function handleMouseDown(point: Point, selectedPolygonIndex: Ref<number>, _canvas: HTMLCanvasElement | null, modifiers: PolygonEditingModifiers = {}): boolean {
     if (externalSelectedPolylineIndex && externalSelectedPolylineIndex.value >= 0) {
       return false
     }
 
     clearNodeSelection()
+
+    if (modifiers.altKey && selectedPolygonIndex.value >= 0) {
+      tableLineDrag = startTableLineDrag(point, selectedPolygonIndex.value)
+      if (tableLineDrag) {
+        hoveredNodeIndex.value = -1
+        resetEdgeHover()
+        return true
+      }
+    }
 
     if (selectedPolygonIndex.value >= 0) {
       const nodeIndex = getNodeAtPoint(polygons, point, selectedPolygonIndex.value, view)
@@ -433,6 +488,15 @@ export function usePolygonEditing(
    * @param point - Current world coordinates
    */
   function handleMouseMove(point: Point): void {
+    if (tableLineDrag) {
+      const offset = tableLineDrag.line.axis === 'row' ? point.y - tableLineDrag.start.y : point.x - tableLineDrag.start.x
+      const valid = moveGridLine(tableLineDrag.model, tableLineDrag.line, offset) !== undefined
+      if (valid) {
+        tableLineDrag.delta = offset
+        placeTableLineNodes(tableLineDrag, offset)
+      }
+      return
+    }
     if (!draggedNodeInfo.isDragging) return
 
     const polyIndex = draggedNodeInfo.polygonIndex
@@ -486,6 +550,16 @@ export function usePolygonEditing(
    * @param canvas - Canvas element
    */
   function handleMouseUp(_canvas: HTMLElement | null): void {
+    if (tableLineDrag) {
+      const drag = tableLineDrag
+      tableLineDrag = null
+      placeTableLineNodes(drag, 0)
+      if (drag.delta !== 0) {
+        commander.execute(new TableGridPointCommand({ tableId: drag.tableId, edit: { kind: 'move-line', line: drag.line, delta: drag.delta } }), getCommandContext())
+      }
+      justFinishedDragging.value = true
+      return
+    }
     if (draggedNodeInfo.isDragging) {
       const polygon = polygons[draggedNodeInfo.polygonIndex]
       const parent = polygons.find(p => p.id === polygon?.parentId)
@@ -578,6 +652,10 @@ export function usePolygonEditing(
     if (linkedTableDrag) {
       restoreLinkedTableNodes(linkedTableDrag)
       linkedTableDrag = null
+    }
+    if (tableLineDrag) {
+      placeTableLineNodes(tableLineDrag, 0)
+      tableLineDrag = null
     }
 
     hoveredNodeIndex.value = -1

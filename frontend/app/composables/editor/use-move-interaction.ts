@@ -45,6 +45,22 @@ export function useMoveInteraction(
 
   let originalPoints: Point[] | null = null
   const childOriginalPoints: Map<string, Point[]> = new Map()
+  const originalGridLines: Map<string, Point[][]> = new Map()
+  let carriesChildren = false
+
+  function storeGridLines(): void {
+    for (const id of [state.elementId, ...childOriginalPoints.keys()]) {
+      const polygon = polygons.find(p => p.id === id)
+      if (polygon?.tableGridLines) originalGridLines.set(polygon.id, polygon.tableGridLines.map(line => line.map(pt => ({ ...pt }))))
+    }
+  }
+
+  function shiftGridLines(delta: Point): void {
+    for (const [id, lines] of originalGridLines) {
+      const polygon = polygons.find(p => p.id === id)
+      if (polygon) polygon.tableGridLines = lines.map(line => line.map(pt => ({ x: pt.x + delta.x, y: pt.y + delta.y })))
+    }
+  }
 
   function isMoving(): boolean {
     return state.isMoving
@@ -90,9 +106,12 @@ export function useMoveInteraction(
         originalPoints = polygon.points.map(p => ({ ...p }))
 
         childOriginalPoints.clear()
-        if (moveWithChildren?.value) {
+        originalGridLines.clear()
+        carriesChildren = (moveWithChildren?.value ?? false) || polygon.regionKind === 'TableRegion'
+        if (carriesChildren) {
           storeChildrenPoints(polygon.id)
         }
+        storeGridLines()
         return true
       }
     }
@@ -130,7 +149,7 @@ export function useMoveInteraction(
     }
 
     const allPoints: Point[] = [...originalPoints]
-    if (moveWithChildren?.value) {
+    if (carriesChildren) {
       for (const pts of childOriginalPoints.values()) {
         allPoints.push(...pts)
       }
@@ -166,7 +185,8 @@ export function useMoveInteraction(
           y: p.y + delta.y
         }))
       }
-      if (moveWithChildren?.value) {
+      shiftGridLines(delta)
+      if (carriesChildren) {
         for (const [childId, childPts] of childOriginalPoints) {
           const childPolygon = polygons.find(p => p.id === childId)
           if (childPolygon) {
@@ -200,7 +220,8 @@ export function useMoveInteraction(
       if (polygon) {
         polygon.points = originalPoints.map(p => ({ ...p }))
       }
-      if (moveWithChildren?.value) {
+      shiftGridLines({ x: 0, y: 0 })
+      if (carriesChildren) {
         for (const [childId, childPts] of childOriginalPoints) {
           const childPolygon = polygons.find(p => p.id === childId)
           if (childPolygon) {
@@ -224,7 +245,7 @@ export function useMoveInteraction(
         elementId: state.elementId,
         elementType: state.elementType,
         delta: state.currentDelta,
-        moveWithChildren: moveWithChildren?.value ?? false
+        moveWithChildren: carriesChildren
       })
       commander.execute(cmd, getCommandContext())
     }
@@ -243,7 +264,8 @@ export function useMoveInteraction(
       if (polygon) {
         polygon.points = originalPoints.map(point => ({ ...point }))
       }
-      if (moveWithChildren?.value) {
+      shiftGridLines({ x: 0, y: 0 })
+      if (carriesChildren) {
         for (const [childId, childPts] of childOriginalPoints) {
           const childPolygon = polygons.find(p => p.id === childId)
           if (childPolygon) {
@@ -274,6 +296,8 @@ export function useMoveInteraction(
     state.isInvalid = false
     originalPoints = null
     childOriginalPoints.clear()
+    originalGridLines.clear()
+    carriesChildren = false
   }
 
   function isWithinBounds(points: Point[], delta: Point, bounds: { minX: number, maxX: number, minY: number, maxY: number }): boolean {

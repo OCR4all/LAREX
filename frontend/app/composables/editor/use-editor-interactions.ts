@@ -477,7 +477,7 @@ export function useEditorInteractions(
 
       // Handles on the selected polygon take priority over a child's baseline
       // hit area. Polygon editing declines when a baseline is selected.
-      const polygonEditingStarted = polygonEditing.handleMouseDown(point, selectedPolygonIndex, canvas.value)
+      const polygonEditingStarted = polygonEditing.handleMouseDown(point, selectedPolygonIndex, canvas.value, { altKey: e.altKey })
       if (polygonEditingStarted) return
 
       const polylineEditingStarted = polylineEditing.handleMouseDown(point, selectedPolygonIndex, canvas.value)

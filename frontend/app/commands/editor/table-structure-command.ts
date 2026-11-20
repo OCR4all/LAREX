@@ -15,6 +15,7 @@ import {
   invalidateRegionTrees,
   newRegionId,
   replaceRegion,
+  resortLinesIntoCells,
   shapePoints
 } from './table-command-utils'
 
@@ -100,6 +101,7 @@ export class TableStructureCommand implements Command<{ created: string[] } | un
     const cells = (next.regions ?? []).filter((child): child is TextRegion =>
       isTextRegion(child) && child.roles?.tableCellRole !== undefined)
     redistributeLines(sources, cells)
+    resortLinesIntoCells(cells)
 
     this.original = table
     this.updateReferences(pcGts.page, table, removed, absorbed)

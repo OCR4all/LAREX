@@ -27,3 +27,18 @@ export function tableLayoutRows(model: TableModel): TableLayoutSlot[][] {
 export function cellsInRowOrder(model: TableModel): TableCell[] {
   return [...model.cells].sort((a, b) => a.row - b.row || a.col - b.col)
 }
+
+export type TableDirection = 'up' | 'down' | 'left' | 'right'
+
+export function neighbourCell(model: TableModel, cellId: string, direction: TableDirection): TableCell | undefined {
+  const cell = model.cells.find(candidate => candidate.regionId === cellId)
+  if (!cell) return undefined
+  const [row, col] = {
+    up: [cell.row - 1, cell.col],
+    down: [cell.row + cell.rowSpan, cell.col],
+    left: [cell.row, cell.col - 1],
+    right: [cell.row, cell.col + cell.colSpan]
+  }[direction]
+  return model.cells.find(candidate => candidate.row <= row! && row! < candidate.row + candidate.rowSpan
+    && candidate.col <= col! && col! < candidate.col + candidate.colSpan)
+}

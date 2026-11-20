@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { ReadingOrder } from '@/models/editor'
 import type { TableModel } from '../table-model'
 import { orderedTableCellIds, withTableReadingOrder } from '../table-reading-order'
-import { tableLayoutRows } from '../table-layout'
+import { neighbourCell, tableLayoutRows } from '../table-layout'
 
 const model: TableModel = {
   tableId: 't',
@@ -18,6 +18,16 @@ describe('tableLayoutRows', () => {
   it('lists each cell once at its origin and fills uncovered positions', () => {
     expect(tableLayoutRows(model).map(row => row.map(slot => slot.kind === 'cell' ? slot.cell.regionId : `-${slot.row}${slot.col}`)))
       .toEqual([['h'], ['a', '-11']])
+  })
+})
+
+describe('neighbourCell', () => {
+  it('steps over spans and stops at the table edge or a gap', () => {
+    expect(neighbourCell(model, 'a', 'up')?.regionId).toBe('h')
+    expect(neighbourCell(model, 'h', 'down')?.regionId).toBe('a')
+    expect(neighbourCell(model, 'a', 'right')).toBeUndefined()
+    expect(neighbourCell(model, 'h', 'up')).toBeUndefined()
+    expect(neighbourCell(model, 'missing', 'up')).toBeUndefined()
   })
 })
 

@@ -403,3 +403,81 @@ export function removeGridAddPoints(model: TableModel, removed: GridPoint[]): Ta
   pruneAddPoints(draft.grid)
   return draft
 }
+
+export interface GridLineRef {
+  axis: 'row' | 'column'
+  index: number
+}
+
+function rowLinePath(grid: TableGridModel, line: number): GridPoint[] {
+  const corners = grid.points[line]!
+  return corners.flatMap((corner, col) => {
+    const next = corners[col + 1]
+    if (!next) return [corner]
+    const between = grid.addPoints.find(e => e.row === line && e.col === col)?.top ?? []
+    return [corner, ...orderAlong(between, corner, next)]
+  })
+}
+
+export function gridLineAt(model: TableModel, point: GridPoint): GridLineRef | undefined {
+  if (!model.grid) return undefined
+  const rows = cloneModel(model)
+  const columns = transpose(rows)
+  let best: { gap: number, ref: GridLineRef } | undefined
+  for (const [axis, grid] of [['row', rows.grid], ['column', columns.grid]] as const) {
+    grid.points.forEach((_, index) => {
+      const gap = distanceToPolyline(point, rowLinePath(grid, index))
+      if (gap <= ON_LINE_TOLERANCE && (!best || gap < best.gap)) best = { gap, ref: { axis, index } }
+    })
+  }
+  return best?.ref
+}
+
+export function gridLinePoints(model: TableModel, ref: GridLineRef): GridPoint[] {
+  if (!model.grid) return []
+  const draft = cloneModel(model)
+  const grid = ref.axis === 'row' ? draft.grid : transpose(draft).grid
+  return grid.points[ref.index] ? rowLinePath(grid, ref.index) : []
+}
+
+function isStrictlyBetween(a: number, value: number, b: number): boolean {
+  return (a - value) * (value - b) > 0
+}
+
+function shiftRowLine(grid: TableGridModel, line: number, delta: number, coordinate: 0 | 1): boolean {
+  const shift = (point: GridPoint): GridPoint => coordinate === 0 ? [point[0] + delta, point[1]] : [point[0], point[1] + delta]
+  const moved = grid.points[line]!.map(shift)
+  const above = grid.points[line - 1]
+  const below = grid.points[line + 1]
+  const keepsOrder = moved.every((corner, col) => {
+    const original = grid.points[line]![col]!
+    const segments = [
+      above && { from: above[col]!, to: corner, before: above[col]![coordinate] - original[coordinate], row: line - 1 },
+      below && { from: corner, to: below[col]!, before: original[coordinate] - below[col]![coordinate], row: line }
+    ].filter(segment => !!segment)
+    return segments.every(({ from, to, before, row }) => {
+      if ((from[coordinate] - to[coordinate]) * before <= 0) return false
+      const between = grid.addPoints.find(e => e.row === row && e.col === col)?.left ?? []
+      return between.every(point => isStrictlyBetween(from[coordinate], point[coordinate], to[coordinate]))
+    })
+  })
+  if (!keepsOrder) return false
+  grid.points[line] = moved
+  for (const entry of grid.addPoints) {
+    if (entry.row === line) entry.top = entry.top.map(shift)
+  }
+  return true
+}
+
+export function moveGridLine(model: TableModel, ref: GridLineRef, delta: number): TableModel | undefined {
+  if (!model.grid || !Number.isInteger(ref.index) || ref.index < 0) return undefined
+  const draft = cloneModel(model)
+  if (ref.axis === 'row') {
+    if (ref.index >= draft.grid.points.length) return undefined
+    return shiftRowLine(draft.grid, ref.index, delta, 1) ? draft : undefined
+  }
+  const transposed = transpose(draft)
+  if (ref.index >= transposed.grid.points.length) return undefined
+  if (!shiftRowLine(transposed.grid, ref.index, delta, 0)) return undefined
+  return transpose(transposed)
+}

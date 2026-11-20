@@ -79,7 +79,7 @@ export function areAllPointsWithinParentBounds(points: { x: number, y: number }[
 }
 
 /** Parent boundaries are inclusive, including vertices introduced by clipping. */
-function isPointWithinOrOnPolygon(point: { x: number, y: number }, points: { x: number, y: number }[]): boolean {
+export function isPointWithinOrOnPolygon(point: { x: number, y: number }, points: { x: number, y: number }[]): boolean {
   if (isPointInPolygon(point, points)) return true
   return points.some((start, index) => {
     const end = points[(index + 1) % points.length]!

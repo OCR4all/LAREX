@@ -114,7 +114,7 @@ export interface PolygonEditing {
   selectNodesInRect?: (polygonIndex: number, rect: { minX: number, maxX: number, minY: number, maxY: number }, additive?: boolean) => void
   selectedNodes?: Ref<{ polygonId: string, nodeIndices: number[] } | null>
   clearNodeSelection?: () => void
-  handleMouseDown: (point: { x: number, y: number }, selectedPolygonIndex: Ref<number>, canvas: HTMLCanvasElement | null) => boolean
+  handleMouseDown: (point: { x: number, y: number }, selectedPolygonIndex: Ref<number>, canvas: HTMLCanvasElement | null, modifiers?: { altKey?: boolean }) => boolean
   handleMouseMove: (point: { x: number, y: number }) => void
   handleMouseUp: (canvas: HTMLElement | null) => void
   updateHoverStates: (point: { x: number, y: number }, selectedPolygonIndex: Ref<number>) => void
@@ -133,7 +133,7 @@ export interface PolygonEditing {
 }
 
 export interface PolylineEditing {
-  handleMouseDown: (point: { x: number, y: number }, selectedPolygonIndex: Ref<number>, canvas: HTMLCanvasElement | null) => boolean
+  handleMouseDown: (point: { x: number, y: number }, selectedPolygonIndex: Ref<number>, canvas: HTMLCanvasElement | null, modifiers?: { altKey?: boolean }) => boolean
   handleMouseMove: (point: { x: number, y: number }) => void
   handleMouseUp: (canvas: HTMLElement | null) => void
   updateHoverStates: (point: { x: number, y: number }, selectedPolygonIndex: Ref<number>) => void

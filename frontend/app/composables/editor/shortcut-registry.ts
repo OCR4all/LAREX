@@ -299,6 +299,30 @@ export const SHORTCUT_DEFINITIONS = {
     scope: 'global',
     defaultBindings: ['arrowup']
   },
+  tableCellUp: {
+    description: 'Table cell above',
+    group: 'navigation',
+    scope: 'global',
+    defaultBindings: ['alt_arrowup']
+  },
+  tableCellDown: {
+    description: 'Table cell below',
+    group: 'navigation',
+    scope: 'global',
+    defaultBindings: ['alt_arrowdown']
+  },
+  tableCellLeft: {
+    description: 'Table cell to the left',
+    group: 'navigation',
+    scope: 'global',
+    defaultBindings: ['alt_arrowleft']
+  },
+  tableCellRight: {
+    description: 'Table cell to the right',
+    group: 'navigation',
+    scope: 'global',
+    defaultBindings: ['alt_arrowright']
+  },
 
   nextTextField: {
     description: 'Next text variant field',

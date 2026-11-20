@@ -4,6 +4,7 @@ import { UpdateReadingOrderCommand } from '@/commands/editor'
 import { getEditorSession } from '@/session/editor/editor-session'
 import { findRegionRecursive } from '@/utils/editor/pcgts-editor-primitives'
 import { buildTableModel, type TableCell } from '@/utils/editor/table/table-model'
+import { linesCrossingCells } from '@/utils/editor/table/table-checks'
 import { tableLayoutRows } from '@/utils/editor/table/table-layout'
 import { withTableReadingOrder, type TableReadingDirection } from '@/utils/editor/table/table-reading-order'
 import { createTextViewCommandContext, getTextViewRuntimeControls } from '@/components/editor/text/shared/text-view-runtime'
@@ -29,6 +30,8 @@ const rows = computed(() => model.value ? tableLayoutRows(model.value) : [])
 
 const lineCountByCell = computed(() => new Map((table.value?.regions ?? []).map(region =>
   [region.id, isTextRegion(region) ? region.textLines?.length ?? 0 : 0])))
+const crossingByCell = computed(() => table.value ? linesCrossingCells(table.value) : new Map<string, string[]>())
+const crossingCount = computed(() => [...crossingByCell.value.values()].reduce((sum, ids) => sum + ids.length, 0))
 const cellIdByLineId = computed(() => new Map((table.value?.regions ?? []).flatMap(region =>
   isTextRegion(region) ? (region.textLines ?? []).map(line => [line.id, region.id] as const) : [])))
 
@@ -48,7 +51,9 @@ function describeCell(cell: TableCell): string {
   const lines = lineCountByCell.value.get(cell.regionId) ?? 0
   const position = `Row ${cell.row + 1}, column ${cell.col + 1}`
   const span = cell.rowSpan > 1 || cell.colSpan > 1 ? ` (${cell.rowSpan} × ${cell.colSpan})` : ''
-  return `${position}${span}${cell.header ? ', header' : ''}: ${lines} text line${lines === 1 ? '' : 's'}`
+  const crossing = crossingByCell.value.get(cell.regionId)?.length ?? 0
+  const warning = crossing > 0 ? `, ${crossing} crossing the cell border` : ''
+  return `${position}${span}${cell.header ? ', header' : ''}: ${lines} text line${lines === 1 ? '' : 's'}${warning}`
 }
 
 function generateReadingOrder(direction: TableReadingDirection): void {
@@ -113,6 +118,7 @@ const readingOrderItems = [[
                   :class="[
                     slot.cell.header ? 'bg-muted' : '',
                     (lineCountByCell.get(slot.cell.regionId) ?? 0) === 0 ? 'bg-[repeating-linear-gradient(45deg,transparent,transparent_3px,var(--ui-border)_3px,var(--ui-border)_4px)]' : '',
+                    crossingByCell.has(slot.cell.regionId) ? 'ring-2 ring-inset ring-warning' : '',
                     selectedId === slot.cell.regionId ? 'bg-primary/25 ring-2 ring-inset ring-primary' : ''
                   ]"
                   @mouseenter="runtime?.hoverPolygonById?.(slot.cell.regionId)"
@@ -123,6 +129,10 @@ const readingOrderItems = [[
             </tr>
           </tbody>
         </table>
+        <div v-if="crossingCount > 0" class="flex items-start gap-1.5 text-xs text-warning">
+          <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-3.5 shrink-0" />
+          <span>{{ crossingCount }} text line{{ crossingCount === 1 ? ' crosses' : 's cross' }} a cell border. Adjust the grid or the lines.</span>
+        </div>
       </template>
     </div>
     <template #item-leading="{ item }">
