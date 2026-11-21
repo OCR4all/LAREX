@@ -3,7 +3,9 @@ import {
   compareConfidenceLowFirst,
   createVariantFilterState,
   filterTextContentVariants,
-  getMinVariantConfidence
+  getHiddenTextVariantIndices,
+  getMinVariantConfidence,
+  revealTextVariants
 } from '../variant-filtering'
 
 type Variant = {
@@ -101,5 +103,40 @@ describe('variant-filtering', () => {
     const sorted = [...values].sort(compareConfidenceLowFirst)
 
     expect(sorted).toEqual([0.2, 0.5, 0.9, undefined, undefined])
+  })
+
+  it('lists indices of non-empty variants that are not rendered', () => {
+    const all = [
+      { pos: 0, index: 0, text: 'gt' },
+      { pos: 1, index: 3, text: 'ocr' },
+      { pos: 2, text: 'unindexed' },
+      { pos: 3, index: 2, text: '  ' },
+      { pos: 4, index: 1, text: 'other' },
+      { pos: 5, index: 1, text: 'duplicate' }
+    ]
+
+    expect(getHiddenTextVariantIndices(all, [{ pos: 0 }])).toEqual([1, 3, undefined])
+    expect(getHiddenTextVariantIndices(all, all)).toEqual([])
+  })
+
+  it('widens the visibility settings just enough to show the given variants', () => {
+    const settings = {
+      selectedIndices: [0],
+      filterUnindexed: false,
+      confidenceRange: [0.5, 1] as [number, number],
+      showNonAssignedIndices: false
+    }
+    const isNonAssigned = (index: number | undefined) => index === 4
+
+    expect(revealTextVariants(settings, [{ index: 2, confidence: 0.9 }], isNonAssigned)).toEqual({
+      ...settings,
+      selectedIndices: [0, 2]
+    })
+    expect(revealTextVariants(settings, [{ confidence: 0.1 }, { index: 4 }], isNonAssigned)).toEqual({
+      selectedIndices: [0, 4],
+      filterUnindexed: true,
+      confidenceRange: [0, 1],
+      showNonAssignedIndices: true
+    })
   })
 })

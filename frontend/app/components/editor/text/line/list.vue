@@ -32,6 +32,7 @@ import {
   compareConfidenceLowFirst,
   createVariantFilterState,
   filterTextContentVariants,
+  revealTextVariants,
   getMinVariantConfidence,
   hasConfidenceFilter
 } from './variant-filtering'
@@ -939,6 +940,7 @@ const textlines = computed(() => {
       readingDirection: textLineReadingDirectionById.value[tl.id],
       textContentVariants: visibleTextContentVariants,
       allTextContentVariants,
+      hiddenTextContentVariants: allTextContentVariants.filter(te => te.text.trim().length > 0 && !visibleTextContentVariants.includes(te)),
       hasAnyText: allTextContentVariants.some(te => te.text.trim().length > 0),
       hasGtVariant,
       recognitionCandidates,
@@ -960,6 +962,17 @@ const textlines = computed(() => {
     .sort((a, b) => compareTextlineSortEntries(a.entry, b.entry, textlineSortOrder))
     .map(item => item.tl)
 })
+
+function handleRevealHiddenText(textlineId: string, indices: Array<number | undefined>) {
+  const hidden = (textlines.value.find(tl => tl.id === textlineId)?.hiddenTextContentVariants ?? [])
+    .filter(te => indices.includes(te.index))
+  if (hidden.length === 0) return
+  sessionStore.updateTextViewSettings(current => revealTextVariants(
+    current,
+    hidden,
+    index => variantRole(index) === 'nonAssigned'
+  ))
+}
 
 const dictionaryTokensOnPage = computed(() => {
   const tokens = textlines.value.flatMap(textline =>
@@ -1578,6 +1591,7 @@ const sectionMenuItems = computed(() => {
                     @update-text-content-variant-comment="handleUpdateTextContentVariantComment"
                     @update-element-comment="handleUpdateTextlineComment"
                     @create-gt-from-recognition="handleCreateGtFromRecognition"
+                    @reveal-hidden-text="handleRevealHiddenText"
                     @quick-add-codec-char="handleQuickAddCodecCharacter"
                     @quick-add-dictionary-token="handleQuickAddDictionaryToken"
                     @quick-add-keyboard-char="handleQuickAddKeyboardCharacter"

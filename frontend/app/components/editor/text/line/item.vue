@@ -25,6 +25,7 @@ import {
   type ReadingDirection
 } from './reading-direction'
 import { getTextContentVariantRenderKey } from './variant-render-key'
+import { getHiddenTextVariantIndices } from './variant-filtering'
 import { fitCutoutDimensions } from './cutout-sizing'
 import { editorRasterCrop, loadEditorImage } from '@/services/editor/editor-image'
 
@@ -132,6 +133,7 @@ const emit = defineEmits<{
   openCodecEditor: []
   openDictionaryEditor: []
   openKeyboardEditor: []
+  revealHiddenText: [id: string, indices: Array<number | undefined>]
 }>()
 
 const overlay = useOverlay()
@@ -444,6 +446,11 @@ const textContentVariantsWithDiff = computed(() => {
 const visibleTextContentVariantsWithDiff = computed(() => {
   if (!props.focusMode) return textContentVariantsWithDiff.value
   return textContentVariantsWithDiff.value.filter(variant => variantRole(variant.index) !== 'nonAssigned')
+})
+
+const hiddenTextIndices = computed(() => {
+  const indices = getHiddenTextVariantIndices(editableTextContentVariants.value, props.textline.textContentVariants)
+  return props.focusMode ? indices.filter(index => variantRole(index) !== 'nonAssigned') : indices
 })
 
 const boundingBox = computed(() => {
@@ -1055,6 +1062,11 @@ onBeforeUnmount(() => {
                 <Icon name="i-lucide-hash" class="h-3 w-3 mr-1" />
                 {{ props.textline.label ?? props.textline.id }}
               </UBadge>
+              <EditorTextLineHiddenTextHint
+                v-if="!props.focusMode && hiddenTextIndices.length > 0"
+                :indices="hiddenTextIndices"
+                @reveal="emit('revealHiddenText', props.textline.id, hiddenTextIndices)"
+              />
               <div v-if="hasElementComment" class="flex min-w-0 max-w-full items-start gap-1">
                 <EditorTextSharedCommentPopover
                   :textline-id="props.textline.id"
@@ -1201,6 +1213,11 @@ onBeforeUnmount(() => {
               </div>
             </div>
             <div v-if="isVerticalFocusMode" class="shrink-0 flex items-center gap-1">
+              <EditorTextLineHiddenTextHint
+                v-if="hiddenTextIndices.length > 0"
+                :indices="hiddenTextIndices"
+                @reveal="emit('revealHiddenText', props.textline.id, hiddenTextIndices)"
+              />
               <UButton
                 v-if="canCreateGtFromRecognition"
                 data-tooltip="Create GT from first recognition variant"
@@ -1248,6 +1265,11 @@ onBeforeUnmount(() => {
           ]"
         >
           <div v-if="props.focusMode && !isVertical" class="flex flex-wrap items-center gap-1 justify-end w-full">
+            <EditorTextLineHiddenTextHint
+              v-if="hiddenTextIndices.length > 0"
+              :indices="hiddenTextIndices"
+              @reveal="emit('revealHiddenText', props.textline.id, hiddenTextIndices)"
+            />
             <UButton
               v-if="canCreateGtFromRecognition"
               data-tooltip="Create GT from first recognition variant"

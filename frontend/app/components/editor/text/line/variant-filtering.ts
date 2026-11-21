@@ -73,3 +73,59 @@ export function getMinVariantConfidence<T extends TextVariantLike>(variants: T[]
 export function compareConfidenceLowFirst(a: number | undefined, b: number | undefined): number {
   return (a ?? Number.POSITIVE_INFINITY) - (b ?? Number.POSITIVE_INFINITY)
 }
+
+export function getHiddenTextVariantIndices(
+  allVariants: Array<{ pos: number, index?: number, text: string }>,
+  visibleVariants: Array<{ pos: number }>
+): Array<number | undefined> {
+  const visiblePositions = new Set(visibleVariants.map(variant => variant.pos))
+  const indices = new Set<number | undefined>()
+  for (const variant of allVariants) {
+    if (visiblePositions.has(variant.pos) || variant.text.trim().length === 0) continue
+    indices.add(variant.index)
+  }
+  return [...indices].sort((a, b) => (a ?? Number.POSITIVE_INFINITY) - (b ?? Number.POSITIVE_INFINITY))
+}
+
+export type VariantVisibilitySettings = {
+  selectedIndices: number[]
+  filterUnindexed: boolean
+  confidenceRange: [number, number]
+  showNonAssignedIndices: boolean
+}
+
+export function revealTextVariants<S extends VariantVisibilitySettings>(
+  settings: S,
+  variants: TextVariantLike[],
+  isNonAssigned: (index: number | undefined) => boolean
+): S {
+  const state = createVariantFilterState(settings)
+  const selectedIndices = new Set(settings.selectedIndices)
+  let filterUnindexed = settings.filterUnindexed
+  let confidenceRange = settings.confidenceRange
+  let showNonAssignedIndices = settings.showNonAssignedIndices
+
+  for (const variant of variants) {
+    if (state.hasIndexFilter && !matchesVariantFilter(variant, { ...state, hasConfidenceFilter: false })) {
+      if (typeof variant.index === 'number' && Number.isFinite(variant.index) && variant.index >= 0) {
+        selectedIndices.add(variant.index)
+      } else {
+        filterUnindexed = true
+      }
+    }
+    if (state.hasConfidenceFilter && !matchesVariantFilter(variant, { ...state, hasIndexFilter: false })) {
+      confidenceRange = [CONFIDENCE_MIN, CONFIDENCE_MAX]
+    }
+    if (isNonAssigned(variant.index)) {
+      showNonAssignedIndices = true
+    }
+  }
+
+  return {
+    ...settings,
+    selectedIndices: [...selectedIndices].sort((a, b) => a - b),
+    filterUnindexed,
+    confidenceRange,
+    showNonAssignedIndices
+  }
+}
