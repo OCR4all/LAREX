@@ -95,6 +95,29 @@ class AsyncUploadProcessorXmlTest {
     }
 
     @Test
+    void altoInPhysicalUnitsFailsWithTheUnitAsReason() throws Exception {
+        Project project = new Project();
+        project.setId("project");
+        UploadSession session = new UploadSession("project", "workspace", "user", 1, 1);
+        session.setStatus(UploadSession.UploadSessionStatus.UPLOADING);
+        Path path = tempDir.resolve("page.xml");
+        Files.write(path, new org.springframework.core.io.ClassPathResource("alto/mm10.xml").getContentAsByteArray());
+        UploadSessionFile file = new UploadSessionFile("page.xml", Files.size(path), "application/xml", "page", "xml", 1);
+        file.setTempFilePath(path.toString());
+        when(sessions.findById("session")).thenReturn(Optional.of(session));
+        when(projects.findById("project")).thenReturn(Optional.of(project));
+        when(files.findBySessionIdAndStatus("session", UploadSessionFile.UploadFileStatus.UPLOADED)).thenReturn(List.of(file));
+
+        processor.doProcessUploadSession("session");
+
+        assertThat(file.getStatus()).isEqualTo(UploadSessionFile.UploadFileStatus.FAILED);
+        assertThat(file.getErrorMessage())
+                .isEqualTo("Invalid ALTO XML: Coordinates in mm10 are not supported yet. Upload ALTO whose MeasurementUnit is pixel.");
+        verify(pages, never()).save(any());
+        verifyNoInteractions(storage, xmls);
+    }
+
+    @Test
     void invalidXmlDoesNotPreventItsPairedImageFromBeingUploaded() throws Exception {
         Project project = new Project();
         project.setId("project");

@@ -55,9 +55,11 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponseDto> handleInvalidPageXml(
             InvalidPageXmlException error, HttpServletRequest request) {
         return ResponseEntity.unprocessableContent().body(new ErrorResponseDto(
-                422, "Invalid PAGE XML", error.getMessage(), request.getRequestURI(),
+                422, error.isAlto() ? "Invalid ALTO XML" : "Invalid PAGE XML", error.getMessage(), request.getRequestURI(),
                 error.getValidation().errors().stream()
-                        .map(detail -> "Line " + detail.line() + ", column " + detail.column() + ": " + detail.message())
+                        .map(detail -> error.isAlto()
+                                ? detail.message()
+                                : "Line " + detail.line() + ", column " + detail.column() + ": " + detail.message())
                         .toList(),
                 "INVALID_PAGE_XML"));
     }

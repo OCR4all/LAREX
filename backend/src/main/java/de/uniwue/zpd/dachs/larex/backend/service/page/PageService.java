@@ -450,7 +450,7 @@ public class PageService {
                 return false;
             }
 
-            pageXmlValidationService.assertValidPageXml(xmlFile.getResource());
+            pageXmlValidationService.assertImportableXml(xmlFile.getResource());
 
             String projectId = page.getProject().getId();
             var storedFile = hierarchicalFileStorageService.storeMultipartFile(

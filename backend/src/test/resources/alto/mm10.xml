@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<alto xmlns="http://www.loc.gov/standards/alto/ns-v4#">
+  <Description>
+    <MeasurementUnit>mm10</MeasurementUnit>
+    <sourceImageInformation>
+      <fileName>0001.png</fileName>
+    </sourceImageInformation>
+  </Description>
+  <Layout>
+    <Page ID="page_1" WIDTH="1000" HEIGHT="1400" PHYSICAL_IMG_NR="1">
+      <PrintSpace HPOS="0" VPOS="0" WIDTH="1000" HEIGHT="1400">
+        <TextBlock ID="block_1" HPOS="100" VPOS="120" WIDTH="800" HEIGHT="120">
+          <TextLine ID="line_1" HPOS="100" VPOS="120" WIDTH="800" HEIGHT="50" BASELINE="160">
+            <String ID="word_1" HPOS="100" VPOS="120" WIDTH="300" HEIGHT="50" CONTENT="Imported" WC="0.98"/>
+            <SP HPOS="400" VPOS="120" WIDTH="20"/>
+            <String ID="word_2" HPOS="420" VPOS="120" WIDTH="300" HEIGHT="50" CONTENT="from" WC="0.95"/>
+            <SP HPOS="720" VPOS="120" WIDTH="20"/>
+            <String ID="word_3" HPOS="740" VPOS="120" WIDTH="160" HEIGHT="50" CONTENT="ALTO" WC="0.99"/>
+          </TextLine>
+          <TextLine ID="line_2" HPOS="100" VPOS="190" WIDTH="800" HEIGHT="50" BASELINE="230">
+            <String ID="word_4" HPOS="100" VPOS="190" WIDTH="400" HEIGHT="50" CONTENT="Second"/>
+            <SP HPOS="500" VPOS="190" WIDTH="20"/>
+            <String ID="word_5" HPOS="520" VPOS="190" WIDTH="380" HEIGHT="50" CONTENT="line"/>
+          </TextLine>
+        </TextBlock>
+      </PrintSpace>
+    </Page>
+  </Layout>
+</alto>

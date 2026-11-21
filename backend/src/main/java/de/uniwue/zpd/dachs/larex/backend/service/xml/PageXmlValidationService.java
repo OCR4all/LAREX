@@ -61,6 +61,20 @@ public class PageXmlValidationService {
         }
     }
 
+    public void assertImportableXml(Resource xmlResource) {
+        byte[] xml;
+        try (InputStream inputStream = xmlResource.getInputStream()) {
+            xml = inputStream.readAllBytes();
+        } catch (IOException error) {
+            throw new InvalidPageXmlException(invalid(List.of(error(1, 1, "XML_READ_ERROR", "Could not read XML")), null, null));
+        }
+        if (AltoToPageXml.isAlto(xml)) {
+            AltoToPageXml.convert(xml);
+            return;
+        }
+        assertValidPageXml(new ByteArrayResource(xml));
+    }
+
     public PageXmlTextDto.XmlValidationResult validatePageXml(String xmlText) {
         String normalizedXml = xmlText == null ? "" : xmlText;
         return validatePageXml(new ByteArrayResource(normalizedXml.getBytes(StandardCharsets.UTF_8)));

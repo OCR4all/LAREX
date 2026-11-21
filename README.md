@@ -14,7 +14,7 @@ LAREX helps teams turn document images into reviewed layout annotations and tran
 
 - **Annotate layout and text:** draw regions, lines, and tables, set the reading order, and correct transcriptions in a PAGE XML editor.
 - **Work as a team:** organize workspaces and projects, assign page Tasks, review pages, and restore earlier versions.
-- **Import and export:** bring in images, PAGE XML, PDFs, IIIF sources, or LAREX packages, and export PAGE XML, text, PDF, ALTO, TEI, DOCX, CSV, or XLSX.
+- **Import and export:** bring in images, PAGE XML, ALTO, PDFs, IIIF sources, or LAREX packages, and export PAGE XML, text, PDF, ALTO, TEI, DOCX, CSV, or XLSX.
 - **Build datasets:** collect pages, assign splits, and freeze versioned dataset releases.
 - **Automate with Actions:** run external processors for layout analysis and recognition, integrations, model training, and evaluation, alone or as workflows.
 

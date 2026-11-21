@@ -15,6 +15,8 @@ import java.util.List;
 @Service
 public class PageXmlCanonicalizationService {
 
+    public static final String ALTO_SOURCE = "ALTO";
+
     private final PageXmlConversionService pageXmlConversionService;
     private final PageXmlVersionService pageXmlVersionService;
     private final PageXmlRepository pageXmlRepository;
@@ -47,8 +49,17 @@ public class PageXmlCanonicalizationService {
         }
 
         Path xmlPath = hierarchicalFileStorageService.resolveUploadPath(pageXml.getFilePath());
-        String sourceVersion = pageXmlConversionService.detectPageVersion(xmlPath);
         String targetVersion = PageXmlConversionService.PRIMARY_PAGE_VERSION;
+        if (AltoToPageXml.isAlto(xmlPath)) {
+            List<String> messages = AltoToPageXml.convertInPlace(xmlPath);
+            PageXmlPrettyPrinter.prettyPrint(xmlPath);
+            pageXml.setSchemaVersion(targetVersion);
+            pageXml.setFileSize(Files.size(xmlPath));
+            pageXmlRepository.save(pageXml);
+            return new CanonicalizationOutcome(ALTO_SOURCE, targetVersion, true, false, messages);
+        }
+
+        String sourceVersion = pageXmlConversionService.detectPageVersion(xmlPath);
         boolean converted = false;
         boolean snapshotCreated = false;
         List<String> messages = List.of();

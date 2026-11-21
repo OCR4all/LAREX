@@ -342,7 +342,7 @@ public class AsyncUploadProcessor {
         for (UploadSessionFile file : files) {
             if (isXmlFile(file)) {
                 try {
-                    pageXmlValidationService.assertValidPageXml(new FileSystemResource(file.getTempFilePath()));
+                    pageXmlValidationService.assertImportableXml(new FileSystemResource(file.getTempFilePath()));
                 } catch (InvalidPageXmlException error) {
                     file.setStatus(UploadFileStatus.FAILED);
                     file.setErrorMessage(error.getMessage());

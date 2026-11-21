@@ -102,6 +102,38 @@ class PageXmlCanonicalizationServiceTest {
         verify(pageXmlRepository).save(pageXml);
     }
 
+    @Test
+    void canonicalizeAtIngest_altoXml_isConvertedToPrimaryPageXml() throws Exception {
+        Path xmlPath = tempDir.resolve("0001.xml");
+        Files.write(xmlPath, new org.springframework.core.io.ClassPathResource("alto/pixel.xml").getContentAsByteArray());
+
+        PageXml pageXml = new PageXml();
+        pageXml.setId("xml-alto");
+        pageXml.setFilePath("0001.xml");
+        pageXml.setSchema(XmlSchema.PAGE_XML);
+
+        when(hierarchicalFileStorageService.resolveUploadPath("0001.xml")).thenReturn(xmlPath);
+        when(pageXmlRepository.save(pageXml)).thenReturn(pageXml);
+
+        PageXmlCanonicalizationService service = new PageXmlCanonicalizationService(
+                new PageXmlConversionService(),
+                pageXmlVersionService,
+                pageXmlRepository,
+                hierarchicalFileStorageService
+        );
+
+        PageXmlCanonicalizationService.CanonicalizationOutcome outcome =
+                service.canonicalizeAtIngest(pageXml, "user-1", "test ingest");
+
+        assertTrue(outcome.converted());
+        assertFalse(outcome.snapshotCreated());
+        assertEquals(PageXmlCanonicalizationService.ALTO_SOURCE, outcome.sourceVersion());
+        assertEquals("2024-07-15", pageXml.getSchemaVersion());
+        assertEquals(Files.size(xmlPath), pageXml.getFileSize());
+        assertTrue(new PageXmlValidationService().validatePageXml(new FileSystemResource(xmlPath)).valid());
+        verify(pageXmlVersionService, never()).createVersion(any(), any(), any());
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"2017-07-15", "2019-07-15"})
     void canonicalizeAtIngest_olderPageXml_upgradesTo2024AndCreatesSnapshot(String version) throws Exception {

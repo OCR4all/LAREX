@@ -189,7 +189,7 @@ public class UploadConflictService {
                     pageImageRepository.save(newImage);
 
                 } else if ("XML_FILE_EXISTS".equals(file.getConflictType())) {
-                    pageXmlValidationService.assertValidPageXml(new FileSystemResource(tempFilePath));
+                    pageXmlValidationService.assertImportableXml(new FileSystemResource(tempFilePath));
                     pageXmlRepository.findByPage_Id(page.getId()).ifPresent(existingXml -> {
                         replacedStoragePaths.add(existingXml.getFilePath());
                         pageXmlRepository.delete(existingXml);

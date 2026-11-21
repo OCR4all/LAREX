@@ -56,6 +56,8 @@ const versionOptions = [
   { label: 'PAGE XML 2024-07-15', value: '2024-07-15' }
 ]
 
+const altoExportHelp = 'ALTO holds less than PAGE XML. Regions, lines, words and their text are kept, but relations, table rows and columns, and other PAGE-only details are not.'
+
 const pageFormatOptions: Array<{ label: string, value: ExportFormat }> = [
   { label: 'PAGE XML', value: 'PAGE_XML' },
   { label: 'ALTO XML (.alto.xml)', value: 'ALTO_XML' },
@@ -373,6 +375,7 @@ async function closeWithResult() {
           v-if="!isArchiveMode"
           label="Output format"
           name="format"
+          :help="selectedFormat === 'ALTO_XML' ? altoExportHelp : undefined"
         >
           <USelect
             v-model="selectedFormat"
@@ -572,6 +575,7 @@ async function closeWithResult() {
             <UCheckbox
               :model-value="embeddedSelection.ALTO_XML"
               label="ALTO XML (.alto.zip)"
+              :description="altoExportHelp"
               @update:model-value="embeddedSelection.ALTO_XML = ($event === true)"
             />
             <UCheckbox
