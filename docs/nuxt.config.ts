@@ -27,6 +27,10 @@ export default defineNuxtConfig({
 
   compatibilityDate: '2025-07-22',
 
+  devServer: {
+    host: 'localhost'
+  },
+
   vite: {
     optimizeDeps: {
       // Discovered at runtime otherwise, which reloads the page in dev
