@@ -14,7 +14,13 @@ version_variables = [
 match = "main"
 prerelease = false
 
+[semantic_release.branches.dev]
+match = "dev"
+prerelease = true
+prerelease_token = "rc"
+
 [semantic_release.changelog]
+template_dir = "scripts/release/changelog-templates"
 exclude_commit_patterns = ['''^chore\(release\):''']
 
 [semantic_release.remote]

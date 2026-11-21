@@ -121,4 +121,17 @@ if bash "$ROOT_DIR/scripts/release/build-release-manifest.sh" \
   fail "Release manifest accepted a deployment bundle with a mismatched checksum"
 fi
 
+RC_VERSION="1.1.0-rc.1"
+bash "$ROOT_DIR/scripts/release/build-deployment-package.sh" "$RC_VERSION" "$TEST_ROOT" >/dev/null
+bash "$ROOT_DIR/scripts/release/build-release-manifest.sh" \
+  "$RC_VERSION" "$TEST_ROOT" ocr4all/larex "$COMMIT" "$DIGEST" "$DIGEST" "$DIGEST" >/dev/null \
+  || fail "Release manifest rejected a release candidate"
+jq -e --arg version "$RC_VERSION" '.version == $version' \
+  "$TEST_ROOT/larex-release-$RC_VERSION.json" >/dev/null \
+  || fail "Release candidate manifest names the wrong version"
+if bash "$ROOT_DIR/scripts/release/build-release-manifest.sh" \
+  "1.1.0-beta.1" "$TEST_ROOT" ocr4all/larex "$COMMIT" "$DIGEST" "$DIGEST" "$DIGEST" >/dev/null 2>&1; then
+  fail "Release manifest accepted a prerelease that is not a release candidate"
+fi
+
 echo "Release artifact validation passed"

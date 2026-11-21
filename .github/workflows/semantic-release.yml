@@ -29,20 +29,21 @@ jobs:
   version:
     name: Version and Tag
     if: >-
-      github.ref_name == 'main' && (github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'))
+      (github.event_name == 'workflow_dispatch' && (github.ref_name == 'main' || github.ref_name == 'dev')) ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: Check out main
+      - name: Check out ${{ github.ref_name }}
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: main
+          ref: ${{ github.ref_name }}
           fetch-depth: 0
           token: ${{ secrets.RELEASE_TOKEN }}
 
-      - name: Reset main to the verified revision
+      - name: Reset to the verified revision
         env:
           RELEASE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
         run: git reset --hard "$RELEASE_SHA"

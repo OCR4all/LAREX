@@ -25,6 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -39,8 +40,14 @@ jobs:
             exit 1
           fi
           VERSION="${GITHUB_REF_NAME#v}"
-          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Release tag must name a stable semantic version (for example v1.2.3): $GITHUB_REF_NAME" >&2
+          if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            PRERELEASE=false
+            SOURCE_BRANCH=main
+          elif [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]]; then
+            PRERELEASE=true
+            SOURCE_BRANCH=dev
+          else
+            echo "Release tag must name a semantic version or release candidate (for example v1.2.3 or v1.2.3-rc.1): $GITHUB_REF_NAME" >&2
             exit 1
           fi
           FILE_VERSION=$(tr -d '[:space:]' < VERSION)
@@ -48,13 +55,14 @@ jobs:
             echo "VERSION file ($FILE_VERSION) does not match release tag $GITHUB_REF_NAME" >&2
             exit 1
           fi
-          git fetch --no-tags origin main
+          git fetch --no-tags origin "$SOURCE_BRANCH"
           if ! git merge-base --is-ancestor "$GITHUB_SHA" FETCH_HEAD; then
-            echo "Release tag $GITHUB_REF_NAME does not point to a commit on main" >&2
+            echo "Release tag $GITHUB_REF_NAME does not point to a commit on $SOURCE_BRANCH" >&2
             exit 1
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Version: $VERSION"
+          echo "prerelease=$PRERELEASE" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION (prerelease: $PRERELEASE)"
 
   test:
     name: Run Tests
@@ -104,7 +112,7 @@ jobs:
           tags: |
             type=raw,value=${{ needs.version.outputs.version }}
             type=raw,value=${{ needs.version.outputs.version }},suffix=-{{sha}}
-            type=raw,value=latest
+            type=raw,value=latest,enable=${{ needs.version.outputs.prerelease == 'false' }}
             type=sha,prefix=sha-
 
       - name: Extract metadata for frontend
@@ -115,7 +123,7 @@ jobs:
           tags: |
             type=raw,value=${{ needs.version.outputs.version }}
             type=raw,value=${{ needs.version.outputs.version }},suffix=-{{sha}}
-            type=raw,value=latest
+            type=raw,value=latest,enable=${{ needs.version.outputs.prerelease == 'false' }}
             type=sha,prefix=sha-
 
       - name: Extract metadata for docs
@@ -126,7 +134,7 @@ jobs:
           tags: |
             type=raw,value=${{ needs.version.outputs.version }}
             type=raw,value=${{ needs.version.outputs.version }},suffix=-{{sha}}
-            type=raw,value=latest
+            type=raw,value=latest,enable=${{ needs.version.outputs.prerelease == 'false' }}
             type=sha,prefix=sha-
 
       - name: Build and push backend image
@@ -310,6 +318,7 @@ jobs:
             dist/larex-keycloak-theme-${{ needs.version.outputs.version }}.jar
 
       - name: Extract release notes from changelog
+        if: needs.version.outputs.prerelease == 'false'
         env:
           RELEASE_VERSION: ${{ needs.version.outputs.version }}
         run: |
@@ -323,14 +332,24 @@ jobs:
             exit 1
           fi
 
+      - name: Write release candidate notes
+        if: needs.version.outputs.prerelease == 'true'
+        env:
+          RELEASE_VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          printf 'Release candidate %s for testing on staging. Do not run it in production.\n' \
+            "v$RELEASE_VERSION" > dist/release-notes.md
+
       - name: Create Release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: v${{ needs.version.outputs.version }}
           name: Release v${{ needs.version.outputs.version }}
           body_path: dist/release-notes.md
+          generate_release_notes: ${{ needs.version.outputs.prerelease == 'true' }}
           draft: false
-          prerelease: false
+          prerelease: ${{ needs.version.outputs.prerelease == 'true' }}
+          make_latest: ${{ needs.version.outputs.prerelease == 'false' }}
           files: |
             dist/larex-keycloak-theme-${{ needs.version.outputs.version }}.jar.sha256
             dist/larex-deployment-${{ needs.version.outputs.version }}.zip

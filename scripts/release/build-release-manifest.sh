@@ -28,8 +28,8 @@ BACKEND_DIGEST="$5"
 FRONTEND_DIGEST="$6"
 DOCS_DIGEST="$7"
 
-[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] \
-  || fail "Release version must be a stable semantic version: $VERSION"
+[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]] \
+  || fail "Release version must be a semantic version or release candidate: $VERSION"
 [[ "$REPOSITORY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] \
   || fail "Invalid GitHub repository: $REPOSITORY"
 [[ "$COMMIT" =~ ^[0-9a-f]{40}$ ]] \

@@ -12,7 +12,7 @@ command -v jq >/dev/null 2>&1 || { echo 'Install jq to read the theme metadata.'
 
 VERSION="$(jq -r '.version // empty' "$METADATA_PATH")"
 COMMIT="$(jq -r '.source.commit // empty' "$METADATA_PATH")"
-[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Theme metadata does not name a stable release version: ${VERSION:-none}" >&2; exit 1; }
+[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]] || { echo "Theme metadata does not name a release version: ${VERSION:-none}" >&2; exit 1; }
 [[ -n "$COMMIT" ]] || { echo 'Theme metadata does not name a source commit.' >&2; exit 1; }
 
 # Fail closed. Checksums alone cannot establish who published the theme.
