@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
@@ -216,6 +217,36 @@ class ProjectPackageReleaseIntegrationTest {
             assertEquals(PageXmlConversionService.PRIMARY_PAGE_VERSION, importedXml.getSchemaVersion());
             assertTrue(pageXmlVersionRepository.findByPageXml_IdOrderByVersionNumberDesc(importedXml.getId()).isEmpty());
         }
+    }
+
+    @Test
+    void packagedAltoIsImportedAsPageXmlScaledToItsPageImage() throws Exception {
+        TestProjectSource source = createProjectSource("ws-project-alto-package");
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        projectPackageService.writeProjectPackage(
+                source.workspaceId(),
+                source.project().getId(),
+                "user-1",
+                new ProjectPackageDto.ExportRequest(List.of(source.firstXml().getPage().getId()), null, List.of(), false),
+                output
+        );
+        byte[] packaged = replaceEntries(output.toByteArray(), Map.of(
+                "page-a.xml", new ClassPathResource("alto/mm10.xml").getContentAsByteArray(),
+                "page-a.png", new ClassPathResource("alto/page-300dpi.png").getContentAsByteArray()));
+
+        ProjectPackageDto.ImportResult imported = projectPackageService.importProjectPackage(
+                source.workspaceId(),
+                "user-1",
+                new MockMultipartFile("file", "alto.zip", "application/zip", packaged)
+        );
+
+        Page importedPage = pageRepository.findByProjectId(imported.projectId()).getFirst();
+        PageXml importedXml = pageXmlRepository.findByPage_Id(importedPage.getId()).orElseThrow();
+        assertEquals(XmlSchema.PAGE_XML, importedXml.getSchema());
+        assertEquals(PageXmlConversionService.PRIMARY_PAGE_VERSION, importedXml.getSchemaVersion());
+        String xml = Files.readString(hierarchicalFileStorageService.resolveUploadPath(importedXml.getFilePath()));
+        assertTrue(xml.contains("imageWidth=\"1181\""));
+        assertTrue(xml.contains("LAREX ALTO import"));
     }
 
     @Test
@@ -669,6 +700,25 @@ class ProjectPackageReleaseIntegrationTest {
         ));
 
         return new TestProjectSource(workspaceId, project, firstXml, secondXml, firstXmlPath, secondXmlPath);
+    }
+
+    private byte[] replaceEntries(byte[] zip, Map<String, byte[]> replacementsBySuffix) throws IOException {
+        ByteArrayOutputStream result = new ByteArrayOutputStream();
+        try (java.util.zip.ZipInputStream in = new java.util.zip.ZipInputStream(new java.io.ByteArrayInputStream(zip));
+             java.util.zip.ZipOutputStream out = new java.util.zip.ZipOutputStream(result)) {
+            for (java.util.zip.ZipEntry entry = in.getNextEntry(); entry != null; entry = in.getNextEntry()) {
+                String name = entry.getName();
+                byte[] content = replacementsBySuffix.entrySet().stream()
+                        .filter(replacement -> name.endsWith("/" + replacement.getKey()) || name.equals(replacement.getKey()))
+                        .map(Map.Entry::getValue)
+                        .findFirst()
+                        .orElse(in.readAllBytes());
+                out.putNextEntry(new java.util.zip.ZipEntry(name));
+                out.write(content);
+                out.closeEntry();
+            }
+        }
+        return result.toByteArray();
     }
 
     private Path writeUploadFile(String relativePath, String content) throws IOException {

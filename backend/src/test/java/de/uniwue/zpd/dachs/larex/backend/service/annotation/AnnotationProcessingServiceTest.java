@@ -26,7 +26,6 @@ import de.uniwue.zpd.dachs.larex.backend.service.annotation.events.AnnotationSav
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.exporter.AnnotationToAltoXmlExporter;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.exporter.AnnotationToPageXmlExporter;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.exporter.PageXmlWriteResult;
-import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.AltoXmlToAnnotationParser;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlToAnnotationParser;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshService;
@@ -75,8 +74,6 @@ class AnnotationProcessingServiceTest {
     private PageXmlRepository pageXmlRepository;
     @Mock
     private PageXmlToAnnotationParser pageXmlParser;
-    @Mock
-    private AltoXmlToAnnotationParser altoXmlParser;
     @Mock
     private AnnotationToPageXmlExporter pageXmlExporter;
     @Mock
@@ -381,7 +378,6 @@ class AnnotationProcessingServiceTest {
                 pageRepository,
                 pageXmlRepository,
                 pageXmlParser,
-                altoXmlParser,
                 pageXmlExporter,
                 altoXmlExporter,
                 pageXmlVersionService,

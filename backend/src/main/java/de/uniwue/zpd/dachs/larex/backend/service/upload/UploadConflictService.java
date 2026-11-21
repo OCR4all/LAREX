@@ -14,6 +14,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.upload.UploadSessionFileRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
+import de.uniwue.zpd.dachs.larex.backend.service.xml.AltoToPageXml;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlCanonicalizationService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlValidationService;
 import org.springframework.core.io.FileSystemResource;
@@ -189,7 +190,11 @@ public class UploadConflictService {
                     pageImageRepository.save(newImage);
 
                 } else if ("XML_FILE_EXISTS".equals(file.getConflictType())) {
-                    pageXmlValidationService.assertImportableXml(new FileSystemResource(tempFilePath));
+                    Optional<byte[]> converted = pageXmlValidationService.toImportablePageXml(new FileSystemResource(tempFilePath),
+                            imageFilename -> pageXmlCanonicalizationService.storedPageImage(page.getId()).apply(imageFilename));
+                    if (converted.isPresent()) {
+                        AltoToPageXml.writeAtomically(tempFilePath, converted.get());
+                    }
                     pageXmlRepository.findByPage_Id(page.getId()).ifPresent(existingXml -> {
                         replacedStoragePaths.add(existingXml.getFilePath());
                         pageXmlRepository.delete(existingXml);

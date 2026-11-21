@@ -1,7 +1,10 @@
 package de.uniwue.zpd.dachs.larex.backend.service.xml;
 
+import de.uniwue.zpd.dachs.larex.backend.entity.Page;
+import de.uniwue.zpd.dachs.larex.backend.entity.PageImage;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageImageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import de.uniwue.zpd.dachs.larex.backend.service.version.PageXmlVersionService;
@@ -40,6 +43,8 @@ class PageXmlCanonicalizationServiceTest {
     private PageXmlRepository pageXmlRepository;
     @Mock
     private HierarchicalFileStorageService hierarchicalFileStorageService;
+    @Mock
+    private PageImageRepository pageImageRepository;
 
     @Test
     void canonicalizeAtIngest_nonPageXml_returnsNoOpOutcome() throws Exception {
@@ -50,7 +55,8 @@ class PageXmlCanonicalizationServiceTest {
                 new PageXmlConversionService(),
                 pageXmlVersionService,
                 pageXmlRepository,
-                hierarchicalFileStorageService
+                hierarchicalFileStorageService,
+                pageImageRepository
         );
 
         PageXmlCanonicalizationService.CanonicalizationOutcome outcome =
@@ -85,7 +91,8 @@ class PageXmlCanonicalizationServiceTest {
                 new PageXmlConversionService(),
                 pageXmlVersionService,
                 pageXmlRepository,
-                hierarchicalFileStorageService
+                hierarchicalFileStorageService,
+                pageImageRepository
         );
 
         PageXmlCanonicalizationService.CanonicalizationOutcome outcome =
@@ -119,7 +126,8 @@ class PageXmlCanonicalizationServiceTest {
                 new PageXmlConversionService(),
                 pageXmlVersionService,
                 pageXmlRepository,
-                hierarchicalFileStorageService
+                hierarchicalFileStorageService,
+                pageImageRepository
         );
 
         PageXmlCanonicalizationService.CanonicalizationOutcome outcome =
@@ -132,6 +140,42 @@ class PageXmlCanonicalizationServiceTest {
         assertEquals(Files.size(xmlPath), pageXml.getFileSize());
         assertTrue(new PageXmlValidationService().validatePageXml(new FileSystemResource(xmlPath)).valid());
         verify(pageXmlVersionService, never()).createVersion(any(), any(), any());
+    }
+
+    @Test
+    void canonicalizeAtIngest_altoInPhysicalUnits_isScaledToTheStoredPageImage() throws Exception {
+        Path xmlPath = tempDir.resolve("0001.xml");
+        Files.write(xmlPath, new org.springframework.core.io.ClassPathResource("alto/mm10.xml").getContentAsByteArray());
+        Path imagePath = new org.springframework.core.io.ClassPathResource("alto/page-300dpi.png").getFile().toPath();
+
+        Page page = new Page();
+        page.setId("page-1");
+        PageImage image = new PageImage("0001.png", "0001.png", "image/png", Files.size(imagePath), "png", "0001", page);
+        PageXml pageXml = new PageXml();
+        pageXml.setId("xml-alto-mm10");
+        pageXml.setFilePath("0001.xml");
+        pageXml.setSchema(XmlSchema.PAGE_XML);
+        pageXml.setPage(page);
+
+        when(hierarchicalFileStorageService.resolveUploadPath("0001.xml")).thenReturn(xmlPath);
+        when(hierarchicalFileStorageService.resolveUploadPath("0001.png")).thenReturn(imagePath);
+        when(pageImageRepository.findByPageId("page-1")).thenReturn(java.util.List.of(image));
+        when(pageXmlRepository.save(pageXml)).thenReturn(pageXml);
+
+        PageXmlCanonicalizationService service = new PageXmlCanonicalizationService(
+                new PageXmlConversionService(),
+                pageXmlVersionService,
+                pageXmlRepository,
+                hierarchicalFileStorageService,
+                pageImageRepository
+        );
+
+        service.canonicalizeAtIngest(pageXml, "user-1", "test ingest");
+
+        String converted = Files.readString(xmlPath, StandardCharsets.UTF_8);
+        assertTrue(converted.contains("imageWidth=\"1181\""));
+        assertTrue(converted.contains("imageHeight=\"1654\""));
+        assertTrue(new PageXmlValidationService().validatePageXml(new FileSystemResource(xmlPath)).valid());
     }
 
     @ParameterizedTest
@@ -152,7 +196,8 @@ class PageXmlCanonicalizationServiceTest {
                 new PageXmlConversionService(),
                 pageXmlVersionService,
                 pageXmlRepository,
-                hierarchicalFileStorageService
+                hierarchicalFileStorageService,
+                pageImageRepository
         );
 
         PageXmlCanonicalizationService.CanonicalizationOutcome outcome =
@@ -189,7 +234,8 @@ class PageXmlCanonicalizationServiceTest {
                 new PageXmlConversionService(),
                 pageXmlVersionService,
                 pageXmlRepository,
-                hierarchicalFileStorageService
+                hierarchicalFileStorageService,
+                pageImageRepository
         );
 
         PageXmlCanonicalizationService.CanonicalizationOutcome outcome =

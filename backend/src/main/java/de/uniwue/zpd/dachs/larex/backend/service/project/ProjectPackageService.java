@@ -1275,19 +1275,35 @@ public class ProjectPackageService {
             for (ProjectPackageDto.XmlFileDescriptor xmlDescriptor : safeList(descriptor.xml())) {
                 Path source = importedPage.resolve(importedPackage.root(), xmlDescriptor.path());
                 XmlSchema schema = detectXmlSchema(source);
-                if (schema == XmlSchema.PAGE_XML) {
+                boolean alto = schema == XmlSchema.ALTO_XML;
+                Path xmlSource = source;
+                if (alto) {
+                    pageRepository.flush();
+                    byte[] converted = pageXmlValidationService.toImportablePageXml(new FileSystemResource(source),
+                            pageXmlCanonicalizationService.storedPageImage(page.getId())).orElseThrow();
+                    xmlSource = Files.createTempFile("larex-converted-", ".xml");
+                    Files.write(xmlSource, converted);
+                    schema = XmlSchema.PAGE_XML;
+                } else if (schema == XmlSchema.PAGE_XML) {
                     pageXmlValidationService.assertValidPageXml(new FileSystemResource(source));
                 }
-                var stored = hierarchicalFileStorageService.storeFromPath(
-                        source,
-                        xmlDescriptor.fileName(),
-                        detectMimeType(xmlDescriptor.fileName(), "application/xml"),
-                        project.getLibrary().getWorkspaceId(),
-                        project.getId(),
-                        de.uniwue.zpd.dachs.larex.backend.entity.StoredFile.StoredFileType.XML,
-                        userId,
-                        false
-                );
+                HierarchicalFileStorageService.StoredFileDescriptor stored;
+                try {
+                    stored = hierarchicalFileStorageService.storeFromPath(
+                            xmlSource,
+                            xmlDescriptor.fileName(),
+                            detectMimeType(xmlDescriptor.fileName(), "application/xml"),
+                            project.getLibrary().getWorkspaceId(),
+                            project.getId(),
+                            de.uniwue.zpd.dachs.larex.backend.entity.StoredFile.StoredFileType.XML,
+                            userId,
+                            alto
+                    );
+                } finally {
+                    if (alto) {
+                        Files.deleteIfExists(xmlSource);
+                    }
+                }
                 createdStoragePaths.add(stored.storagePath());
                 PageXml xml = pageXmlRepository.save(new PageXml(
                         xmlDescriptor.fileName(),
@@ -1297,7 +1313,7 @@ public class ProjectPackageService {
                         xmlDescriptor.variant(),
                         xmlDescriptor.baseName(),
                         schema,
-                        schema == XmlSchema.PAGE_XML ? pageXmlConversionService.detectPageVersion(source) : null,
+                        schema == XmlSchema.PAGE_XML && !alto ? pageXmlConversionService.detectPageVersion(source) : null,
                         page
                 ));
                 if (schema == XmlSchema.PAGE_XML) {

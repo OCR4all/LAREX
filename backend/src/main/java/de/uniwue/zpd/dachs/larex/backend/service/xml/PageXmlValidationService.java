@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.service.xml;
 
+import com.maxnth.page4j.formats.SourceImage;
 import de.uniwue.zpd.dachs.larex.backend.dto.PageXmlTextDto;
 import de.uniwue.zpd.dachs.larex.backend.exception.InvalidPageXmlException;
 import org.springframework.core.io.Resource;
@@ -30,8 +31,10 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -61,7 +64,7 @@ public class PageXmlValidationService {
         }
     }
 
-    public void assertImportableXml(Resource xmlResource) {
+    public Optional<byte[]> toImportablePageXml(Resource xmlResource, Function<String, Optional<SourceImage>> pageImage) {
         byte[] xml;
         try (InputStream inputStream = xmlResource.getInputStream()) {
             xml = inputStream.readAllBytes();
@@ -69,10 +72,10 @@ public class PageXmlValidationService {
             throw new InvalidPageXmlException(invalid(List.of(error(1, 1, "XML_READ_ERROR", "Could not read XML")), null, null));
         }
         if (AltoToPageXml.isAlto(xml)) {
-            AltoToPageXml.convert(xml);
-            return;
+            return Optional.of(AltoToPageXml.convert(xml, pageImage).pageXml());
         }
         assertValidPageXml(new ByteArrayResource(xml));
+        return Optional.empty();
     }
 
     public PageXmlTextDto.XmlValidationResult validatePageXml(String xmlText) {

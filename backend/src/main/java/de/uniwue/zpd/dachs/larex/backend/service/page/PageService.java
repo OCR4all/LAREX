@@ -26,6 +26,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.notification.NotificationServic
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.cache.AnnotationReadCache;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
+import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService.StoredFileDescriptor;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.ThumbnailService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshService;
 import de.uniwue.zpd.dachs.larex.backend.service.version.PageXmlVersionService;
@@ -34,6 +35,8 @@ import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlCanonicalizationServ
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlValidationService;
 import de.uniwue.zpd.dachs.larex.backend.util.ImageFileUtils;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -432,6 +435,18 @@ public class PageService {
         return List.of();
     }
 
+    private StoredFileDescriptor storeConvertedXml(byte[] pageXml, String originalFilename, String workspaceId,
+                                                   String projectId, String userId) throws IOException {
+        Path converted = Files.createTempFile("larex-converted-", ".xml");
+        try {
+            Files.write(converted, pageXml);
+            return hierarchicalFileStorageService.storeFromPath(
+                    converted, originalFilename, "application/xml", workspaceId, projectId, StoredFileType.XML, userId, true);
+        } finally {
+            Files.deleteIfExists(converted);
+        }
+    }
+
     public boolean uploadXmlFile(String pageId, MultipartFile xmlFile, String userId) throws IOException {
         Optional<Page> pageOpt = getPageById(pageId, userId);
 
@@ -450,16 +465,19 @@ public class PageService {
                 return false;
             }
 
-            pageXmlValidationService.assertImportableXml(xmlFile.getResource());
+            Optional<byte[]> converted = pageXmlValidationService.toImportablePageXml(xmlFile.getResource(),
+                    imageFilename -> pageXmlCanonicalizationService.storedPageImage(pageId).apply(imageFilename));
 
             String projectId = page.getProject().getId();
-            var storedFile = hierarchicalFileStorageService.storeMultipartFile(
-                    xmlFile,
-                    workspaceId,
-                    projectId,
-                    StoredFileType.XML,
-                    userId
-            );
+            var storedFile = converted.isPresent()
+                    ? storeConvertedXml(converted.get(), xmlFile.getOriginalFilename(), workspaceId, projectId, userId)
+                    : hierarchicalFileStorageService.storeMultipartFile(
+                            xmlFile,
+                            workspaceId,
+                            projectId,
+                            StoredFileType.XML,
+                            userId
+                    );
 
             String baseName = (storedFile.originalFilename() != null && storedFile.originalFilename().contains("."))
                     ? storedFile.originalFilename().substring(0, storedFile.originalFilename().lastIndexOf('.'))

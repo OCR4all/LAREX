@@ -5,6 +5,7 @@ import com.maxnth.page4j.formats.AltoXml;
 import com.maxnth.page4j.formats.Format;
 import com.maxnth.page4j.formats.MeasurementUnit;
 import com.maxnth.page4j.formats.ReadDiagnostic;
+import com.maxnth.page4j.formats.SourceImage;
 import com.maxnth.page4j.model.Label;
 import com.maxnth.page4j.model.LabelGroup;
 import com.maxnth.page4j.model.MetadataItem;
@@ -24,6 +25,8 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.function.Function;
 
 public final class AltoToPageXml {
 
@@ -46,15 +49,22 @@ public final class AltoToPageXml {
     }
 
     public static Converted convert(byte[] alto) {
-        AltoReadResult read;
-        try {
-            read = AltoXml.create().read(alto);
-        } catch (PageReadException e) {
-            throw invalid("ALTO_READ_ERROR", "Could not read ALTO XML: " + e.getMessage());
-        }
+        return convert(alto, imageFilename -> Optional.empty());
+    }
+
+    public static Converted convert(byte[] alto, Function<String, Optional<SourceImage>> pageImage) {
+        AltoReadResult read = read(alto, null);
         if (read.measurementUnit() != MeasurementUnit.PIXEL) {
-            throw invalid("ALTO_UNSUPPORTED_UNIT", "Coordinates in " + read.measurementUnit().name().toLowerCase()
-                    + " are not supported yet. Upload ALTO whose MeasurementUnit is pixel.");
+            String unit = read.measurementUnit().name().toLowerCase();
+            SourceImage image = pageImage.apply(read.page().imageFilename()).orElseThrow(() -> invalid(
+                    "ALTO_IMAGE_REQUIRED",
+                    "Coordinates in " + unit + " can only be converted to pixels with the page image. "
+                            + "Upload the image together with the ALTO file."));
+            read = read(alto, image);
+            if (read.page().imageWidth() != image.width() || read.page().imageHeight() != image.height()) {
+                throw invalid("ALTO_UNSUPPORTED_UNIT", "Coordinates in " + unit + " could not be converted to pixels: "
+                        + "the page image has no resolution and its size does not match the ALTO page.");
+            }
         }
         List<String> messages = read.diagnostics().stream().map(ReadDiagnostic::message).toList();
         try {
@@ -65,20 +75,33 @@ public final class AltoToPageXml {
         }
     }
 
-    public static List<String> convertInPlace(Path xmlPath) throws IOException {
-        Converted converted = convert(Files.readAllBytes(xmlPath));
-        Path tempPath = Files.createTempFile(xmlPath.getParent(), xmlPath.getFileName().toString(), ".tmp");
+    private static AltoReadResult read(byte[] alto, SourceImage image) {
         try {
-            Files.write(tempPath, converted.pageXml());
+            return image == null ? AltoXml.create().read(alto) : AltoXml.create().read(alto, image);
+        } catch (PageReadException e) {
+            throw invalid("ALTO_READ_ERROR", "Could not read ALTO XML: " + e.getMessage());
+        }
+    }
+
+    public static List<String> convertInPlace(Path xmlPath, Function<String, Optional<SourceImage>> pageImage)
+            throws IOException {
+        Converted converted = convert(Files.readAllBytes(xmlPath), pageImage);
+        writeAtomically(xmlPath, converted.pageXml());
+        return converted.messages();
+    }
+
+    public static void writeAtomically(Path target, byte[] content) throws IOException {
+        Path tempPath = Files.createTempFile(target.toAbsolutePath().getParent(), target.getFileName().toString(), ".tmp");
+        try {
+            Files.write(tempPath, content);
             try {
-                Files.move(tempPath, xmlPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+                Files.move(tempPath, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
             } catch (AtomicMoveNotSupportedException e) {
-                Files.move(tempPath, xmlPath, StandardCopyOption.REPLACE_EXISTING);
+                Files.move(tempPath, target, StandardCopyOption.REPLACE_EXISTING);
             }
         } finally {
             Files.deleteIfExists(tempPath);
         }
-        return converted.messages();
     }
 
     private static Page withImportStep(Page page, List<String> messages) {

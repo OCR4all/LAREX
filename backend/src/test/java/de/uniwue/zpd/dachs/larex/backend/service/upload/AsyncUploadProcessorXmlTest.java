@@ -95,7 +95,7 @@ class AsyncUploadProcessorXmlTest {
     }
 
     @Test
-    void altoInPhysicalUnitsFailsWithTheUnitAsReason() throws Exception {
+    void altoInPhysicalUnitsWithoutAnImageFailsWithTheReason() throws Exception {
         Project project = new Project();
         project.setId("project");
         UploadSession session = new UploadSession("project", "workspace", "user", 1, 1);
@@ -112,7 +112,8 @@ class AsyncUploadProcessorXmlTest {
 
         assertThat(file.getStatus()).isEqualTo(UploadSessionFile.UploadFileStatus.FAILED);
         assertThat(file.getErrorMessage())
-                .isEqualTo("Invalid ALTO XML: Coordinates in mm10 are not supported yet. Upload ALTO whose MeasurementUnit is pixel.");
+                .isEqualTo("Invalid ALTO XML: Coordinates in mm10 can only be converted to pixels with the page image. "
+                        + "Upload the image together with the ALTO file.");
         verify(pages, never()).save(any());
         verifyNoInteractions(storage, xmls);
     }

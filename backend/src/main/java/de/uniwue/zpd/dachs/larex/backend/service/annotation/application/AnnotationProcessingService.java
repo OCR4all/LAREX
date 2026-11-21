@@ -23,7 +23,6 @@ import de.uniwue.zpd.dachs.larex.backend.service.annotation.events.AnnotationSav
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.exporter.AnnotationToPageXmlExporter;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.exporter.AnnotationToAltoXmlExporter;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.exporter.PageXmlWriteResult;
-import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.AltoXmlToAnnotationParser;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlToAnnotationParser;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlParseResult;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
@@ -71,7 +70,6 @@ public class AnnotationProcessingService {
     private final PageRepository pageRepository;
     private final PageXmlRepository pageXmlRepository;
     private final PageXmlToAnnotationParser pageXmlParser;
-    private final AltoXmlToAnnotationParser altoXmlParser;
     private final AnnotationToPageXmlExporter pageXmlExporter;
     private final AnnotationToAltoXmlExporter altoXmlExporter;
     private final PageXmlVersionService pageXmlVersionService;
@@ -89,7 +87,6 @@ public class AnnotationProcessingService {
             PageRepository pageRepository,
             PageXmlRepository pageXmlRepository,
             PageXmlToAnnotationParser pageXmlParser,
-            AltoXmlToAnnotationParser altoXmlParser,
             AnnotationToPageXmlExporter pageXmlExporter,
             AnnotationToAltoXmlExporter altoXmlExporter,
             PageXmlVersionService pageXmlVersionService,
@@ -103,7 +100,6 @@ public class AnnotationProcessingService {
         this.pageRepository = pageRepository;
         this.pageXmlRepository = pageXmlRepository;
         this.pageXmlParser = pageXmlParser;
-        this.altoXmlParser = altoXmlParser;
         this.pageXmlExporter = pageXmlExporter;
         this.altoXmlExporter = altoXmlExporter;
         this.pageXmlVersionService = pageXmlVersionService;
@@ -145,9 +141,6 @@ public class AnnotationProcessingService {
                         xmlId, (System.nanoTime() - startedAt) / 1_000_000);
             }
             return parsed;
-        } else if (xml.getSchema() == XmlSchema.ALTO_XML) {
-            // TODO(larex): Migrate ALTO parser to PageDto via page4j ALTO support.
-            throw new UnsupportedOperationException("ALTO XML parsing not yet migrated to PageDto");
         } else {
             throw new UnsupportedOperationException("No parser available for schema: " + xml.getSchema());
         }
@@ -302,8 +295,6 @@ public class AnnotationProcessingService {
                 Files.deleteIfExists(tempPath);
                 throw e;
             }
-        } else if (schema == XmlSchema.ALTO_XML) {
-            throw new UnsupportedOperationException("ALTO XML export not yet migrated to PageDto");
         } else {
             throw new UnsupportedOperationException("No exporter available for schema: " + schema);
         }
@@ -384,7 +375,6 @@ public class AnnotationProcessingService {
      * Check if a schema is supported for parsing.
      */
     public boolean isSchemaSupported(XmlSchema schema) {
-        // TODO(larex): Add ALTO_XML once ALTO parse support is migrated.
         return schema == XmlSchema.PAGE_XML;
     }
 

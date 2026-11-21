@@ -15,6 +15,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorage
 import de.uniwue.zpd.dachs.larex.backend.service.storage.StorageTrackingService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlCanonicalizationService;
+import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlValidationService;
 import de.uniwue.zpd.dachs.larex.backend.util.ImageFileUtils;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -24,6 +25,7 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
+import org.springframework.core.io.FileSystemResource;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -44,6 +46,7 @@ public class AsyncImportProcessor {
     private final PageFilterIndexService pageFilterIndexService;
     private final HierarchicalFileStorageService hierarchicalFileStorageService;
     private final PageXmlCanonicalizationService pageXmlCanonicalizationService;
+    private final PageXmlValidationService pageXmlValidationService;
     private final WorkspaceQuotaGuardService workspaceQuotaGuardService;
     private final ImportProperties properties;
 
@@ -57,6 +60,7 @@ public class AsyncImportProcessor {
                                 PageFilterIndexService pageFilterIndexService,
                                 HierarchicalFileStorageService hierarchicalFileStorageService,
                                 PageXmlCanonicalizationService pageXmlCanonicalizationService,
+                                PageXmlValidationService pageXmlValidationService,
                                 WorkspaceQuotaGuardService workspaceQuotaGuardService,
                                 ImportProperties properties) {
         this.importJobRepository = importJobRepository;
@@ -69,6 +73,7 @@ public class AsyncImportProcessor {
         this.pageFilterIndexService = pageFilterIndexService;
         this.hierarchicalFileStorageService = hierarchicalFileStorageService;
         this.pageXmlCanonicalizationService = pageXmlCanonicalizationService;
+        this.pageXmlValidationService = pageXmlValidationService;
         this.workspaceQuotaGuardService = workspaceQuotaGuardService;
         this.properties = properties;
     }
@@ -244,7 +249,8 @@ public class AsyncImportProcessor {
         // Find or create page
         Page page = pagesByName.computeIfAbsent(baseName, name -> createPage(project, name));
 
-        for (Path filePath : files) {
+        List<Path> ordered = files.stream().sorted(Comparator.comparing(this::isXmlFile)).toList();
+        for (Path filePath : ordered) {
             String fileName = filePath.getFileName().toString();
 
             if (isImageFile(filePath)) {
@@ -296,27 +302,37 @@ public class AsyncImportProcessor {
 
             } else if (isXmlFile(filePath)) {
                 Optional<PageXml> existingXml = pageXmlRepository.findByPage_Id(page.getId());
+                if (existingXml.isPresent() && !overwriteExisting) {
+                    skipped++;
+                    continue;
+                }
+                Optional<byte[]> converted = pageXmlValidationService.toImportablePageXml(new FileSystemResource(filePath),
+                        pageXmlCanonicalizationService.storedPageImage(page.getId()));
+                Path xmlSource = converted.isPresent() ? writeConvertedCopy(converted.get()) : filePath;
                 if (existingXml.isPresent()) {
-                    if (!overwriteExisting) {
-                        skipped++;
-                        continue;
-                    }
                     PageXml headXml = existingXml.get();
                     hierarchicalFileStorageService.deleteStoredFile(headXml.getFilePath());
                     pageXmlRepository.delete(headXml);
                     pageXmlRepository.flush();
                 }
 
-                var storedXml = hierarchicalFileStorageService.storeFromPath(
-                        filePath,
-                        fileName,
-                        detectMimeType(fileName),
-                        project.getLibrary().getWorkspaceId(),
-                        project.getId(),
-                        StoredFileType.XML,
-                        createdByUserId,
-                        false
-                );
+                HierarchicalFileStorageService.StoredFileDescriptor storedXml;
+                try {
+                    storedXml = hierarchicalFileStorageService.storeFromPath(
+                            xmlSource,
+                            fileName,
+                            detectMimeType(fileName),
+                            project.getLibrary().getWorkspaceId(),
+                            project.getId(),
+                            StoredFileType.XML,
+                            createdByUserId,
+                            converted.isPresent()
+                    );
+                } finally {
+                    if (converted.isPresent()) {
+                        Files.deleteIfExists(xmlSource);
+                    }
+                }
 
                 // Create PageXml entity
                 String xmlBaseName = (storedXml.originalFilename() != null && storedXml.originalFilename().contains("."))
@@ -347,6 +363,12 @@ public class AsyncImportProcessor {
         }
 
         return new int[]{processed, skipped};
+    }
+
+    private Path writeConvertedCopy(byte[] pageXml) throws IOException {
+        Path converted = Files.createTempFile("larex-converted-", ".xml");
+        Files.write(converted, pageXml);
+        return converted;
     }
 
     private Page createPage(Project project, String baseName) {

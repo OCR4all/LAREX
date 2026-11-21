@@ -1,16 +1,22 @@
 package de.uniwue.zpd.dachs.larex.backend.service.xml;
 
+import com.maxnth.page4j.formats.SourceImage;
+import de.uniwue.zpd.dachs.larex.backend.entity.PageImage;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageImageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import de.uniwue.zpd.dachs.larex.backend.service.version.PageXmlVersionService;
+import de.uniwue.zpd.dachs.larex.backend.util.ImageFileUtils;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
+import java.util.function.Function;
 
 @Service
 public class PageXmlCanonicalizationService {
@@ -21,15 +27,29 @@ public class PageXmlCanonicalizationService {
     private final PageXmlVersionService pageXmlVersionService;
     private final PageXmlRepository pageXmlRepository;
     private final HierarchicalFileStorageService hierarchicalFileStorageService;
+    private final PageImageRepository pageImageRepository;
 
     public PageXmlCanonicalizationService(PageXmlConversionService pageXmlConversionService,
                                           PageXmlVersionService pageXmlVersionService,
                                           PageXmlRepository pageXmlRepository,
-                                          HierarchicalFileStorageService hierarchicalFileStorageService) {
+                                          HierarchicalFileStorageService hierarchicalFileStorageService,
+                                          PageImageRepository pageImageRepository) {
         this.pageXmlConversionService = pageXmlConversionService;
         this.pageXmlVersionService = pageXmlVersionService;
         this.pageXmlRepository = pageXmlRepository;
         this.hierarchicalFileStorageService = hierarchicalFileStorageService;
+        this.pageImageRepository = pageImageRepository;
+    }
+
+    public Function<String, Optional<SourceImage>> storedPageImage(String pageId) {
+        return imageFilename -> {
+            if (pageId == null) {
+                return Optional.empty();
+            }
+            List<PageImage> images = ImageFileUtils.sortForDisplay(pageImageRepository.findByPageId(pageId), null);
+            return SourceImages.matching(images, PageImage::getFileName, imageFilename)
+                    .flatMap(image -> SourceImages.read(hierarchicalFileStorageService.resolveUploadPath(image.getFilePath())));
+        };
     }
 
     public CanonicalizationOutcome canonicalizeAtIngest(PageXml pageXml, String userId, String sourceContext) throws IOException {
@@ -51,7 +71,8 @@ public class PageXmlCanonicalizationService {
         Path xmlPath = hierarchicalFileStorageService.resolveUploadPath(pageXml.getFilePath());
         String targetVersion = PageXmlConversionService.PRIMARY_PAGE_VERSION;
         if (AltoToPageXml.isAlto(xmlPath)) {
-            List<String> messages = AltoToPageXml.convertInPlace(xmlPath);
+            String pageId = pageXml.getPage() == null ? null : pageXml.getPage().getId();
+            List<String> messages = AltoToPageXml.convertInPlace(xmlPath, storedPageImage(pageId));
             PageXmlPrettyPrinter.prettyPrint(xmlPath);
             pageXml.setSchemaVersion(targetVersion);
             pageXml.setFileSize(Files.size(xmlPath));

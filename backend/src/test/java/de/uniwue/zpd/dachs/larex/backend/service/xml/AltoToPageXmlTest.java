@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.service.xml;
 
+import com.maxnth.page4j.formats.SourceImage;
 import com.maxnth.page4j.pagexml.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.exception.InvalidPageXmlException;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlToAnnotationParser;
@@ -13,10 +14,12 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.within;
 
 class AltoToPageXmlTest {
 
@@ -76,26 +79,61 @@ class AltoToPageXmlTest {
     }
 
     @Test
-    void rejectsAltoInPhysicalUnits() {
-        assertThatThrownBy(() -> AltoToPageXml.convert(fixture("mm10.xml")))
-                .isInstanceOfSatisfying(InvalidPageXmlException.class, error ->
-                        assertThat(error.getValidation().errors())
-                                .extracting(e -> e.code())
-                                .containsExactly("ALTO_UNSUPPORTED_UNIT"));
+    void scalesPhysicalUnitsToThePageImage() throws IOException {
+        SourceImage image = SourceImages.read(fixturePath("page-300dpi.png")).orElseThrow();
+
+        byte[] pageXml = AltoToPageXml.convert(fixture("mm10.xml"), imageFilename -> Optional.of(image)).pageXml();
+
+        var page = new PageXmlToAnnotationParser(new Page4jToDtoMapper()).parse(pageXml);
+        assertThat(page.imageWidth()).isEqualTo(1181);
+        assertThat(page.imageHeight()).isEqualTo(1654);
+        assertThat(new String(pageXml, StandardCharsets.UTF_8)).contains("118,142");
     }
 
     @Test
-    void importValidationAcceptsPixelAltoAndPageXmlOnly() throws IOException {
-        assertThatCode(() -> validation.assertImportableXml(new ByteArrayResource(fixture("pixel.xml"))))
-                .doesNotThrowAnyException();
-        assertThatCode(() -> validation.assertImportableXml(
-                new ByteArrayResource(primaryPageXml().getBytes(StandardCharsets.UTF_8))))
-                .doesNotThrowAnyException();
-        assertThatThrownBy(() -> validation.assertImportableXml(new ByteArrayResource(fixture("mm10.xml"))))
+    void readsThePageImageSizeAndResolution() {
+        assertThat(SourceImages.read(fixturePath("page-300dpi.png"))).hasValueSatisfying(image -> {
+            assertThat(image.width()).isEqualTo(1181);
+            assertThat(image.height()).isEqualTo(1654);
+            assertThat(image.xResolution()).isCloseTo(300, within(0.1));
+            assertThat(image.yResolution()).isCloseTo(300, within(0.1));
+        });
+    }
+
+    @Test
+    void rejectsPhysicalUnitsWithoutAPageImage() {
+        assertThatThrownBy(() -> AltoToPageXml.convert(fixture("mm10.xml")))
+                .isInstanceOfSatisfying(InvalidPageXmlException.class, error -> {
+                    assertThat(error.getValidation().errors())
+                            .extracting(e -> e.code())
+                            .containsExactly("ALTO_IMAGE_REQUIRED");
+                    assertThat(error.getMessage()).isEqualTo("Invalid ALTO XML: Coordinates in mm10 can only be converted "
+                            + "to pixels with the page image. Upload the image together with the ALTO file.");
+                });
+    }
+
+    @Test
+    void importValidationAcceptsAltoItCanPlaceOnThePageImage() throws IOException {
+        assertThatCode(() -> importable(fixture("pixel.xml"))).doesNotThrowAnyException();
+        assertThatCode(() -> importable(primaryPageXml().getBytes(StandardCharsets.UTF_8))).doesNotThrowAnyException();
+        assertThatThrownBy(() -> importable(fixture("mm10.xml"))).isInstanceOf(InvalidPageXmlException.class);
+        assertThat(validation.toImportablePageXml(new ByteArrayResource(fixture("mm10.xml")),
+                imageFilename -> SourceImages.read(fixturePath("page-300dpi.png"))))
+                .isPresent();
+        assertThatThrownBy(() -> importable("<root/>".getBytes(StandardCharsets.UTF_8)))
                 .isInstanceOf(InvalidPageXmlException.class);
-        assertThatThrownBy(() -> validation.assertImportableXml(
-                new ByteArrayResource("<root/>".getBytes(StandardCharsets.UTF_8))))
-                .isInstanceOf(InvalidPageXmlException.class);
+    }
+
+    @Test
+    void importCheckReturnsThePageXmlToStoreForAltoOnly() throws IOException {
+        var forAlto = importable(fixture("pixel.xml"));
+        var forPage = importable(primaryPageXml().getBytes(StandardCharsets.UTF_8));
+
+        assertThat(forAlto).hasValueSatisfying(pageXml -> {
+            assertThat(AltoToPageXml.isAlto(pageXml)).isFalse();
+            assertThat(validation.validatePageXml(new ByteArrayResource(pageXml)).valid()).isTrue();
+        });
+        assertThat(forPage).isEmpty();
     }
 
     @Test
@@ -103,11 +141,23 @@ class AltoToPageXmlTest {
         Path xmlPath = tempDir.resolve("0001.xml");
         Files.write(xmlPath, fixture("pixel.xml"));
 
-        AltoToPageXml.convertInPlace(xmlPath);
+        AltoToPageXml.convertInPlace(xmlPath, imageFilename -> Optional.empty());
 
         assertThat(AltoToPageXml.isAlto(xmlPath)).isFalse();
         assertThat(validation.validatePageXml(new ByteArrayResource(Files.readAllBytes(xmlPath))).valid()).isTrue();
         assertThat(Files.list(tempDir)).containsExactly(xmlPath);
+    }
+
+    private Optional<byte[]> importable(byte[] xml) {
+        return validation.toImportablePageXml(new ByteArrayResource(xml), imageFilename -> Optional.empty());
+    }
+
+    private static Path fixturePath(String name) {
+        try {
+            return new ClassPathResource("alto/" + name).getFile().toPath();
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     private static byte[] fixture(String name) throws IOException {

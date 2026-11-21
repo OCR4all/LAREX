@@ -1,5 +1,8 @@
 package de.uniwue.zpd.dachs.larex.backend.service.upload;
 
+import com.maxnth.page4j.formats.SourceImage;
+import de.uniwue.zpd.dachs.larex.backend.service.xml.SourceImages;
+
 import de.uniwue.zpd.dachs.larex.backend.config.UploadProperties;
 import de.uniwue.zpd.dachs.larex.backend.entity.*;
 import de.uniwue.zpd.dachs.larex.backend.entity.StoredFile.StoredFileType;
@@ -17,8 +20,10 @@ import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorage
 import de.uniwue.zpd.dachs.larex.backend.service.storage.StorageTrackingService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
 import de.uniwue.zpd.dachs.larex.backend.service.upload.events.UploadPageIndexingRequestedEvent;
+import de.uniwue.zpd.dachs.larex.backend.service.xml.AltoToPageXml;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlCanonicalizationService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlValidationService;
+import de.uniwue.zpd.dachs.larex.backend.service.xml.SourceImages;
 import de.uniwue.zpd.dachs.larex.backend.exception.InvalidPageXmlException;
 import org.springframework.core.io.FileSystemResource;
 import org.apache.pdfbox.Loader;
@@ -41,6 +46,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.function.Function;
 
 @Service
 public class AsyncUploadProcessor {
@@ -338,11 +344,23 @@ public class AsyncUploadProcessor {
         }
 
         // Reject invalid XML before creating a page or replacing existing assets.
+        Page existingPage = pagesByName.get(baseName);
+        List<UploadSessionFile> groupImages = files.stream().filter(this::isImageFile).toList();
+        Function<String, Optional<SourceImage>> pageImage = imageFilename -> SourceImages
+                .matching(groupImages, UploadSessionFile::getOriginalFileName, imageFilename)
+                .flatMap(image -> SourceImages.read(Paths.get(image.getTempFilePath())))
+                .or(() -> existingPage == null
+                        ? Optional.empty()
+                        : pageXmlCanonicalizationService.storedPageImage(existingPage.getId()).apply(imageFilename));
         List<UploadSessionFile> acceptedFiles = new ArrayList<>();
         for (UploadSessionFile file : files) {
             if (isXmlFile(file)) {
                 try {
-                    pageXmlValidationService.assertImportableXml(new FileSystemResource(file.getTempFilePath()));
+                    Optional<byte[]> converted = pageXmlValidationService.toImportablePageXml(
+                            new FileSystemResource(file.getTempFilePath()), pageImage);
+                    if (converted.isPresent()) {
+                        AltoToPageXml.writeAtomically(Paths.get(file.getTempFilePath()), converted.get());
+                    }
                 } catch (InvalidPageXmlException error) {
                     file.setStatus(UploadFileStatus.FAILED);
                     file.setErrorMessage(error.getMessage());
@@ -356,6 +374,7 @@ public class AsyncUploadProcessor {
         if (acceptedFiles.isEmpty()) {
             return true;
         }
+        acceptedFiles.sort(Comparator.comparing(file -> isXmlFile(file)));
 
         // Find or create page
         Page page = pagesByName.get(baseName);
