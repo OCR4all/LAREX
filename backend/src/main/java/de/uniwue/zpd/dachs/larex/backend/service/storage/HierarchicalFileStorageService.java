@@ -515,6 +515,14 @@ public class HierarchicalFileStorageService {
         return resolved;
     }
 
+    public String workspaceRootRelativePath(String workspaceId) {
+        return String.join("/", "ws", normalizeSegment(workspaceId));
+    }
+
+    public String projectReleasesRootRelativePath(String workspaceId) {
+        return String.join("/", "project-releases", normalizeSegment(workspaceId));
+    }
+
     public String projectRootRelativePath(String workspaceId, String projectId) {
         return String.join("/", "ws", normalizeSegment(workspaceId), "pr", normalizeSegment(projectId));
     }

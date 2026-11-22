@@ -4,6 +4,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.*;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.*;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.upload.*;
+import de.uniwue.zpd.dachs.larex.backend.service.dataset.LinkedDatasetItemSync;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.OcrFormatToPageXml;
@@ -43,6 +44,7 @@ class AsyncUploadProcessorXmlTest {
     @Mock UploadRealtimePublisher realtime;
     @Mock PageXmlCanonicalizationService canonicalization;
     @Mock PageFilterIndexService filterIndex;
+    @Mock LinkedDatasetItemSync linkedDatasetItemSync;
     @Spy PageXmlValidationService validation = new PageXmlValidationService();
     @InjectMocks AsyncUploadProcessor processor;
 
@@ -203,7 +205,7 @@ class AsyncUploadProcessorXmlTest {
         file.setConflictType("XML_FILE_EXISTS");
         when(files.findById("conflict")).thenReturn(Optional.of(file));
         when(pages.findByProjectIdAndName("project", "page")).thenReturn(Optional.of(page));
-        UploadConflictService conflicts = new UploadConflictService(pages, images, xmls, files, null, storage, null, validation);
+        UploadConflictService conflicts = new UploadConflictService(pages, images, xmls, files, null, storage, null, validation, null);
 
         assertThrows(InvalidPageXmlException.class, () -> conflicts.resolveConflicts("project", "user",
                 new UploadConflictDto.BatchConflictResolutionRequest(List.of(new UploadConflictDto.ConflictResolution("conflict", "replace_with_new")))));

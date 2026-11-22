@@ -9,6 +9,10 @@ import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectTransferRequestRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceQueryService;
+import de.uniwue.zpd.dachs.larex.backend.service.dataset.LinkedDatasetItemSync;
+import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
+import de.uniwue.zpd.dachs.larex.backend.service.search.SearchLexiconRebuildScheduler;
+import de.uniwue.zpd.dachs.larex.backend.service.task.TaskLinkCleanupService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageOrderService;
 import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicyService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
@@ -45,6 +49,10 @@ public class ProjectTransferService {
     private final PageOrderService pageOrderService;
     private final AuthorizationPolicyService authorizationPolicyService;
     private final HierarchicalFileStorageService hierarchicalFileStorageService;
+    private final TaskLinkCleanupService taskLinkCleanupService;
+    private final LinkedDatasetItemSync linkedDatasetItemSync;
+    private final SearchLexiconRebuildScheduler lexiconRebuildScheduler;
+    private final PageFilterIndexService pageFilterIndexService;
 
     public ProjectTransferService(
             ProjectTransferRequestRepository transferRequestRepository,
@@ -58,7 +66,11 @@ public class ProjectTransferService {
             ProjectStarService projectStarService,
             PageOrderService pageOrderService,
             AuthorizationPolicyService authorizationPolicyService,
-            HierarchicalFileStorageService hierarchicalFileStorageService) {
+            HierarchicalFileStorageService hierarchicalFileStorageService,
+            TaskLinkCleanupService taskLinkCleanupService,
+            SearchLexiconRebuildScheduler lexiconRebuildScheduler,
+            PageFilterIndexService pageFilterIndexService,
+            LinkedDatasetItemSync linkedDatasetItemSync) {
         this.transferRequestRepository = transferRequestRepository;
         this.projectRepository = projectRepository;
         this.pageRepository = pageRepository;
@@ -71,6 +83,10 @@ public class ProjectTransferService {
         this.pageOrderService = pageOrderService;
         this.authorizationPolicyService = authorizationPolicyService;
         this.hierarchicalFileStorageService = hierarchicalFileStorageService;
+        this.taskLinkCleanupService = taskLinkCleanupService;
+        this.lexiconRebuildScheduler = lexiconRebuildScheduler;
+        this.pageFilterIndexService = pageFilterIndexService;
+        this.linkedDatasetItemSync = linkedDatasetItemSync;
     }
 
     public Optional<ProjectTransferRequest> requestProjectTransfer(String projectId, String targetWorkspaceId,
@@ -408,11 +424,15 @@ public class ProjectTransferService {
                 request.getTargetWorkspaceId()
         );
 
+        taskLinkCleanupService.removeProject(project.getId(), request.getRequestedByUserId());
+        linkedDatasetItemSync.removeForProject(project.getId());
+
         project.setName(targetProjectName);
         project.setLibrary(targetLibrary);
         project.setLocked(false);
         project.setLockedReason(null);
         projectRepository.save(project);
+        lexiconRebuildScheduler.scheduleRebuild(project.getId());
         deleteReplacedFilesAfterCommit(replacedStoragePaths);
     }
 
@@ -477,6 +497,19 @@ public class ProjectTransferService {
         }
     }
 
+    private void afterCommit(Runnable action) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    action.run();
+                }
+            });
+        } else {
+            action.run();
+        }
+    }
+
     private void deleteReplacedFilesAfterCommit(List<String> storagePaths) {
         List<String> paths = storagePaths.stream()
                 .filter(path -> path != null && !path.isBlank())
@@ -532,6 +565,8 @@ public class ProjectTransferService {
         newProject.setTags(new ArrayList<>(sourceProject.getTags()));
         newProject.setPrimaryImageVariant(sourceProject.getPrimaryImageVariant());
         newProject = projectRepository.save(newProject);
+        String copiedProjectId = newProject.getId();
+        afterCommit(() -> pageFilterIndexService.rebuildProjectIndex(copiedProjectId));
 
         // Copy pages with images and XMLs
         List<Page> sourcePages = pageOrderService.sortPages(pageRepository.findByProjectId(sourceProject.getId()));

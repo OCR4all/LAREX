@@ -45,7 +45,8 @@ import de.uniwue.zpd.dachs.larex.backend.service.page.PageOrderService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageIndexStatusTracker;
 import de.uniwue.zpd.dachs.larex.backend.service.notification.JobRealtimePublisher;
-import de.uniwue.zpd.dachs.larex.backend.service.search.SearchLexiconService;
+import de.uniwue.zpd.dachs.larex.backend.service.dataset.LinkedDatasetItemSync;
+import de.uniwue.zpd.dachs.larex.backend.service.search.SearchLexiconRebuildScheduler;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshService;
@@ -179,7 +180,9 @@ class ActionRunServiceTest {
     @Mock
     private PageIndexStatusTracker pageIndexStatusTracker;
     @Mock
-    private SearchLexiconService searchLexiconService;
+    private SearchLexiconRebuildScheduler lexiconRebuildScheduler;
+    @Mock
+    private LinkedDatasetItemSync linkedDatasetItemSync;
     @Mock
     private AnnotationReadCache annotationReadCache;
     @Mock
@@ -264,7 +267,7 @@ class ActionRunServiceTest {
                 pageXmlVersionService,
                 pageFilterIndexService,
                 pageIndexStatusTracker,
-                searchLexiconService,
+                lexiconRebuildScheduler,
                 annotationReadCache,
                 annotationProcessingService,
                 pageXmlToAnnotationParser,
@@ -281,7 +284,8 @@ class ActionRunServiceTest {
                 jobRealtimePublisher,
                 actionMetrics,
                 transactionTemplate,
-                imageTypeService
+                imageTypeService,
+                linkedDatasetItemSync
         );
         when(runDismissalRepository.findRunIdsByUserIdAndRunIds(anyString(), anyCollection())).thenReturn(Set.of());
         when(runRepository.findByStatusInAndLastHeartbeatAtBefore(anyCollection(), any())).thenReturn(List.of());

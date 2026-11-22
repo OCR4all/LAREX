@@ -80,6 +80,11 @@ public class SearchLexiconService {
         log.debug("Rebuilt search lexicon for project {} with {} tokens", projectId, entries.size());
     }
 
+    @Transactional
+    public void deleteProjectLexicon(String projectId) {
+        searchLexiconEntryRepository.deleteByProjectId(projectId);
+    }
+
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void ensureWorkspaceLexicon(String workspaceId) {
         if (workspaceId == null || workspaceId.isBlank()) {

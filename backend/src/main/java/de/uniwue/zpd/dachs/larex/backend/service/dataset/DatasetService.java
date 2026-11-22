@@ -1220,7 +1220,7 @@ public class DatasetService {
             Page page = pageOpt.get();
             Optional<PageXml> xmlOpt = pageXmlRepository.findById(item.getSelectedSourceXmlId());
             if (xmlOpt.isEmpty() || xmlOpt.get().getPage() == null || !page.getId().equals(xmlOpt.get().getPage().getId())) {
-                return "Selected source annotation is missing.";
+                return LinkedDatasetItemSync.MISSING_SOURCE_XML_REASON;
             }
             Set<String> currentImageIds = pageImageRepository.findByPageId(page.getId()).stream()
                     .map(PageImage::getId)

@@ -25,8 +25,10 @@ import de.uniwue.zpd.dachs.larex.backend.repository.page.PageTextContentReposito
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlAttributeIndexRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
-import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskPageLinkRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceMemberRepository;
+import de.uniwue.zpd.dachs.larex.backend.service.search.SearchLexiconRebuildScheduler;
+import de.uniwue.zpd.dachs.larex.backend.service.task.TaskLinkCleanupService;
+import de.uniwue.zpd.dachs.larex.backend.service.dataset.LinkedDatasetItemSync;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.cache.AnnotationReadCache;
 import de.uniwue.zpd.dachs.larex.backend.service.notification.NotificationService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
@@ -56,7 +58,8 @@ class PageServiceAssetDeletionTest {
     @Mock PageLabelIndexRepository pageLabelIndexRepository;
     @Mock PageConfidenceIndexRepository pageConfidenceIndexRepository;
     @Mock PageXmlAttributeIndexRepository pageXmlAttributeIndexRepository;
-    @Mock TaskPageLinkRepository taskPageLinkRepository;
+    @Mock TaskLinkCleanupService taskLinkCleanupService;
+    @Mock SearchLexiconRebuildScheduler lexiconRebuildScheduler;
     @Mock ProjectRepository projectRepository;
     @Mock WorkspaceMemberRepository workspaceMemberRepository;
     @Mock NotificationService notificationService;
@@ -83,7 +86,7 @@ class PageServiceAssetDeletionTest {
                 pageLabelIndexRepository,
                 pageConfidenceIndexRepository,
                 pageXmlAttributeIndexRepository,
-                taskPageLinkRepository,
+                taskLinkCleanupService,
                 projectRepository,
                 workspaceMemberRepository,
                 notificationService,
@@ -97,7 +100,9 @@ class PageServiceAssetDeletionTest {
                 pageOrderService,
                 annotationReadCache,
                 pageFilterIndexService,
-                datasetItemRepository
+                datasetItemRepository,
+                new LinkedDatasetItemSync(datasetItemRepository, pageRepository),
+                lexiconRebuildScheduler
         );
     }
 
@@ -120,6 +125,29 @@ class PageServiceAssetDeletionTest {
 
         assertEquals(List.of("tag-print", "tag-rubric"), linked.getSourcePageTags());
         assertEquals(List.of("tag-print", "tag-rubric"), copied.getSourcePageTags());
+        verify(datasetItemRepository).saveAll(List.of(linked, copied));
+    }
+
+    @Test
+    void renamingPageUpdatesOnlyLinkedDatasetItems() {
+        Page page = page("page-1");
+        DatasetItem linked = new DatasetItem();
+        linked.setMode(DatasetItem.Mode.LINK);
+        linked.setSourcePageName("old");
+        DatasetItem copied = new DatasetItem();
+        copied.setMode(DatasetItem.Mode.COPY);
+        copied.setSourcePageName("old");
+        when(pageRepository.findById("page-1")).thenReturn(Optional.of(page));
+        when(pageRepository.save(page)).thenReturn(page);
+        when(workspaceAccessService.hasWorkspaceAccess("workspace-1", "user-1")).thenReturn(true);
+        when(workspaceAccessService.resolvePageMetadataPermissions("workspace-1", "user-1"))
+                .thenReturn(new AuthorizationCapabilitiesDto.PageMetadataPermissions(true, true, true));
+        when(datasetItemRepository.findBySourcePageId("page-1")).thenReturn(List.of(linked, copied));
+
+        service.updatePage("page-1", "renamed", null, null, "user-1");
+
+        assertEquals("renamed", linked.getSourcePageName());
+        assertEquals("old", copied.getSourcePageName());
         verify(datasetItemRepository).saveAll(List.of(linked, copied));
     }
 

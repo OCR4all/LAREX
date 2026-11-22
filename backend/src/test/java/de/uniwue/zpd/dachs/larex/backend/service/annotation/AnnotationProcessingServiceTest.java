@@ -18,6 +18,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceQueryService;
 import de.uniwue.zpd.dachs.larex.backend.entity.workspace.TeamWorkspace;
+import de.uniwue.zpd.dachs.larex.backend.service.dataset.LinkedDatasetItemSync;
 import de.uniwue.zpd.dachs.larex.backend.service.version.PageXmlVersionService;
 import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.application.AnnotationProcessingService;
@@ -92,6 +93,9 @@ class AnnotationProcessingServiceTest {
     private WorkspaceQuotaRefreshService workspaceQuotaRefreshService;
     @Mock
     private WorkspaceQueryService workspaceQueryService;
+
+    @Mock
+    private LinkedDatasetItemSync linkedDatasetItemSync;
 
     @Test
     void parseXmlToAnnotation_returnsCachedDtoWhenFingerprintMatches() throws Exception {
@@ -386,7 +390,8 @@ class AnnotationProcessingServiceTest {
                 annotationReadCache,
                 applicationEventPublisher,
                 workspaceQuotaRefreshService,
-                workspaceQueryService
+                workspaceQueryService,
+                linkedDatasetItemSync
         );
         ReflectionTestUtils.setField(service, "uploadDir", tempDir.toString());
         return service;

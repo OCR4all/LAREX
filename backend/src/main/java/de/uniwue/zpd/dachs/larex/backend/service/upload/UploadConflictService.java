@@ -12,6 +12,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.page.PageImageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.upload.UploadSessionFileRepository;
+import de.uniwue.zpd.dachs.larex.backend.service.dataset.LinkedDatasetItemSync;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.OcrFormatToPageXml;
@@ -44,6 +45,7 @@ public class UploadConflictService {
     private final HierarchicalFileStorageService hierarchicalFileStorageService;
     private final PageXmlCanonicalizationService pageXmlCanonicalizationService;
     private final PageXmlValidationService pageXmlValidationService;
+    private final LinkedDatasetItemSync linkedDatasetItemSync;
 
     public UploadConflictService(PageRepository pageRepository,
                                   PageImageRepository pageImageRepository,
@@ -52,7 +54,8 @@ public class UploadConflictService {
                                   PageFilterIndexService pageFilterIndexService,
                                   HierarchicalFileStorageService hierarchicalFileStorageService,
                                   PageXmlCanonicalizationService pageXmlCanonicalizationService,
-                                  PageXmlValidationService pageXmlValidationService) {
+                                  PageXmlValidationService pageXmlValidationService,
+                                  LinkedDatasetItemSync linkedDatasetItemSync) {
         this.pageRepository = pageRepository;
         this.pageImageRepository = pageImageRepository;
         this.pageXmlRepository = pageXmlRepository;
@@ -61,6 +64,7 @@ public class UploadConflictService {
         this.hierarchicalFileStorageService = hierarchicalFileStorageService;
         this.pageXmlCanonicalizationService = pageXmlCanonicalizationService;
         this.pageXmlValidationService = pageXmlValidationService;
+        this.linkedDatasetItemSync = linkedDatasetItemSync;
     }
 
     public List<UploadConflictDto.ConflictResponse> getProjectConflicts(String projectId, String userId) {
@@ -230,6 +234,7 @@ public class UploadConflictService {
                     );
                     pageXml = pageXmlRepository.save(pageXml);
                     pageXmlCanonicalizationService.canonicalizeAtIngest(pageXml, createdBy, "upload conflict replacement");
+                    linkedDatasetItemSync.relink(pageXml);
 
                     // Index the page content for filtering
                     try {

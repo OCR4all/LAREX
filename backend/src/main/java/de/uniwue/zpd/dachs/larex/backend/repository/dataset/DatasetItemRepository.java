@@ -3,6 +3,9 @@ package de.uniwue.zpd.dachs.larex.backend.repository.dataset;
 import de.uniwue.zpd.dachs.larex.backend.entity.DatasetItem;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
@@ -15,6 +18,12 @@ public interface DatasetItemRepository extends JpaRepository<DatasetItem, String
     List<DatasetItem> findBySourcePageId(String sourcePageId);
 
     List<DatasetItem> findBySourcePageIdInAndMode(Collection<String> pageIds, DatasetItem.Mode mode);
+
+    @Modifying
+    @Query("UPDATE DatasetItem i SET i.sourceProjectName = :name WHERE i.sourceProjectId = :projectId AND i.mode = :mode")
+    int updateSourceProjectName(@Param("projectId") String projectId,
+                                @Param("name") String name,
+                                @Param("mode") DatasetItem.Mode mode);
 
     @EntityGraph(attributePaths = {"copyFiles"})
     List<DatasetItem> findByDatasetIdOrderByCreatedAsc(String datasetId);

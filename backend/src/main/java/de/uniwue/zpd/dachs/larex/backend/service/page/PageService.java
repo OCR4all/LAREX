@@ -3,6 +3,7 @@ package de.uniwue.zpd.dachs.larex.backend.service.page;
 import de.uniwue.zpd.dachs.larex.backend.entity.DatasetItem;
 import de.uniwue.zpd.dachs.larex.backend.repository.dataset.DatasetItemRepository;
 import de.uniwue.zpd.dachs.larex.backend.entity.ImageType;
+import de.uniwue.zpd.dachs.larex.backend.service.dataset.LinkedDatasetItemSync;
 import de.uniwue.zpd.dachs.larex.backend.service.image.ImageTypeService;
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import de.uniwue.zpd.dachs.larex.backend.entity.WorkspaceMember;
@@ -20,15 +21,16 @@ import de.uniwue.zpd.dachs.larex.backend.repository.page.PageTextContentReposito
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlAttributeIndexRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
-import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskPageLinkRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceMemberRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.notification.NotificationService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.cache.AnnotationReadCache;
+import de.uniwue.zpd.dachs.larex.backend.service.search.SearchLexiconRebuildScheduler;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService.StoredFileDescriptor;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.ThumbnailService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshService;
+import de.uniwue.zpd.dachs.larex.backend.service.task.TaskLinkCleanupService;
 import de.uniwue.zpd.dachs.larex.backend.service.version.PageXmlVersionService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.OcrFormatToPageXml;
@@ -71,7 +73,7 @@ public class PageService {
     private final PageLabelIndexRepository pageLabelIndexRepository;
     private final PageConfidenceIndexRepository pageConfidenceIndexRepository;
     private final PageXmlAttributeIndexRepository pageXmlAttributeIndexRepository;
-    private final TaskPageLinkRepository taskPageLinkRepository;
+    private final TaskLinkCleanupService taskLinkCleanupService;
     private final ProjectRepository projectRepository;
     private final WorkspaceMemberRepository workspaceMemberRepository;
     private final NotificationService notificationService;
@@ -86,6 +88,8 @@ public class PageService {
     private final AnnotationReadCache annotationReadCache;
     private final PageFilterIndexService pageFilterIndexService;
     private final DatasetItemRepository datasetItemRepository;
+    private final LinkedDatasetItemSync linkedDatasetItemSync;
+    private final SearchLexiconRebuildScheduler lexiconRebuildScheduler;
 
     public PageService(
             PageRepository pageRepository,
@@ -95,7 +99,7 @@ public class PageService {
             PageLabelIndexRepository pageLabelIndexRepository,
             PageConfidenceIndexRepository pageConfidenceIndexRepository,
             PageXmlAttributeIndexRepository pageXmlAttributeIndexRepository,
-            TaskPageLinkRepository taskPageLinkRepository,
+            TaskLinkCleanupService taskLinkCleanupService,
             ProjectRepository projectRepository,
             WorkspaceMemberRepository workspaceMemberRepository,
             NotificationService notificationService,
@@ -109,7 +113,9 @@ public class PageService {
             PageOrderService pageOrderService,
             AnnotationReadCache annotationReadCache,
             PageFilterIndexService pageFilterIndexService,
-            DatasetItemRepository datasetItemRepository) {
+            DatasetItemRepository datasetItemRepository,
+            LinkedDatasetItemSync linkedDatasetItemSync,
+            SearchLexiconRebuildScheduler lexiconRebuildScheduler) {
 
         this.pageRepository = pageRepository;
         this.pageImageRepository = pageImageRepository;
@@ -119,7 +125,7 @@ public class PageService {
         this.pageLabelIndexRepository = pageLabelIndexRepository;
         this.pageConfidenceIndexRepository = pageConfidenceIndexRepository;
         this.pageXmlAttributeIndexRepository = pageXmlAttributeIndexRepository;
-        this.taskPageLinkRepository = taskPageLinkRepository;
+        this.taskLinkCleanupService = taskLinkCleanupService;
         this.projectRepository = projectRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
         this.notificationService = notificationService;
@@ -134,6 +140,8 @@ public class PageService {
         this.annotationReadCache = annotationReadCache;
         this.pageFilterIndexService = pageFilterIndexService;
         this.datasetItemRepository = datasetItemRepository;
+        this.linkedDatasetItemSync = linkedDatasetItemSync;
+        this.lexiconRebuildScheduler = lexiconRebuildScheduler;
     }
 
     /** All pages of a project in project order, without loading images. */
@@ -305,8 +313,17 @@ public class PageService {
             }
             if (tags != null) {
                 page.setTags(tags);
+            }
+            if (name != null || tags != null) {
                 List<DatasetItem> datasetItems = datasetItemRepository.findBySourcePageId(pageId);
-                datasetItems.forEach(item -> item.setSourcePageTags(new ArrayList<>(tags)));
+                for (DatasetItem item : datasetItems) {
+                    if (name != null && item.getMode() == DatasetItem.Mode.LINK) {
+                        item.setSourcePageName(name);
+                    }
+                    if (tags != null) {
+                        item.setSourcePageTags(new ArrayList<>(tags));
+                    }
+                }
                 datasetItemRepository.saveAll(datasetItems);
             }
 
@@ -390,7 +407,8 @@ public class PageService {
         List<PageImage> images = pageImageRepository.findByPageIdIn(pageIdsToDelete);
         deletePageFiles(pageIdsToDelete, xmlFiles, images);
 
-        taskPageLinkRepository.deleteByPageIdIn(pageIdsToDelete);
+        taskLinkCleanupService.removePages(pageIdsToDelete, userId);
+        linkedDatasetItemSync.removeForPages(pageIdsToDelete);
         pageTextContentRepository.deleteByPageIdIn(pageIdsToDelete);
         pageLabelIndexRepository.deleteByPageIdIn(pageIdsToDelete);
         pageConfidenceIndexRepository.deleteByPageIdIn(pageIdsToDelete);
@@ -398,6 +416,7 @@ public class PageService {
         pageXmlRepository.deleteByPageIdIn(pageIdsToDelete);
         pageRepository.deleteTagsByPageIds(pageIdsToDelete);
         int deletedCount = pageRepository.deleteByIdIn(pageIdsToDelete);
+        lexiconRebuildScheduler.scheduleRebuild(projectId);
 
         if (deletedCount > 0) {
             int notificationCount = Math.min(deletedCount, deletedPageNames.size());
@@ -500,6 +519,7 @@ public class PageService {
             );
             pageXml = pageXmlRepository.save(pageXml);
             pageXmlCanonicalizationService.canonicalizeAtIngest(pageXml, userId, "direct XML upload");
+            linkedDatasetItemSync.relink(pageXml);
             try {
                 pageFilterIndexService.indexPageFromXml(page);
             } catch (RuntimeException exception) {

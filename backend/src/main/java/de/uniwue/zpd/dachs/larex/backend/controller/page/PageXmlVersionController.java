@@ -4,6 +4,7 @@ import de.uniwue.zpd.dachs.larex.backend.dto.PageXmlVersionDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.application.AnnotationProcessingService;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.collaboration.AnnotationLeaseService;
+import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.version.PageXmlVersionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,13 +26,16 @@ public class PageXmlVersionController {
     private final PageXmlVersionService versionService;
     private final AnnotationLeaseService annotationLeaseService;
     private final AnnotationProcessingService annotationProcessingService;
+    private final PageFilterIndexService pageFilterIndexService;
 
     public PageXmlVersionController(PageXmlVersionService versionService,
                                     AnnotationLeaseService annotationLeaseService,
-                                    AnnotationProcessingService annotationProcessingService) {
+                                    AnnotationProcessingService annotationProcessingService,
+                                    PageFilterIndexService pageFilterIndexService) {
         this.versionService = versionService;
         this.annotationLeaseService = annotationLeaseService;
         this.annotationProcessingService = annotationProcessingService;
+        this.pageFilterIndexService = pageFilterIndexService;
     }
 
     @GetMapping
@@ -105,6 +109,7 @@ public class PageXmlVersionController {
         try {
             annotationLeaseService.assertWriteAccess(projectId, pageId, xmlId, userId);
             versionService.restoreVersion(versionId, xmlId, userId);
+            pageFilterIndexService.reindexPage(pageId);
             return ResponseEntity.ok().build();
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();

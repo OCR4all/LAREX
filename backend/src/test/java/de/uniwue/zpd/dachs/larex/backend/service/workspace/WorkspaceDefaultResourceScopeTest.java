@@ -106,6 +106,7 @@ class WorkspaceDefaultResourceScopeTest {
                 mock(WorkspaceQueryService.class), codecs, mock(ControlledDictionaryRepository.class), labelSets,
                 mock(TagSetRepository.class), mock(NormalizationProfileRepository.class),
                 mock(ValidationRulesetRepository.class), mock(LabelSetInitializationService.class), workspaceAccess,
-                mock(de.uniwue.zpd.dachs.larex.backend.service.task.TaskService.class));
+                mock(de.uniwue.zpd.dachs.larex.backend.service.task.TaskService.class),
+                mock(WorkspaceDeletionService.class));
     }
 }

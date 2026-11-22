@@ -15,6 +15,7 @@ import de.uniwue.zpd.dachs.larex.backend.exception.AnnotationAlreadyExistsExcept
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceQueryService;
+import de.uniwue.zpd.dachs.larex.backend.service.dataset.LinkedDatasetItemSync;
 import de.uniwue.zpd.dachs.larex.backend.service.version.PageXmlVersionService;
 import de.uniwue.zpd.dachs.larex.backend.service.user.UserDisplayNames;
 import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
@@ -79,6 +80,7 @@ public class AnnotationProcessingService {
     private final ApplicationEventPublisher applicationEventPublisher;
     private final WorkspaceQuotaRefreshService workspaceQuotaRefreshService;
     private final WorkspaceQueryService workspaceQueryService;
+    private final LinkedDatasetItemSync linkedDatasetItemSync;
 
     @Value("${file.upload-dir}")
     private String uploadDir;
@@ -95,7 +97,8 @@ public class AnnotationProcessingService {
             AnnotationReadCache annotationReadCache,
             ApplicationEventPublisher applicationEventPublisher,
             WorkspaceQuotaRefreshService workspaceQuotaRefreshService,
-            WorkspaceQueryService workspaceQueryService) {
+            WorkspaceQueryService workspaceQueryService,
+            LinkedDatasetItemSync linkedDatasetItemSync) {
 
         this.pageRepository = pageRepository;
         this.pageXmlRepository = pageXmlRepository;
@@ -109,6 +112,7 @@ public class AnnotationProcessingService {
         this.applicationEventPublisher = applicationEventPublisher;
         this.workspaceQuotaRefreshService = workspaceQuotaRefreshService;
         this.workspaceQueryService = workspaceQueryService;
+        this.linkedDatasetItemSync = linkedDatasetItemSync;
     }
 
     /**
@@ -341,6 +345,7 @@ public class AnnotationProcessingService {
                     page
             );
             createdXml = pageXmlRepository.save(createdXml);
+            linkedDatasetItemSync.relink(createdXml);
 
             Path xmlPath = Paths.get(uploadDir, createdXml.getFilePath());
             annotationReadCache.put(createdXml.getId(), xmlPath, writeResult.written());

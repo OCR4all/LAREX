@@ -34,6 +34,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlAttributeIndexRe
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.application.AnnotationProcessingService;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlParseResult;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlAttributeScanner;
+import de.uniwue.zpd.dachs.larex.backend.service.search.SearchLexiconRebuildScheduler;
 import de.uniwue.zpd.dachs.larex.backend.service.search.SearchLexiconService;
 import de.uniwue.zpd.dachs.larex.backend.util.TextIndexDefaultsUtil;
 import org.springframework.beans.factory.annotation.Value;
@@ -113,6 +114,7 @@ public class PageFilterIndexService {
     private final PageXmlAttributeIndexRepository xmlAttributeIndexRepository;
     private final AnnotationProcessingService annotationProcessingService;
     private final SearchLexiconService searchLexiconService;
+    private final SearchLexiconRebuildScheduler lexiconRebuildScheduler;
     private final String uploadDir;
     private final TransactionTemplate rebuildTransaction;
     private final Cache<TextMismatchKey, Boolean> textMismatchCache = Caffeine.newBuilder()
@@ -129,6 +131,7 @@ public class PageFilterIndexService {
             PageXmlAttributeIndexRepository xmlAttributeIndexRepository,
             AnnotationProcessingService annotationProcessingService,
             SearchLexiconService searchLexiconService,
+            SearchLexiconRebuildScheduler lexiconRebuildScheduler,
             @Value("${file.upload-dir}") String uploadDir,
             PlatformTransactionManager transactionManager) {
         this.pageRepository = pageRepository;
@@ -139,6 +142,7 @@ public class PageFilterIndexService {
         this.xmlAttributeIndexRepository = xmlAttributeIndexRepository;
         this.annotationProcessingService = annotationProcessingService;
         this.searchLexiconService = searchLexiconService;
+        this.lexiconRebuildScheduler = lexiconRebuildScheduler;
         this.uploadDir = uploadDir;
         this.rebuildTransaction = new TransactionTemplate(transactionManager);
     }
@@ -266,6 +270,11 @@ public class PageFilterIndexService {
         xmlAttributeIndexRepository.deleteByPageId(pageId);
     }
 
+    @Transactional
+    public void reindexPage(String pageId) {
+        pageRepository.findById(pageId).ifPresent(this::indexPageFromXml);
+    }
+
     /**
      * Index a page by parsing its XML file.
      */
@@ -290,6 +299,7 @@ public class PageFilterIndexService {
             PageXmlParseResult parseResult = annotationProcessingService.parseXmlToAnnotationWithAttributes(xml.getId());
             indexPage(page, parseResult.pageDto(), parseResult.attributeOccurrences());
             log.info("Successfully indexed page {} from PageXml {}", page.getId(), xml.getId());
+            lexiconRebuildScheduler.scheduleRebuild(page.getProject().getId());
         } catch (IOException e) {
             log.warn("Failed to parse XML {} for page {}: {}", xml.getId(), page.getId(), e.getMessage());
         } catch (UnsupportedOperationException e) {

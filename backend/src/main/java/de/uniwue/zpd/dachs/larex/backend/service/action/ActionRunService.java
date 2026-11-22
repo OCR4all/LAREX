@@ -55,7 +55,8 @@ import de.uniwue.zpd.dachs.larex.backend.service.page.PageOrderService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageIndexStatusTracker;
 import de.uniwue.zpd.dachs.larex.backend.service.notification.JobRealtimePublisher;
-import de.uniwue.zpd.dachs.larex.backend.service.search.SearchLexiconService;
+import de.uniwue.zpd.dachs.larex.backend.service.dataset.LinkedDatasetItemSync;
+import de.uniwue.zpd.dachs.larex.backend.service.search.SearchLexiconRebuildScheduler;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.ThumbnailService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
@@ -110,8 +111,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ScheduledFuture;
 import java.util.stream.Collectors;
 import java.util.regex.Pattern;
 
@@ -158,7 +157,8 @@ public class ActionRunService {
     private final PageXmlVersionService pageXmlVersionService;
     private final PageFilterIndexService pageFilterIndexService;
     private final PageIndexStatusTracker pageIndexStatusTracker;
-    private final SearchLexiconService searchLexiconService;
+    private final SearchLexiconRebuildScheduler lexiconRebuildScheduler;
+    private final LinkedDatasetItemSync linkedDatasetItemSync;
     private final AnnotationReadCache annotationReadCache;
     private final AnnotationProcessingService annotationProcessingService;
     private final PageXmlToAnnotationParser pageXmlToAnnotationParser;
@@ -177,7 +177,6 @@ public class ActionRunService {
     private final HttpClient httpClient;
     private final TransactionTemplate transactionTemplate;
     private final TransactionTemplate resultImportTransactionTemplate;
-    private final Map<String, ScheduledFuture<?>> pendingLexiconRebuilds = new ConcurrentHashMap<>();
 
     public ActionRunService(ActionProcessorDefinitionRepository definitionRepository,
                             ActionProcessorAssignmentRepository assignmentRepository,
@@ -208,7 +207,7 @@ public class ActionRunService {
                             PageXmlVersionService pageXmlVersionService,
                             PageFilterIndexService pageFilterIndexService,
                             PageIndexStatusTracker pageIndexStatusTracker,
-                            SearchLexiconService searchLexiconService,
+                            SearchLexiconRebuildScheduler lexiconRebuildScheduler,
                             AnnotationReadCache annotationReadCache,
                             AnnotationProcessingService annotationProcessingService,
                             PageXmlToAnnotationParser pageXmlToAnnotationParser,
@@ -224,7 +223,8 @@ public class ActionRunService {
                             ActionTrainingSnapshotService trainingSnapshotService,
                             JobRealtimePublisher jobRealtimePublisher,
                             ActionMetrics metrics,
-                            TransactionTemplate transactionTemplate, ImageTypeService imageTypes) {
+                            TransactionTemplate transactionTemplate, ImageTypeService imageTypes,
+                            LinkedDatasetItemSync linkedDatasetItemSync) {
         this.imageTypes = imageTypes;
         this.definitionRepository = definitionRepository;
         this.assignmentRepository = assignmentRepository;
@@ -255,7 +255,7 @@ public class ActionRunService {
         this.pageXmlVersionService = pageXmlVersionService;
         this.pageFilterIndexService = pageFilterIndexService;
         this.pageIndexStatusTracker = pageIndexStatusTracker;
-        this.searchLexiconService = searchLexiconService;
+        this.lexiconRebuildScheduler = lexiconRebuildScheduler;
         this.annotationReadCache = annotationReadCache;
         this.annotationProcessingService = annotationProcessingService;
         this.pageXmlToAnnotationParser = pageXmlToAnnotationParser;
@@ -272,6 +272,7 @@ public class ActionRunService {
         this.jobRealtimePublisher = jobRealtimePublisher;
         this.metrics = metrics;
         this.transactionTemplate = transactionTemplate;
+        this.linkedDatasetItemSync = linkedDatasetItemSync;
         this.resultImportTransactionTemplate = new TransactionTemplate(Objects.requireNonNull(
                 transactionTemplate.getTransactionManager(), "Transaction manager is required"));
         this.resultImportTransactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -2474,6 +2475,7 @@ public class ActionRunService {
 
         pageXml = pageXmlRepository.save(pageXml);
         pageXmlCanonicalizationService.canonicalizeAtIngest(pageXml, run.getCreatedByUserId(), "LAREX Action " + run.getId(), false);
+        linkedDatasetItemSync.relink(pageXml);
         workspaceQuotaRefreshService.scheduleUsageRefresh(run.getWorkspaceId());
         return Map.of("type", "xml", "pageId", page.getId(), "fileId", pageXml.getId(), "variant", pageXml.getVariant());
     }
@@ -2539,7 +2541,7 @@ public class ActionRunService {
                     }
                 }
             }
-            scheduleProjectLexiconRebuild(projectId);
+            lexiconRebuildScheduler.scheduleRebuild(projectId);
         };
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
@@ -2555,26 +2557,6 @@ public class ActionRunService {
 
     private void publishIndexUpdate(String projectId, String pageId, String status) {
         jobRealtimePublisher.publish("PAGE_INDEX", pageId, null, projectId, status, null);
-    }
-
-    private void scheduleProjectLexiconRebuild(String projectId) {
-        if (projectId == null || projectId.isBlank()) {
-            return;
-        }
-        pendingLexiconRebuilds.compute(projectId, (id, previous) -> {
-            if (previous != null) {
-                previous.cancel(false);
-            }
-            return actionResultTaskScheduler.schedule(() -> {
-                pendingLexiconRebuilds.remove(id);
-                try {
-                    searchLexiconService.rebuildProjectLexicon(id);
-                } catch (Exception e) {
-                    log.warn("Failed to rebuild search lexicon for project {} after LAREX Action result import: {}",
-                            id, e.getMessage(), e);
-                }
-            }, Instant.now().plusMillis(500));
-        });
     }
 
     private void deleteStoredFilesAfterCommit(Collection<String> storagePaths) {

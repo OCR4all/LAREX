@@ -2,6 +2,7 @@ package de.uniwue.zpd.dachs.larex.backend.service.project;
 
 import de.uniwue.zpd.dachs.larex.backend.entity.Codec;
 import de.uniwue.zpd.dachs.larex.backend.entity.ControlledDictionary;
+import de.uniwue.zpd.dachs.larex.backend.entity.DatasetItem;
 import de.uniwue.zpd.dachs.larex.backend.entity.LabelSet;
 import de.uniwue.zpd.dachs.larex.backend.entity.Library;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
@@ -9,6 +10,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.VirtualKeyboard;
 import de.uniwue.zpd.dachs.larex.backend.entity.workspace.TeamWorkspace;
 import de.uniwue.zpd.dachs.larex.backend.exception.ResourceNotFoundException;
 import de.uniwue.zpd.dachs.larex.backend.repository.codec.CodecRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.dataset.DatasetItemRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.dictionary.ControlledDictionaryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.label.LabelSetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.library.LibraryRepository;
@@ -19,9 +21,12 @@ import de.uniwue.zpd.dachs.larex.backend.repository.tag.TagSetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.validation.ValidationRulesetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceMemberRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceQueryService;
+import de.uniwue.zpd.dachs.larex.backend.service.dataset.LinkedDatasetItemSync;
 import de.uniwue.zpd.dachs.larex.backend.service.notification.NotificationService;
 import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectStarService;
+import de.uniwue.zpd.dachs.larex.backend.service.search.SearchLexiconService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshService;
+import de.uniwue.zpd.dachs.larex.backend.service.task.TaskLinkCleanupService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -94,6 +99,17 @@ class ProjectCrudServiceTest {
     @Mock
     private WorkspaceQuotaRefreshService workspaceQuotaRefreshService;
 
+    @Mock
+    private DatasetItemRepository datasetItemRepository;
+
+    @Mock
+    private TaskLinkCleanupService taskLinkCleanupService;
+
+    @Mock
+    private SearchLexiconService searchLexiconService;
+    @Mock
+    private LinkedDatasetItemSync linkedDatasetItemSync;
+
     private ProjectCrudService service;
 
     @BeforeEach
@@ -114,7 +130,11 @@ class ProjectCrudServiceTest {
                 notificationService,
                 projectStarService,
                 projectFileService,
-                workspaceQuotaRefreshService
+                workspaceQuotaRefreshService,
+                datasetItemRepository,
+                taskLinkCleanupService,
+                searchLexiconService,
+                linkedDatasetItemSync
         );
     }
 
@@ -279,9 +299,33 @@ class ProjectCrudServiceTest {
 
         assertTrue(service.deleteProject("project-1", USER_ID));
 
+        verify(taskLinkCleanupService).removeProject("project-1", USER_ID);
+        verify(searchLexiconService).deleteProjectLexicon("project-1");
+        verify(linkedDatasetItemSync).removeForProject("project-1");
         verify(projectFileService).deleteProjectFiles(project);
         verify(projectRepository).delete(project);
         verify(workspaceQuotaRefreshService).scheduleUsageRefresh(WORKSPACE_ID);
+    }
+
+    @Test
+    void updateProject_renamePropagatesToLinkedDatasetItems() {
+        Project project = projectInWorkspace();
+        stubProjectUpdate(project);
+
+        Optional<Project> updated = renameProject("Renamed");
+
+        assertTrue(updated.isPresent());
+        verify(datasetItemRepository).updateSourceProjectName("project-1", "Renamed", DatasetItem.Mode.LINK);
+    }
+
+    @Test
+    void updateProject_unchangedNameSkipsDatasetItems() {
+        Project project = projectInWorkspace();
+        stubProjectUpdate(project);
+
+        renameProject(PROJECT_NAME);
+
+        verify(datasetItemRepository, never()).updateSourceProjectName(anyString(), anyString(), any());
     }
 
     @Test
@@ -395,6 +439,19 @@ class ProjectCrudServiceTest {
         when(workspaceQueryService.findWorkspaceById(WORKSPACE_ID)).thenReturn(Optional.of(workspace));
         when(workspaceMemberRepository.findByWorkspaceId(WORKSPACE_ID)).thenReturn(List.of());
         when(projectRepository.save(any(Project.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    }
+
+    private void stubProjectUpdate(Project project) {
+        when(projectRepository.findWithAssociationsById("project-1")).thenReturn(Optional.of(project));
+        when(workspaceAccessService.hasWorkspaceAccess(WORKSPACE_ID, USER_ID)).thenReturn(true);
+        when(projectRepository.save(any(Project.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    }
+
+    private Optional<Project> renameProject(String name) {
+        return service.updateProject("project-1", name, "desc", null,
+                null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null,
+                null, null, null, null, USER_ID);
     }
 
     private Project projectInWorkspace() {

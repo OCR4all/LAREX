@@ -2,6 +2,7 @@ package de.uniwue.zpd.dachs.larex.backend.service.page;
 
 import de.uniwue.zpd.dachs.larex.backend.service.task.TaskProgressService;
 import de.uniwue.zpd.dachs.larex.backend.dto.PageMoveDto.*;
+import de.uniwue.zpd.dachs.larex.backend.entity.DatasetItem;
 import de.uniwue.zpd.dachs.larex.backend.entity.*;
 import de.uniwue.zpd.dachs.larex.backend.exception.*;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
@@ -233,6 +234,7 @@ class PageMoveServiceTest {
         sequence.verify(pages).deleteTagsByPageIds(List.of("clash"));
         sequence.verify(pages).deleteByIdIn(List.of("clash"));
         verify(taskLinks, never()).deleteByPageIdIn(List.of("first", "second"));
+        verify(datasetItems).findBySourcePageIdInAndMode(List.of("clash"), DatasetItem.Mode.LINK);
     }
 
     @Test

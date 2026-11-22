@@ -54,6 +54,7 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
     private final LabelSetInitializationService labelSetInitializationService;
     private final WorkspaceAccessService workspaceAccessService;
     private final TaskService taskService;
+    private final WorkspaceDeletionService workspaceDeletionService;
 
     public TeamWorkspaceService(TeamWorkspaceRepository teamWorkspaceRepository,
                                LibraryRepository libraryRepository,
@@ -69,7 +70,8 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
                                ValidationRulesetRepository validationRulesetRepository,
                                LabelSetInitializationService labelSetInitializationService,
                                WorkspaceAccessService workspaceAccessService,
-                               @Lazy TaskService taskService) {
+                               @Lazy TaskService taskService,
+                               WorkspaceDeletionService workspaceDeletionService) {
         super(workspaceQueryService);
         this.teamWorkspaceRepository = teamWorkspaceRepository;
         this.libraryRepository = libraryRepository;
@@ -85,6 +87,7 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
         this.labelSetInitializationService = labelSetInitializationService;
         this.workspaceAccessService = workspaceAccessService;
         this.taskService = taskService;
+        this.workspaceDeletionService = workspaceDeletionService;
     }
 
     /**
@@ -261,7 +264,7 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
                 return false; // No access
             }
             
-            teamWorkspaceRepository.delete(workspace);
+            workspaceDeletionService.deleteTeamWorkspace(workspaceId);
             return true;
         }
         

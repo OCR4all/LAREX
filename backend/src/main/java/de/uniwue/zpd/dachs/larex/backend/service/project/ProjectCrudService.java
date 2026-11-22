@@ -2,6 +2,7 @@ package de.uniwue.zpd.dachs.larex.backend.service.project;
 
 import de.uniwue.zpd.dachs.larex.backend.entity.Codec;
 import de.uniwue.zpd.dachs.larex.backend.entity.ControlledDictionary;
+import de.uniwue.zpd.dachs.larex.backend.entity.DatasetItem;
 import de.uniwue.zpd.dachs.larex.backend.entity.LabelSet;
 import de.uniwue.zpd.dachs.larex.backend.entity.Library;
 import de.uniwue.zpd.dachs.larex.backend.entity.NormalizationProfile;
@@ -13,6 +14,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.WorkspaceMember;
 import de.uniwue.zpd.dachs.larex.backend.entity.workspace.AbstractWorkspace;
 import de.uniwue.zpd.dachs.larex.backend.exception.ResourceNotFoundException;
 import de.uniwue.zpd.dachs.larex.backend.repository.codec.CodecRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.dataset.DatasetItemRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.dictionary.ControlledDictionaryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.label.LabelSetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.library.LibraryRepository;
@@ -23,9 +25,12 @@ import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.validation.ValidationRulesetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceMemberRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceQueryService;
+import de.uniwue.zpd.dachs.larex.backend.service.dataset.LinkedDatasetItemSync;
 import de.uniwue.zpd.dachs.larex.backend.service.notification.NotificationService;
 import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectStarService;
+import de.uniwue.zpd.dachs.larex.backend.service.search.SearchLexiconService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshService;
+import de.uniwue.zpd.dachs.larex.backend.service.task.TaskLinkCleanupService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import de.uniwue.zpd.dachs.larex.backend.util.TextIndexDefaultsUtil;
 import org.springframework.stereotype.Service;
@@ -55,6 +60,10 @@ public class ProjectCrudService {
     private final ProjectStarService projectStarService;
     private final ProjectFileService projectFileService;
     private final WorkspaceQuotaRefreshService workspaceQuotaRefreshService;
+    private final DatasetItemRepository datasetItemRepository;
+    private final TaskLinkCleanupService taskLinkCleanupService;
+    private final SearchLexiconService searchLexiconService;
+    private final LinkedDatasetItemSync linkedDatasetItemSync;
 
     public ProjectCrudService(ProjectRepository projectRepository,
                               LibraryRepository libraryRepository,
@@ -71,7 +80,11 @@ public class ProjectCrudService {
                               NotificationService notificationService,
                               ProjectStarService projectStarService,
                               ProjectFileService projectFileService,
-                              WorkspaceQuotaRefreshService workspaceQuotaRefreshService) {
+                              WorkspaceQuotaRefreshService workspaceQuotaRefreshService,
+                              DatasetItemRepository datasetItemRepository,
+                              TaskLinkCleanupService taskLinkCleanupService,
+                              SearchLexiconService searchLexiconService,
+                              LinkedDatasetItemSync linkedDatasetItemSync) {
         this.projectRepository = projectRepository;
         this.libraryRepository = libraryRepository;
         this.codecRepository = codecRepository;
@@ -88,6 +101,10 @@ public class ProjectCrudService {
         this.projectStarService = projectStarService;
         this.projectFileService = projectFileService;
         this.workspaceQuotaRefreshService = workspaceQuotaRefreshService;
+        this.datasetItemRepository = datasetItemRepository;
+        this.taskLinkCleanupService = taskLinkCleanupService;
+        this.searchLexiconService = searchLexiconService;
+        this.linkedDatasetItemSync = linkedDatasetItemSync;
     }
 
     public List<Project> getWorkspaceProjects(String workspaceId, String userId) {
@@ -282,6 +299,9 @@ public class ProjectCrudService {
             if (!project.getName().equals(name) && projectRepository.existsByNameAndLibraryId(name, project.getLibrary().getId())) {
                 throw new IllegalArgumentException("Project name '" + name + "' already exists in this workspace");
             }
+            if (!project.getName().equals(name)) {
+                datasetItemRepository.updateSourceProjectName(projectId, name, DatasetItem.Mode.LINK);
+            }
             project.setName(name);
             project.setDescription(description);
             if (tags != null) {
@@ -406,6 +426,9 @@ public class ProjectCrudService {
             if (workspaceAccessService.canManageProjects(workspaceId, userId)) {
                 String projectName = project.getName();
 
+                taskLinkCleanupService.removeProject(projectId, userId);
+                linkedDatasetItemSync.removeForProject(projectId);
+                searchLexiconService.deleteProjectLexicon(projectId);
                 projectFileService.deleteProjectFiles(project);
                 // Database cascade handles cleanup of all related data (stars, indices, recent projects, etc.)
                 projectRepository.delete(project);

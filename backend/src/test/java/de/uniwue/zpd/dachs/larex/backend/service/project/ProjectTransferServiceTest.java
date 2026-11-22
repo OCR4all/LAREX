@@ -15,6 +15,10 @@ import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectTransferRequestRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceQueryService;
+import de.uniwue.zpd.dachs.larex.backend.service.dataset.LinkedDatasetItemSync;
+import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
+import de.uniwue.zpd.dachs.larex.backend.service.search.SearchLexiconRebuildScheduler;
+import de.uniwue.zpd.dachs.larex.backend.service.task.TaskLinkCleanupService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageOrderService;
 import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicyService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
@@ -69,6 +73,14 @@ class ProjectTransferServiceTest {
     private AuthorizationPolicyService authorizationPolicyService;
     @Mock
     private HierarchicalFileStorageService hierarchicalFileStorageService;
+    @Mock
+    private TaskLinkCleanupService taskLinkCleanupService;
+    @Mock
+    private SearchLexiconRebuildScheduler lexiconRebuildScheduler;
+    @Mock
+    private PageFilterIndexService pageFilterIndexService;
+    @Mock
+    private LinkedDatasetItemSync linkedDatasetItemSync;
     @TempDir
     private Path tempDir;
 
@@ -88,7 +100,11 @@ class ProjectTransferServiceTest {
                 projectStarService,
                 pageOrderService,
                 authorizationPolicyService,
-                hierarchicalFileStorageService
+                hierarchicalFileStorageService,
+                taskLinkCleanupService,
+                lexiconRebuildScheduler,
+                pageFilterIndexService,
+                linkedDatasetItemSync
         );
     }
 

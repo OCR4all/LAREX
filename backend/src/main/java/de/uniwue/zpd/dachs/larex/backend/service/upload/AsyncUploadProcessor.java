@@ -1,6 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.service.upload;
 
 import com.maxnth.page4j.formats.SourceImage;
+import de.uniwue.zpd.dachs.larex.backend.service.dataset.LinkedDatasetItemSync;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.SourceImages;
 
 import de.uniwue.zpd.dachs.larex.backend.config.UploadProperties;
@@ -69,6 +70,7 @@ public class AsyncUploadProcessor {
     private final UploadRealtimePublisher uploadRealtimePublisher;
     private final WorkspaceQuotaGuardService workspaceQuotaGuardService;
     private final UploadProperties uploadProperties;
+    private final LinkedDatasetItemSync linkedDatasetItemSync;
 
     public AsyncUploadProcessor(UploadSessionRepository sessionRepository,
                                 UploadSessionFileRepository fileRepository,
@@ -85,7 +87,8 @@ public class AsyncUploadProcessor {
                                 ApplicationEventPublisher applicationEventPublisher,
                                 UploadRealtimePublisher uploadRealtimePublisher,
                                 WorkspaceQuotaGuardService workspaceQuotaGuardService,
-                                UploadProperties uploadProperties) {
+                                UploadProperties uploadProperties,
+                                LinkedDatasetItemSync linkedDatasetItemSync) {
         this.sessionRepository = sessionRepository;
         this.fileRepository = fileRepository;
         this.projectRepository = projectRepository;
@@ -102,6 +105,7 @@ public class AsyncUploadProcessor {
         this.uploadRealtimePublisher = uploadRealtimePublisher;
         this.workspaceQuotaGuardService = workspaceQuotaGuardService;
         this.uploadProperties = uploadProperties;
+        this.linkedDatasetItemSync = linkedDatasetItemSync;
     }
 
     public void processUploadSession(String sessionId) {
@@ -560,6 +564,7 @@ public class AsyncUploadProcessor {
         );
         pageXml = pageXmlRepository.save(pageXml);
         pageXmlCanonicalizationService.canonicalizeAtIngest(pageXml, createdByUserId, "async chunked upload");
+        linkedDatasetItemSync.relink(pageXml);
 
         // Clear stale filter index rows; background indexing will rebuild after commit.
         pageFilterIndexService.clearPageIndex(page.getId());

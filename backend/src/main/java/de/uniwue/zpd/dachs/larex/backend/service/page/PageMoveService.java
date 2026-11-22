@@ -116,6 +116,7 @@ public class PageMoveService {
 
     void deleteOverwritten(List<String> overwrittenIds, PageMoveFileService.Changes changes, String userId) {
         files.collectOverwrittenAssets(overwrittenIds, changes);
+        datasetItems.deleteAll(datasetItems.findBySourcePageIdInAndMode(overwrittenIds, DatasetItem.Mode.LINK));
         List<String> affectedTaskIds = subtasks.findTaskIdsByPageIdIn(overwrittenIds);
         taskLinks.deleteByPageIdIn(overwrittenIds);
         subtasks.deleteByPageIdIn(overwrittenIds);

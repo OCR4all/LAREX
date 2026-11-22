@@ -9,6 +9,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.page.PageImageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
+import de.uniwue.zpd.dachs.larex.backend.service.dataset.LinkedDatasetItemSync;
 import de.uniwue.zpd.dachs.larex.backend.service.notification.NotificationService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
@@ -50,6 +51,7 @@ public class AsyncImportProcessor {
     private final PageXmlValidationService pageXmlValidationService;
     private final WorkspaceQuotaGuardService workspaceQuotaGuardService;
     private final ImportProperties properties;
+    private final LinkedDatasetItemSync linkedDatasetItemSync;
 
     public AsyncImportProcessor(ImportJobRepository importJobRepository,
                                 ProjectRepository projectRepository,
@@ -63,7 +65,8 @@ public class AsyncImportProcessor {
                                 PageXmlCanonicalizationService pageXmlCanonicalizationService,
                                 PageXmlValidationService pageXmlValidationService,
                                 WorkspaceQuotaGuardService workspaceQuotaGuardService,
-                                ImportProperties properties) {
+                                ImportProperties properties,
+                                LinkedDatasetItemSync linkedDatasetItemSync) {
         this.importJobRepository = importJobRepository;
         this.projectRepository = projectRepository;
         this.pageRepository = pageRepository;
@@ -77,6 +80,7 @@ public class AsyncImportProcessor {
         this.pageXmlValidationService = pageXmlValidationService;
         this.workspaceQuotaGuardService = workspaceQuotaGuardService;
         this.properties = properties;
+        this.linkedDatasetItemSync = linkedDatasetItemSync;
     }
 
     @Async("importTaskExecutor")
@@ -351,6 +355,7 @@ public class AsyncImportProcessor {
                 );
                 pageXml = pageXmlRepository.save(pageXml);
                 pageXmlCanonicalizationService.canonicalizeAtIngest(pageXml, createdByUserId, "server import");
+                linkedDatasetItemSync.relink(pageXml);
 
                 // Index the page content for filtering
                 try {
