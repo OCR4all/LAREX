@@ -20,6 +20,12 @@ server {
     add_header Strict-Transport-Security "max-age=31536000" always;
 
     client_max_body_size 500m;
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 5;
+    gzip_min_length 1024;
+    gzip_types application/json application/xml text/xml text/css application/javascript image/svg+xml;
     proxy_http_version 1.1;
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-Host $host;
