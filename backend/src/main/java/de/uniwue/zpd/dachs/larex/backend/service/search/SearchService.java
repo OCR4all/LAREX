@@ -129,7 +129,8 @@ public class SearchService {
                 exactPlan,
                 safeLimit,
                 safeOffset,
-                isPhraseQuery(trimmedQuery) ? "phrase" : "exact"
+                isPhraseQuery(trimmedQuery) ? "phrase" : "exact",
+                normalizedView
         );
 
         boolean fuzzyExpanded = false;
@@ -156,7 +157,8 @@ public class SearchService {
                         fuzzyExpansion.plan(),
                         safeLimit,
                         safeOffset,
-                        "fuzzy"
+                        "fuzzy",
+                        normalizedView
                 );
                 if ("fuzzy".equals(normalizedMatch) || fuzzyResult.totalHits() > result.totalHits()) {
                     result = fuzzyResult;
@@ -187,7 +189,9 @@ public class SearchService {
                                                              SearchQueryPlan plan,
                                                              int limit,
                                                              int offset,
-                                                             String matchKind) {
+                                                             String matchKind,
+                                                             String view) {
+        jdbcTemplate.getJdbcOperations().execute("SET LOCAL plan_cache_mode = force_custom_plan");
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("workspaceId", workspaceId)
                 .addValue("limit", limit)
@@ -210,7 +214,6 @@ public class SearchService {
                            ptc.text_line_id AS text_line_id,
                            ptc.region_id AS region_id,
                            ptc.text_content AS full_text,
-                           COALESCE(ts_headline('simple', ptc.text_content, %1$s, '%2$s'), ptc.text_content) AS snippet_marker,
                            ts_rank_cd(ptc.search_vector, %1$s) AS score
                     FROM page_text_content ptc
                     JOIN pages p ON p.id = ptc.page_id
@@ -234,7 +237,9 @@ public class SearchService {
                     ) ranked_hits
                     WHERE anchor_rank = 1
                 )
-                """.formatted(queryExpression, snippetOptions);
+                """.formatted(queryExpression);
+        String snippetColumn = "COALESCE(ts_headline('simple', full_text, %1$s, '%2$s'), full_text) AS snippet_marker"
+                .formatted(queryExpression, snippetOptions);
 
         String hitsSql = """
                 %1$s
@@ -246,15 +251,16 @@ public class SearchService {
                        text_line_id,
                        region_id,
                        full_text,
-                       snippet_marker,
+                       %2$s,
                        score
-                FROM matched
-                ORDER BY score DESC, pr.name ASC, p.name ASC, ptc.id ASC
-                LIMIT :limit OFFSET :offset
-                """;
-        hitsSql = hitsSql.replace("ORDER BY score DESC, pr.name ASC, p.name ASC, ptc.id ASC",
-                "ORDER BY score DESC, project_name ASC, page_name ASC, page_id ASC");
-        hitsSql = hitsSql.formatted(matchedCte);
+                FROM (
+                    SELECT *
+                    FROM matched
+                    ORDER BY score DESC, project_name ASC, page_name ASC, page_id ASC
+                    LIMIT :limit OFFSET :offset
+                ) page_hits
+                ORDER BY score DESC, project_name ASC, page_name ASC, page_id ASC
+                """.formatted(matchedCte, snippetColumn);
 
         List<SearchResultDto.TextHit> hits = jdbcTemplate.query(hitsSql, params, (rs, rowNum) ->
                 mapTextHit(
@@ -271,11 +277,16 @@ public class SearchService {
                         matchKind
                 ));
 
-        String totalHitsSql = matchedCte + "SELECT COUNT(*) FROM matched";
-        long totalHits = queryForLong(totalHitsSql, params);
+        long[] totals = jdbcTemplate.queryForObject(
+                matchedCte + "SELECT COUNT(*) AS total_hits, COUNT(DISTINCT project_id) AS total_projects FROM matched",
+                params,
+                (rs, rowNum) -> new long[]{rs.getLong("total_hits"), rs.getLong("total_projects")});
+        long totalHits = totals == null ? 0L : totals[0];
+        long totalProjectCount = totals == null ? 0L : totals[1];
 
-        String totalProjectCountSql = matchedCte + "SELECT COUNT(DISTINCT project_id) FROM matched";
-        long totalProjectCount = queryForLong(totalProjectCountSql, params);
+        if (!"projects".equals(view)) {
+            return new SearchExecutionResult(hits, List.of(), totalHits, totalProjectCount, matchKind);
+        }
 
         String projectGroupsSql = """
                 %1$s
@@ -299,7 +310,7 @@ public class SearchService {
                         rs.getDouble("top_score")
                 ));
 
-        Map<String, List<SearchResultDto.TextHit>> hitsByProjectId = fetchTopProjectHits(matchedCte, params, groupRows, matchKind);
+        Map<String, List<SearchResultDto.TextHit>> hitsByProjectId = fetchTopProjectHits(matchedCte, snippetColumn, params, groupRows, matchKind);
         List<SearchResultDto.ProjectHitGroup> projectGroups = groupRows.stream()
                 .map(row -> new SearchResultDto.ProjectHitGroup(
                         row.workspaceId(),
@@ -325,6 +336,7 @@ public class SearchService {
     }
 
     private Map<String, List<SearchResultDto.TextHit>> fetchTopProjectHits(String matchedCte,
+                                                                           String snippetColumn,
                                                                            MapSqlParameterSource params,
                                                                            List<ProjectGroupRow> groupRows,
                                                                            String matchKind) {
@@ -347,11 +359,11 @@ public class SearchService {
                            ROW_NUMBER() OVER (PARTITION BY project_id ORDER BY score DESC, page_name ASC, page_id ASC) AS rn
                     FROM scoped_hits
                 )
-                SELECT *
+                SELECT *, %2$s
                 FROM ranked
                 WHERE rn <= 3
                 ORDER BY project_name ASC, rn ASC
-                """.formatted(scopedMatchedCte);
+                """.formatted(scopedMatchedCte, snippetColumn);
 
         Map<String, List<SearchResultDto.TextHit>> hitsByProjectId = new LinkedHashMap<>();
         jdbcTemplate.query(topHitsSql, topHitParams, rs -> {
@@ -493,11 +505,6 @@ public class SearchService {
         return HtmlUtils.htmlEscape(source)
                 .replace(MARKER_START, "<mark>")
                 .replace(MARKER_END, "</mark>");
-    }
-
-    private long queryForLong(String sql, MapSqlParameterSource params) {
-        Number number = jdbcTemplate.queryForObject(sql, params, Number.class);
-        return number == null ? 0L : number.longValue();
     }
 
     private String normalizeView(String view) {
