@@ -140,11 +140,13 @@ public class PageService {
     }
 
     /** The requested pages of a project in project order; IDs from other projects are ignored. */
+    @Transactional(readOnly = true)
     public List<Page> getProjectPagesByIds(String projectId, Collection<String> pageIds, String userId) {
         requireProjectAccess(projectId, userId);
         return pageOrderService.sortPages(pageRepository.findWithImagesByProjectIdAndIdIn(projectId, pageIds));
     }
 
+    @Transactional(readOnly = true)
     public List<Page> getProjectPages(String projectId, String userId) {
         Optional<Project> projectOpt = projectRepository.findById(projectId);
         if (projectOpt.isPresent()) {
@@ -156,6 +158,7 @@ public class PageService {
         return List.of();
     }
 
+    @Transactional(readOnly = true)
     public org.springframework.data.domain.Page<Page> getProjectPagesPaginated(
             String projectId,
             String search,

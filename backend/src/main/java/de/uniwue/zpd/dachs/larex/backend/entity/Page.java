@@ -2,6 +2,8 @@ package de.uniwue.zpd.dachs.larex.backend.entity;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.persistence.*;
+import org.hibernate.annotations.Fetch;
+import org.hibernate.annotations.FetchMode;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -38,6 +40,7 @@ public class Page {
     private LocalDateTime updated;
 
     @ElementCollection
+    @Fetch(FetchMode.SUBSELECT)
     @CollectionTable(name = "page_tags", joinColumns = @JoinColumn(name = "page_id"))
     @Column(name = "tag")
     private List<String> tags = new ArrayList<>();
