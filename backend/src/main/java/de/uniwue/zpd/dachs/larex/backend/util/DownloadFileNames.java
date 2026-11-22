@@ -48,6 +48,6 @@ public final class DownloadFileNames {
             baseName = baseName.substring(0, extensionIndex);
         }
         String schemaName = sanitize(schema, "xml").toLowerCase(Locale.ROOT).replace('_', '-');
-        return baseName + "." + schemaName + ".xml";
+        return "hocr".equals(schemaName) ? baseName + ".hocr" : baseName + "." + schemaName + ".xml";
     }
 }

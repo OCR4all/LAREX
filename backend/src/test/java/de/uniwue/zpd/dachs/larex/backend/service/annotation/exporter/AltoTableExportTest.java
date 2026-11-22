@@ -1,7 +1,8 @@
 package de.uniwue.zpd.dachs.larex.backend.service.annotation.exporter;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
-import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.exporter.AnnotationToAltoXmlExporter;
+import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
+import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.exporter.AnnotationToOcrFormatExporter;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlToAnnotationParser;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.mapping.DtoToPage4jMapper;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.mapping.Page4jToDtoMapper;
@@ -47,7 +48,7 @@ class AltoTableExportTest {
                 """);
         PageDto page = new PageXmlToAnnotationParser(new Page4jToDtoMapper()).parse(source, null);
 
-        String alto = new AnnotationToAltoXmlExporter(new DtoToPage4jMapper()).toXmlString(page);
+        String alto = new AnnotationToOcrFormatExporter(new DtoToPage4jMapper()).toXmlString(page, XmlSchema.ALTO_XML);
 
         Matcher table = Pattern.compile("<ComposedBlock[^>]*ID=\"t\"[^>]*>(.*?)</ComposedBlock>", Pattern.DOTALL).matcher(alto);
         assertTrue(table.find(), alto);

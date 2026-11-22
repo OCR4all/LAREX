@@ -21,7 +21,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.cache.AnnotationReadCache;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.events.AnnotationSavedEvent;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.exporter.AnnotationToPageXmlExporter;
-import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.exporter.AnnotationToAltoXmlExporter;
+import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.exporter.AnnotationToOcrFormatExporter;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.exporter.PageXmlWriteResult;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlToAnnotationParser;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlParseResult;
@@ -71,7 +71,7 @@ public class AnnotationProcessingService {
     private final PageXmlRepository pageXmlRepository;
     private final PageXmlToAnnotationParser pageXmlParser;
     private final AnnotationToPageXmlExporter pageXmlExporter;
-    private final AnnotationToAltoXmlExporter altoXmlExporter;
+    private final AnnotationToOcrFormatExporter ocrFormatExporter;
     private final PageXmlVersionService pageXmlVersionService;
     private final HierarchicalFileStorageService hierarchicalFileStorageService;
     private final UserService userService;
@@ -88,7 +88,7 @@ public class AnnotationProcessingService {
             PageXmlRepository pageXmlRepository,
             PageXmlToAnnotationParser pageXmlParser,
             AnnotationToPageXmlExporter pageXmlExporter,
-            AnnotationToAltoXmlExporter altoXmlExporter,
+            AnnotationToOcrFormatExporter ocrFormatExporter,
             PageXmlVersionService pageXmlVersionService,
             HierarchicalFileStorageService hierarchicalFileStorageService,
             UserService userService,
@@ -101,7 +101,7 @@ public class AnnotationProcessingService {
         this.pageXmlRepository = pageXmlRepository;
         this.pageXmlParser = pageXmlParser;
         this.pageXmlExporter = pageXmlExporter;
-        this.altoXmlExporter = altoXmlExporter;
+        this.ocrFormatExporter = ocrFormatExporter;
         this.pageXmlVersionService = pageXmlVersionService;
         this.hierarchicalFileStorageService = hierarchicalFileStorageService;
         this.userService = userService;
@@ -210,8 +210,8 @@ public class AnnotationProcessingService {
 
         if (targetSchema == XmlSchema.PAGE_XML) {
             return pageXmlExporter.export(pageDto, originalXml);
-        } else if (targetSchema == XmlSchema.ALTO_XML) {
-            return altoXmlExporter.toXmlString(pageDto);
+        } else if (AnnotationToOcrFormatExporter.supports(targetSchema)) {
+            return ocrFormatExporter.toXmlString(pageDto, targetSchema);
         } else {
             throw new UnsupportedOperationException("No exporter available for schema: " + targetSchema);
         }
@@ -368,6 +368,8 @@ public class AnnotationProcessingService {
         Map<XmlSchema, String> schemas = new HashMap<>();
         schemas.put(XmlSchema.PAGE_XML, XmlSchema.PAGE_XML.getDisplayName());
         schemas.put(XmlSchema.ALTO_XML, XmlSchema.ALTO_XML.getDisplayName());
+        schemas.put(XmlSchema.FINE_READER_XML, XmlSchema.FINE_READER_XML.getDisplayName());
+        schemas.put(XmlSchema.HOCR, XmlSchema.HOCR.getDisplayName());
         return schemas;
     }
 
@@ -382,7 +384,7 @@ public class AnnotationProcessingService {
      * Check if a schema is supported for export.
      */
     public boolean isExportSupported(XmlSchema schema) {
-        return schema == XmlSchema.PAGE_XML || schema == XmlSchema.ALTO_XML;
+        return schema == XmlSchema.PAGE_XML || AnnotationToOcrFormatExporter.supports(schema);
     }
 
     private PageDto enrichMetadataForSave(PageDto dto, String userId, boolean initializeCreator, String workspaceId) {

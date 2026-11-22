@@ -135,7 +135,7 @@ class PageXmlCanonicalizationServiceTest {
 
         assertTrue(outcome.converted());
         assertFalse(outcome.snapshotCreated());
-        assertEquals(PageXmlCanonicalizationService.ALTO_SOURCE, outcome.sourceVersion());
+        assertEquals("ALTO", outcome.sourceVersion());
         assertEquals("2024-07-15", pageXml.getSchemaVersion());
         assertEquals(Files.size(xmlPath), pageXml.getFileSize());
         assertTrue(new PageXmlValidationService().validatePageXml(new FileSystemResource(xmlPath)).valid());

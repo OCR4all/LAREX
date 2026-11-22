@@ -14,6 +14,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexSe
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.StorageTrackingService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
+import de.uniwue.zpd.dachs.larex.backend.service.xml.OcrFormatToPageXml;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlCanonicalizationService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlValidationService;
 import de.uniwue.zpd.dachs.larex.backend.util.ImageFileUtils;
@@ -320,8 +321,8 @@ public class AsyncImportProcessor {
                 try {
                     storedXml = hierarchicalFileStorageService.storeFromPath(
                             xmlSource,
-                            fileName,
-                            detectMimeType(fileName),
+                            OcrFormatToPageXml.pageXmlFileName(fileName),
+                            "application/xml",
                             project.getLibrary().getWorkspaceId(),
                             project.getId(),
                             StoredFileType.XML,
@@ -393,8 +394,7 @@ public class AsyncImportProcessor {
     }
 
     private boolean isXmlFile(Path path) {
-        String fileName = path.getFileName().toString().toLowerCase();
-        return fileName.endsWith(".xml");
+        return OcrFormatToPageXml.hasSupportedExtension(path.getFileName().toString());
     }
 
     private String detectMimeType(String fileName) {

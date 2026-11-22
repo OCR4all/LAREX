@@ -22,5 +22,7 @@ class DownloadFileNamesTest {
     @Test
     void derivesAnnotationNameFromImageName() {
         assertEquals("page-001.alto-xml.xml", DownloadFileNames.annotationExport("page-001.png", "ALTO_XML"));
+        assertEquals("page-001.fine-reader-xml.xml", DownloadFileNames.annotationExport("page-001.png", "FINE_READER_XML"));
+        assertEquals("page-001.hocr", DownloadFileNames.annotationExport("page-001.png", "HOCR"));
     }
 }

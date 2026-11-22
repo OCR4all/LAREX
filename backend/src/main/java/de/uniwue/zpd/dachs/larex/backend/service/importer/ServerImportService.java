@@ -11,6 +11,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceStorageQuotaService;
+import de.uniwue.zpd.dachs.larex.backend.service.xml.OcrFormatToPageXml;
 import de.uniwue.zpd.dachs.larex.backend.util.ImageFileUtils;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -279,8 +280,7 @@ public class ServerImportService {
     }
 
     private boolean isXmlFile(Path path) {
-        String fileName = path.getFileName().toString().toLowerCase();
-        return fileName.endsWith(".xml");
+        return OcrFormatToPageXml.hasSupportedExtension(path.getFileName().toString());
     }
 
     private String formatBytes(long bytes) {

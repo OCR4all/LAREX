@@ -1472,7 +1472,7 @@ async function handleLegacyOcr4allImport(event: Event) {
             multiple
             webkitdirectory
             directory
-            accept="image/*,.xml"
+            accept="image/*,.xml,.hocr,.html,.xhtml"
             @change="handleDirectoryProjectUpload"
           >
           <UFieldGroup>

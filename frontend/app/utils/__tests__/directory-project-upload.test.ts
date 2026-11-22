@@ -7,11 +7,13 @@ describe('directory project upload', () => {
     const files = [
       { name: 'page.jpg', type: 'image/jpeg', webkitRelativePath: 'My Project/images/page.jpg' },
       { name: 'page.xml', type: 'text/xml', webkitRelativePath: 'My Project/page/page.xml' },
+      { name: 'other.hocr', type: '', webkitRelativePath: 'My Project/hocr/other.hocr' },
+      { name: 'third.html', type: 'text/html', webkitRelativePath: 'My Project/hocr/third.html' },
       { name: 'notes.txt', type: 'text/plain', webkitRelativePath: 'My Project/notes.txt' }
     ]
 
     expect(getDirectoryProjectName(files)).toBe('My Project')
-    expect(files.filter(isProjectImageOrXml).map(file => file.name)).toEqual(['page.jpg', 'page.xml'])
+    expect(files.filter(isProjectImageOrXml).map(file => file.name)).toEqual(['page.jpg', 'page.xml', 'other.hocr', 'third.html'])
     expect(getProjectNameError('My Project', ['Existing'])).toBeUndefined()
     expect(getProjectNameError('Existing', ['Existing'])).toContain('already taken')
   })

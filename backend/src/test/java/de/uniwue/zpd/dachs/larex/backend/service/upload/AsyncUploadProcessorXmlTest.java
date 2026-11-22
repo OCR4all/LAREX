@@ -4,7 +4,10 @@ import de.uniwue.zpd.dachs.larex.backend.entity.*;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.*;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.upload.*;
+import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
+import de.uniwue.zpd.dachs.larex.backend.service.xml.OcrFormatToPageXml;
+import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlCanonicalizationService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlValidationService;
 import de.uniwue.zpd.dachs.larex.backend.exception.InvalidPageXmlException;
 import de.uniwue.zpd.dachs.larex.backend.dto.UploadConflictDto;
@@ -38,6 +41,8 @@ class AsyncUploadProcessorXmlTest {
     @Mock PageXmlRepository xmls;
     @Mock HierarchicalFileStorageService storage;
     @Mock UploadRealtimePublisher realtime;
+    @Mock PageXmlCanonicalizationService canonicalization;
+    @Mock PageFilterIndexService filterIndex;
     @Spy PageXmlValidationService validation = new PageXmlValidationService();
     @InjectMocks AsyncUploadProcessor processor;
 
@@ -116,6 +121,41 @@ class AsyncUploadProcessorXmlTest {
                         + "Upload the image together with the ALTO file.");
         verify(pages, never()).save(any());
         verifyNoInteractions(storage, xmls);
+    }
+
+    @Test
+    void hocrIsStoredAsConvertedPageXml() throws Exception {
+        Project project = new Project();
+        project.setId("project");
+        Page page = new Page();
+        page.setId("page");
+        page.setName("page");
+        UploadSession session = new UploadSession("project", "workspace", "user", 1, 1);
+        session.setStatus(UploadSession.UploadSessionStatus.UPLOADING);
+        Path path = tempDir.resolve("page.hocr");
+        Files.write(path, new org.springframework.core.io.ClassPathResource("hocr/0001.hocr").getContentAsByteArray());
+        UploadSessionFile file = new UploadSessionFile("page.hocr", Files.size(path), "text/html", "page", "hocr", 1);
+        file.setTempFilePath(path.toString());
+        when(sessions.findById("session")).thenReturn(Optional.of(session));
+        when(projects.findById("project")).thenReturn(Optional.of(project));
+        when(files.findBySessionIdAndStatus("session", UploadSessionFile.UploadFileStatus.UPLOADED)).thenReturn(List.of(file));
+        when(pages.findByProjectIdAndNameIn(eq("project"), any())).thenReturn(List.of(page));
+        byte[][] stored = new byte[1][];
+        when(storage.storeFromPath(eq(path), eq("page.xml"), eq("text/html"), eq("workspace"), eq("project"),
+                eq(StoredFile.StoredFileType.XML), eq("user"), eq(true)))
+                .thenAnswer(invocation -> {
+                    stored[0] = Files.readAllBytes(path);
+                    return new HierarchicalFileStorageService.StoredFileDescriptor("xml", "page.xml", "page.xml",
+                            "application/xml", "xml", stored[0].length, "checksum", StoredFile.StoredFileType.XML);
+                });
+        when(xmls.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        processor.doProcessUploadSession("session");
+
+        assertThat(file.getStatus()).isEqualTo(UploadSessionFile.UploadFileStatus.COMPLETED);
+        assertThat(OcrFormatToPageXml.isConvertible(stored[0])).isFalse();
+        assertThat(validation.validatePageXml(new org.springframework.core.io.ByteArrayResource(stored[0])).valid()).isTrue();
+        verify(xmls).save(argThat(xml -> "page.xml".equals(xml.getFileName()) && "page".equals(xml.getBaseName())));
     }
 
     @Test

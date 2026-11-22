@@ -33,6 +33,8 @@ public class DocumentExportDto {
     public enum ExportFormat {
         PAGE_XML("xml", "application/xml"),
         ALTO_XML("alto.xml", "application/xml"),
+        FINE_READER_XML("finereader.xml", "application/xml"),
+        HOCR("hocr", "application/xhtml+xml"),
         TXT("txt", "text/plain; charset=UTF-8"),
         PDF("pdf", "application/pdf"),
         DOCX("docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
@@ -57,11 +59,15 @@ public class DocumentExportDto {
         }
 
         public boolean isRenderedOutput() {
-            return this == TXT || this == PDF || this == DOCX || this == TEI || this == ALTO_XML;
+            return this == TXT || this == PDF || this == DOCX || this == TEI || isOcrFormat();
+        }
+
+        public boolean isOcrFormat() {
+            return this == ALTO_XML || this == FINE_READER_XML || this == HOCR;
         }
 
         public boolean supportsPageExportEndpoint() {
-            return this == PAGE_XML || this == ALTO_XML || this == TXT || this == PDF || this == DOCX || this == TEI;
+            return this == PAGE_XML || isOcrFormat() || this == TXT || this == PDF || this == DOCX || this == TEI;
         }
 
         public boolean supportsProjectExportEndpoint() {

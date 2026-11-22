@@ -2,6 +2,7 @@ package de.uniwue.zpd.dachs.larex.backend.service.xml;
 
 import com.maxnth.page4j.formats.SourceImage;
 import com.maxnth.page4j.pagexml.PageXml;
+import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
 import de.uniwue.zpd.dachs.larex.backend.exception.InvalidPageXmlException;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlToAnnotationParser;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.mapping.Page4jToDtoMapper;
@@ -21,7 +22,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
 
-class AltoToPageXmlTest {
+class OcrFormatToPageXmlTest {
 
     private final PageXmlValidationService validation = new PageXmlValidationService();
 
@@ -29,15 +30,17 @@ class AltoToPageXmlTest {
     Path tempDir;
 
     @Test
-    void recognisesAltoButNotPageXml() throws IOException {
-        assertThat(AltoToPageXml.isAlto(fixture("pixel.xml"))).isTrue();
-        assertThat(AltoToPageXml.isAlto(primaryPageXml().getBytes(StandardCharsets.UTF_8))).isFalse();
-        assertThat(AltoToPageXml.isAlto("not xml".getBytes(StandardCharsets.UTF_8))).isFalse();
+    void recognisesAltoFineReaderAndHocrButNotPageXml() throws IOException {
+        assertThat(OcrFormatToPageXml.sourceFormat(fixture("pixel.xml"))).contains(XmlSchema.ALTO_XML);
+        assertThat(OcrFormatToPageXml.sourceFormat(fineReader())).contains(XmlSchema.FINE_READER_XML);
+        assertThat(OcrFormatToPageXml.sourceFormat(hocr())).contains(XmlSchema.HOCR);
+        assertThat(OcrFormatToPageXml.isConvertible(primaryPageXml().getBytes(StandardCharsets.UTF_8))).isFalse();
+        assertThat(OcrFormatToPageXml.isConvertible("not xml".getBytes(StandardCharsets.UTF_8))).isFalse();
     }
 
     @Test
     void convertsPixelAltoToValidPrimaryPageXml() throws IOException {
-        byte[] pageXml = AltoToPageXml.convert(fixture("pixel.xml")).pageXml();
+        byte[] pageXml = OcrFormatToPageXml.convert(fixture("pixel.xml")).pageXml();
 
         assertThat(validation.validatePageXml(new ByteArrayResource(pageXml)).valid()).isTrue();
         assertThat(PageXml.create().version(pageXml)).isEqualTo(PageXmlConversionService.PRIMARY_VERSION);
@@ -48,7 +51,7 @@ class AltoToPageXmlTest {
 
     @Test
     void convertedPageXmlOpensInTheEditorModel() throws IOException {
-        byte[] pageXml = AltoToPageXml.convert(fixture("pixel.xml")).pageXml();
+        byte[] pageXml = OcrFormatToPageXml.convert(fixture("pixel.xml")).pageXml();
 
         var page = new PageXmlToAnnotationParser(new Page4jToDtoMapper()).parse(pageXml);
 
@@ -61,13 +64,13 @@ class AltoToPageXmlTest {
 
     @Test
     void convertedPageXmlRecordsTheImportAndWhatWasNotKept() throws IOException {
-        var converted = AltoToPageXml.convert(fixture("pixel.xml"));
+        var converted = OcrFormatToPageXml.convert(fixture("pixel.xml"));
 
         var page = new PageXmlToAnnotationParser(new Page4jToDtoMapper()).parse(converted.pageXml());
 
         assertThat(converted.messages()).anySatisfy(message -> assertThat(message).contains("ComposedBlock"));
         assertThat(page.metadata().items())
-                .filteredOn(item -> AltoToPageXml.IMPORT_STEP_NAME.equals(item.name()))
+                .filteredOn(item -> OcrFormatToPageXml.importStepName(XmlSchema.ALTO_XML).equals(item.name()))
                 .singleElement()
                 .satisfies(item -> {
                     assertThat(item.type()).isEqualTo("processingStep");
@@ -82,7 +85,7 @@ class AltoToPageXmlTest {
     void scalesPhysicalUnitsToThePageImage() throws IOException {
         SourceImage image = SourceImages.read(fixturePath("page-300dpi.png")).orElseThrow();
 
-        byte[] pageXml = AltoToPageXml.convert(fixture("mm10.xml"), imageFilename -> Optional.of(image)).pageXml();
+        byte[] pageXml = OcrFormatToPageXml.convert(fixture("mm10.xml"), imageFilename -> Optional.of(image)).pageXml();
 
         var page = new PageXmlToAnnotationParser(new Page4jToDtoMapper()).parse(pageXml);
         assertThat(page.imageWidth()).isEqualTo(1181);
@@ -102,7 +105,7 @@ class AltoToPageXmlTest {
 
     @Test
     void rejectsPhysicalUnitsWithoutAPageImage() {
-        assertThatThrownBy(() -> AltoToPageXml.convert(fixture("mm10.xml")))
+        assertThatThrownBy(() -> OcrFormatToPageXml.convert(fixture("mm10.xml")))
                 .isInstanceOfSatisfying(InvalidPageXmlException.class, error -> {
                     assertThat(error.getValidation().errors())
                             .extracting(e -> e.code())
@@ -130,7 +133,7 @@ class AltoToPageXmlTest {
         var forPage = importable(primaryPageXml().getBytes(StandardCharsets.UTF_8));
 
         assertThat(forAlto).hasValueSatisfying(pageXml -> {
-            assertThat(AltoToPageXml.isAlto(pageXml)).isFalse();
+            assertThat(OcrFormatToPageXml.isConvertible(pageXml)).isFalse();
             assertThat(validation.validatePageXml(new ByteArrayResource(pageXml)).valid()).isTrue();
         });
         assertThat(forPage).isEmpty();
@@ -141,11 +144,76 @@ class AltoToPageXmlTest {
         Path xmlPath = tempDir.resolve("0001.xml");
         Files.write(xmlPath, fixture("pixel.xml"));
 
-        AltoToPageXml.convertInPlace(xmlPath, imageFilename -> Optional.empty());
+        OcrFormatToPageXml.convertInPlace(xmlPath, imageFilename -> Optional.empty());
 
-        assertThat(AltoToPageXml.isAlto(xmlPath)).isFalse();
+        assertThat(OcrFormatToPageXml.sourceFormat(xmlPath).isPresent()).isFalse();
         assertThat(validation.validatePageXml(new ByteArrayResource(Files.readAllBytes(xmlPath))).valid()).isTrue();
         assertThat(Files.list(tempDir)).containsExactly(xmlPath);
+    }
+
+    @Test
+    void convertsFineReaderToValidPageXmlWithWordsFromCharacters() throws IOException {
+        var converted = OcrFormatToPageXml.convert(fineReader());
+
+        assertThat(converted.source()).isEqualTo(XmlSchema.FINE_READER_XML);
+        assertThat(validation.validatePageXml(new ByteArrayResource(converted.pageXml())).valid()).isTrue();
+        var page = new PageXmlToAnnotationParser(new Page4jToDtoMapper()).parse(converted.pageXml());
+        assertThat(page.imageWidth()).isEqualTo(1000);
+        assertThat(page.imageHeight()).isEqualTo(1400);
+        assertThat(page.getRegionCount()).isEqualTo(2);
+        assertThat(page.getTextLineCount()).isEqualTo(2);
+        assertThat(page.regions().getFirst().textLines().getFirst().words())
+                .extracting(word -> word.getText())
+                .containsExactly("Gut", "Tag");
+        assertThat(page.metadata().items())
+                .extracting(item -> item.name())
+                .contains("LAREX FineReader XML import");
+    }
+
+    @Test
+    void convertsHocrToValidPageXml() throws IOException {
+        var converted = OcrFormatToPageXml.convert(hocr());
+
+        assertThat(converted.source()).isEqualTo(XmlSchema.HOCR);
+        assertThat(validation.validatePageXml(new ByteArrayResource(converted.pageXml())).valid()).isTrue();
+        String xml = new String(converted.pageXml(), StandardCharsets.UTF_8);
+        assertThat(xml).contains("imageFilename=\"0001.png\"", "Zweite", "Zeile");
+        var page = new PageXmlToAnnotationParser(new Page4jToDtoMapper()).parse(converted.pageXml());
+        assertThat(page.getTextLineCount()).isEqualTo(2);
+        assertThat(page.regions().getFirst().textLines().getFirst().words()).hasSize(2);
+        assertThat(page.metadata().items())
+                .extracting(item -> item.name())
+                .contains("LAREX hOCR import");
+    }
+
+    @Test
+    void reportsUnreadableHocrAsInvalidHocr() {
+        byte[] broken = "<html xmlns=\"http://www.w3.org/1999/xhtml\"><body><div class=\"ocr_page\">"
+                .getBytes(StandardCharsets.UTF_8);
+
+        assertThatThrownBy(() -> OcrFormatToPageXml.convert(broken))
+                .isInstanceOfSatisfying(InvalidPageXmlException.class, error -> {
+                    assertThat(error.title()).isEqualTo("Invalid hOCR");
+                    assertThat(error.getValidation().errors()).extracting(e -> e.code()).containsExactly("HOCR_READ_ERROR");
+                });
+    }
+
+    @Test
+    void namesConvertedFilesAsXml() {
+        assertThat(OcrFormatToPageXml.pageXmlFileName("0001.hocr")).isEqualTo("0001.xml");
+        assertThat(OcrFormatToPageXml.pageXmlFileName("0001.html")).isEqualTo("0001.xml");
+        assertThat(OcrFormatToPageXml.pageXmlFileName("0001.xml")).isEqualTo("0001.xml");
+        assertThat(OcrFormatToPageXml.pageXmlFileName("0001.png")).isEqualTo("0001.png");
+        assertThat(OcrFormatToPageXml.hasSupportedExtension("Page.XHTML")).isTrue();
+        assertThat(OcrFormatToPageXml.hasSupportedExtension("page.txt")).isFalse();
+    }
+
+    private static byte[] fineReader() throws IOException {
+        return new ClassPathResource("finereader/0001.xml").getContentAsByteArray();
+    }
+
+    private static byte[] hocr() throws IOException {
+        return new ClassPathResource("hocr/0001.hocr").getContentAsByteArray();
     }
 
     private Optional<byte[]> importable(byte[] xml) {

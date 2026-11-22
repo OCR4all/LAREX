@@ -14,7 +14,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.upload.UploadSessionFileRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
-import de.uniwue.zpd.dachs.larex.backend.service.xml.AltoToPageXml;
+import de.uniwue.zpd.dachs.larex.backend.service.xml.OcrFormatToPageXml;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlCanonicalizationService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlValidationService;
 import org.springframework.core.io.FileSystemResource;
@@ -159,7 +159,7 @@ public class UploadConflictService {
                     String createdBy = file.getSession() != null ? file.getSession().getUserId() : "system";
                     var storedImage = hierarchicalFileStorageService.storeFromPath(
                             tempFilePath,
-                            file.getOriginalFileName(),
+                            OcrFormatToPageXml.pageXmlFileName(file.getOriginalFileName()),
                             file.getMimeType(),
                             page.getProject().getLibrary().getWorkspaceId(),
                             page.getProject().getId(),
@@ -193,7 +193,7 @@ public class UploadConflictService {
                     Optional<byte[]> converted = pageXmlValidationService.toImportablePageXml(new FileSystemResource(tempFilePath),
                             imageFilename -> pageXmlCanonicalizationService.storedPageImage(page.getId()).apply(imageFilename));
                     if (converted.isPresent()) {
-                        AltoToPageXml.writeAtomically(tempFilePath, converted.get());
+                        OcrFormatToPageXml.writeAtomically(tempFilePath, converted.get());
                     }
                     pageXmlRepository.findByPage_Id(page.getId()).ifPresent(existingXml -> {
                         replacedStoragePaths.add(existingXml.getFilePath());
@@ -204,7 +204,7 @@ public class UploadConflictService {
                     String createdBy = file.getSession() != null ? file.getSession().getUserId() : "system";
                     var storedXml = hierarchicalFileStorageService.storeFromPath(
                             tempFilePath,
-                            file.getOriginalFileName(),
+                            OcrFormatToPageXml.pageXmlFileName(file.getOriginalFileName()),
                             file.getMimeType(),
                             page.getProject().getLibrary().getWorkspaceId(),
                             page.getProject().getId(),

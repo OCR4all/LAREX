@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document xmlns="http://www.abbyy.com/FineReader_xml/FineReader10-schema-v1.xml"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://www.abbyy.com/FineReader_xml/FineReader10-schema-v1.xml http://www.abbyy.com/FineReader_xml/FineReader10-schema-v1.xml"
+          version="1.0" producer="ABBYY FineReader Engine 11" pagesCount="1" mainLanguage="German">
+  <page width="1000" height="1400" resolution="300" originalCoords="1">
+    <block blockType="Text" l="100" t="100" r="900" b="300">
+      <region><rect l="100" t="100" r="900" b="300"/></region>
+      <text>
+        <par align="Left">
+          <line baseline="140" l="100" t="100" r="400" b="150">
+            <formatting lang="GermanStandard">
+              <charParams l="100" t="100" r="139" b="150" wordStart="1" charConfidence="95">G</charParams>
+              <charParams l="140" t="100" r="179" b="150" wordStart="0" charConfidence="90">u</charParams>
+              <charParams l="180" t="100" r="219" b="150" wordStart="0" charConfidence="85">t</charParams>
+              <charParams l="220" t="100" r="239" b="150" wordStart="0">&#32;</charParams>
+              <charParams l="240" t="100" r="279" b="150" wordStart="1" charConfidence="80">T</charParams>
+              <charParams l="280" t="100" r="319" b="150" wordStart="0" charConfidence="70">a</charParams>
+              <charParams l="320" t="100" r="400" b="150" wordStart="0" charConfidence="60">g</charParams>
+            </formatting>
+          </line>
+          <line baseline="240" l="100" t="200" r="900" b="250">
+            <formatting lang="GermanStandard">Zweite Zeile</formatting>
+          </line>
+        </par>
+      </text>
+    </block>
+    <block blockType="Picture" l="100" t="400" r="500" b="700">
+      <region><rect l="100" t="400" r="500" b="700"/></region>
+    </block>
+  </page>
+</document>

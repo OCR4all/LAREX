@@ -3,7 +3,7 @@ import type { PreparedDownloadTarget } from '@/composables/use-background-downlo
 import type { ImageVariantSelection, Page } from '@/types/project-page'
 import { PAGE_XML_PRIMARY_VERSION } from '@/utils/project-export'
 
-type ExportFormat = 'PAGE_XML' | 'ALTO_XML' | 'TXT' | 'PDF' | 'DOCX' | 'TEI' | 'CSV' | 'XLSX'
+type ExportFormat = 'PAGE_XML' | 'ALTO_XML' | 'FINE_READER_XML' | 'HOCR' | 'TXT' | 'PDF' | 'DOCX' | 'TEI' | 'CSV' | 'XLSX'
 type TextLevel = 'PAGE' | 'REGION' | 'TEXT_LINE'
 type SpreadsheetProfile = 'PAGE_METADATA' | 'TAGS' | 'REGIONS' | 'TABLES'
 type PdfProfile = 'SEARCHABLE' | 'IMAGES_ONLY' | 'TEXT_PAGES' | 'PDFA_SEARCHABLE'
@@ -57,10 +57,19 @@ const versionOptions = [
 ]
 
 const altoExportHelp = 'ALTO holds less than PAGE XML. Regions, lines, words and their text are kept, but relations, table rows and columns, and other PAGE-only details are not.'
+const fineReaderExportHelp = 'FineReader XML holds less than PAGE XML. Regions become blocks and lines keep their text with a box per character, but polygons, relations, table rows and columns, and other PAGE-only details are not kept.'
+const hocrExportHelp = 'hOCR holds less than PAGE XML. Text regions, lines, words, baselines and word confidences are kept, other regions only as boxes, and relations, table rows and columns, and other PAGE-only details are not.'
+const ocrFormatHelp: Partial<Record<ExportFormat, string>> = {
+  ALTO_XML: altoExportHelp,
+  FINE_READER_XML: fineReaderExportHelp,
+  HOCR: hocrExportHelp
+}
 
 const pageFormatOptions: Array<{ label: string, value: ExportFormat }> = [
   { label: 'PAGE XML', value: 'PAGE_XML' },
   { label: 'ALTO XML (.alto.xml)', value: 'ALTO_XML' },
+  { label: 'FineReader XML (.finereader.xml)', value: 'FINE_READER_XML' },
+  { label: 'hOCR (.hocr)', value: 'HOCR' },
   { label: 'Text (.txt)', value: 'TXT' },
   { label: 'PDF (.pdf)', value: 'PDF' },
   { label: 'DOCX (.docx)', value: 'DOCX' },
@@ -69,6 +78,8 @@ const pageFormatOptions: Array<{ label: string, value: ExportFormat }> = [
 
 const projectFormatOptions: Array<{ label: string, value: Exclude<ExportFormat, 'PAGE_XML'> }> = [
   { label: 'ALTO XML (.alto.zip)', value: 'ALTO_XML' },
+  { label: 'FineReader XML (.finereader.zip)', value: 'FINE_READER_XML' },
+  { label: 'hOCR (.hocr.zip)', value: 'HOCR' },
   { label: 'Text (.txt)', value: 'TXT' },
   { label: 'PDF (.pdf)', value: 'PDF' },
   { label: 'DOCX (.docx)', value: 'DOCX' },
@@ -201,6 +212,8 @@ const unclearConfidenceThresholdPercent = computed({
 
 const embeddedSelection = reactive<Record<Exclude<ExportFormat, 'PAGE_XML'>, boolean>>({
   ALTO_XML: props.initialEmbeddedFormats.includes('ALTO_XML'),
+  FINE_READER_XML: props.initialEmbeddedFormats.includes('FINE_READER_XML'),
+  HOCR: props.initialEmbeddedFormats.includes('HOCR'),
   TXT: props.initialEmbeddedFormats.includes('TXT'),
   PDF: props.initialEmbeddedFormats.includes('PDF'),
   DOCX: props.initialEmbeddedFormats.includes('DOCX'),
@@ -280,15 +293,20 @@ function suggestedDownloadFileName(): string {
   if (!format) return `${baseName} - export.zip`
   if (format === 'PAGE_XML') return `${baseName}.xml`
 
+  const projectMode = props.mode === 'project'
   const extension = format === 'ALTO_XML'
-    ? (props.mode === 'project' ? 'alto.zip' : 'alto.xml')
-    : format === 'TEI'
-      ? 'tei.xml'
-      : format === 'CSV'
-        ? (selectedSpreadsheetProfiles().length > 1 ? 'csv.zip' : 'csv')
-        : format === 'XLSX'
-          ? (selectedSpreadsheetProfiles().length > 1 ? 'xlsx.zip' : 'xlsx')
-          : format.toLowerCase()
+    ? (projectMode ? 'alto.zip' : 'alto.xml')
+    : format === 'FINE_READER_XML'
+      ? (projectMode ? 'finereader.zip' : 'finereader.xml')
+      : format === 'HOCR'
+        ? (projectMode ? 'hocr.zip' : 'hocr')
+        : format === 'TEI'
+          ? 'tei.xml'
+          : format === 'CSV'
+            ? (selectedSpreadsheetProfiles().length > 1 ? 'csv.zip' : 'csv')
+            : format === 'XLSX'
+              ? (selectedSpreadsheetProfiles().length > 1 ? 'xlsx.zip' : 'xlsx')
+              : format.toLowerCase()
 
   return `${baseName}.${extension}`
 }
@@ -299,6 +317,8 @@ async function closeWithResult() {
 
   if (isArchiveMode.value) {
     if (embeddedSelection.ALTO_XML) embeddedOutputs.push({ format: 'ALTO_XML' })
+    if (embeddedSelection.FINE_READER_XML) embeddedOutputs.push({ format: 'FINE_READER_XML' })
+    if (embeddedSelection.HOCR) embeddedOutputs.push({ format: 'HOCR' })
     if (embeddedSelection.TXT) {
       embeddedOutputs.push({
         format: 'TXT',
@@ -375,7 +395,7 @@ async function closeWithResult() {
           v-if="!isArchiveMode"
           label="Output format"
           name="format"
-          :help="selectedFormat === 'ALTO_XML' ? altoExportHelp : undefined"
+          :help="selectedFormat ? ocrFormatHelp[selectedFormat] : undefined"
         >
           <USelect
             v-model="selectedFormat"
@@ -577,6 +597,18 @@ async function closeWithResult() {
               label="ALTO XML (.alto.zip)"
               :description="altoExportHelp"
               @update:model-value="embeddedSelection.ALTO_XML = ($event === true)"
+            />
+            <UCheckbox
+              :model-value="embeddedSelection.FINE_READER_XML"
+              label="FineReader XML (.finereader.zip)"
+              :description="fineReaderExportHelp"
+              @update:model-value="embeddedSelection.FINE_READER_XML = ($event === true)"
+            />
+            <UCheckbox
+              :model-value="embeddedSelection.HOCR"
+              label="hOCR (.hocr.zip)"
+              :description="hocrExportHelp"
+              @update:model-value="embeddedSelection.HOCR = ($event === true)"
             />
             <UCheckbox
               :model-value="embeddedSelection.TXT"

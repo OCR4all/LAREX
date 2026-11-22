@@ -37,6 +37,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.zip.ZipInputStream;
 import javax.imageio.ImageIO;
 import javax.xml.XMLConstants;
@@ -111,7 +112,7 @@ class DocumentExportServiceTest {
                         new TeiExportWriter(annotationProcessingService),
                         new PdfExportWriter()
                 ),
-                new AltoExportWriter(annotationProcessingService),
+                new OcrFormatExportWriter(annotationProcessingService),
                 new SpreadsheetExportWriter()
         );
         ReflectionTestUtils.setField(service, "uploadDir", tempDir.toString());
@@ -422,6 +423,58 @@ class DocumentExportServiceTest {
         assertEquals("<alto>beta</alto>", entries.get("Beta.alto.xml"));
         verify(annotationProcessingService).exportAnnotationToXml(any(PageDto.class), eq(XmlSchema.ALTO_XML), eq("xml-page-1"));
         verify(annotationProcessingService).exportAnnotationToXml(any(PageDto.class), eq(XmlSchema.ALTO_XML), eq("xml-page-2"));
+    }
+
+    @Test
+    void exportPageFineReaderAndHocr_useTheirExtensions() throws Exception {
+        Project project = project("project-1", "Demo Project");
+        Page page = page(project, "page-1", "Alpha", "alpha.xml", null);
+        project.setPages(new ArrayList<>(List.of(page)));
+
+        when(projectRepository.findWithAssociationsById("project-1")).thenReturn(Optional.of(project));
+        when(annotationProcessingService.parseXmlToAnnotation("xml-page-1")).thenReturn(pageDto(
+                "alpha.png",
+                List.of(textRegion("r1", List.of(textLine("l1", "text", 0, simpleBaseline(10, 30, 160, 30))))),
+                null
+        ));
+        when(annotationProcessingService.exportAnnotationToXml(any(PageDto.class), eq(XmlSchema.FINE_READER_XML), eq("xml-page-1")))
+                .thenReturn("<document/>");
+        when(annotationProcessingService.exportAnnotationToXml(any(PageDto.class), eq(XmlSchema.HOCR), eq("xml-page-1")))
+                .thenReturn("<html/>");
+
+        DocumentExportService.DocumentExportResult fineReader = service.exportPage("project-1", "page-1", "user-1",
+                new DocumentExportDto.PageExportRequest(DocumentExportDto.ExportFormat.FINE_READER_XML, null, null, null, null, null, null, null, null));
+        DocumentExportService.DocumentExportResult hocr = service.exportPage("project-1", "page-1", "user-1",
+                new DocumentExportDto.PageExportRequest(DocumentExportDto.ExportFormat.HOCR, null, null, null, null, null, null, null, null));
+
+        assertEquals("Alpha.finereader.xml", fineReader.fileName());
+        assertEquals("<document/>", new String(fineReader.bytes(), StandardCharsets.UTF_8));
+        assertEquals("Alpha.hocr", hocr.fileName());
+        assertEquals("<html/>", new String(hocr.bytes(), StandardCharsets.UTF_8));
+    }
+
+    @Test
+    void exportProjectHocr_streamsZipEntries() throws Exception {
+        Project project = project("project-1", "Demo Project");
+        Page alpha = page(project, "page-1", "Alpha", "alpha.xml", null);
+        Page beta = page(project, "page-2", "Beta", "beta.xml", null);
+        project.setPages(new ArrayList<>(List.of(alpha, beta)));
+
+        when(projectRepository.findWithAssociationsById("project-1")).thenReturn(Optional.of(project));
+        when(annotationProcessingService.parseXmlToAnnotation(any())).thenReturn(pageDto(
+                "alpha.png",
+                List.of(textRegion("r1", List.of(textLine("l1", "alpha", 0, simpleBaseline(10, 30, 160, 30))))),
+                null
+        ));
+        when(annotationProcessingService.exportAnnotationToXml(any(PageDto.class), eq(XmlSchema.HOCR), any()))
+                .thenReturn("<html/>");
+
+        DocumentExportService.DocumentExportResult result = service.exportProject("ws-1", "project-1", "user-1",
+                new DocumentExportDto.ProjectExportRequest(DocumentExportDto.ExportFormat.HOCR, null, null, false, null, null, null, null, null, null));
+
+        Map<String, String> entries = zipEntries(result.bytes());
+        assertEquals("Demo Project.hocr.zip", result.fileName());
+        assertEquals(Set.of("Alpha.hocr", "Beta.hocr"), entries.keySet());
     }
 
     @Test

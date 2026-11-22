@@ -71,8 +71,8 @@ public class PageXmlValidationService {
         } catch (IOException error) {
             throw new InvalidPageXmlException(invalid(List.of(error(1, 1, "XML_READ_ERROR", "Could not read XML")), null, null));
         }
-        if (AltoToPageXml.isAlto(xml)) {
-            return Optional.of(AltoToPageXml.convert(xml, pageImage).pageXml());
+        if (OcrFormatToPageXml.isConvertible(xml)) {
+            return Optional.of(OcrFormatToPageXml.convert(xml, pageImage).pageXml());
         }
         assertValidPageXml(new ByteArrayResource(xml));
         return Optional.empty();

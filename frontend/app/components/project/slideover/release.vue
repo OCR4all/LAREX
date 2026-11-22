@@ -122,6 +122,8 @@ function docxOutput() {
 }
 
 function formatLabel(format: ProjectReleaseExportFormat) {
+  if (format === 'FINE_READER_XML') return 'FineReader XML'
+  if (format === 'HOCR') return 'hOCR'
   return format.replaceAll('_', ' ')
 }
 

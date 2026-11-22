@@ -16,6 +16,10 @@ public enum XmlSchema {
      */
     ALTO_XML("ALTO", "http://www.loc.gov/standards/alto/"),
 
+    FINE_READER_XML("FineReader XML", "http://www.abbyy.com/FineReader_xml/"),
+
+    HOCR("hOCR", "http://www.w3.org/1999/xhtml"),
+
     /**
      * Unknown or unsupported format.
      */
@@ -65,6 +69,7 @@ public enum XmlSchema {
         return switch (rootElementName.toLowerCase()) {
             case "pcgts", "pctgs" -> PAGE_XML;
             case "alto" -> ALTO_XML;
+            case "html" -> HOCR;
             default -> UNKNOWN;
         };
     }

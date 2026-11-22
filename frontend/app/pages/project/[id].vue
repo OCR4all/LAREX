@@ -2555,7 +2555,7 @@ const toolbarRefresh = useRefreshFeedback(() => refreshPagesData({ manual: true 
 
             <UTooltip
               v-if="canUploadProject"
-              text="Images, PAGE XML, ALTO or PDFs. ALTO is converted to PAGE XML."
+              text="Images, PAGE XML, ALTO, FineReader XML, hOCR or PDFs. ALTO, FineReader and hOCR are converted to PAGE XML."
             >
               <UButton
                 icon="i-lucide-upload"
@@ -2582,7 +2582,7 @@ const toolbarRefresh = useRefreshFeedback(() => refreshPagesData({ manual: true 
               ref="fileInput"
               type="file"
               multiple
-              accept="image/*,.xml,application/pdf,.pdf"
+              accept="image/*,.xml,.hocr,.html,.xhtml,application/pdf,.pdf"
               class="hidden"
               @change="(e: Event) => handleFileUpload((e.target as HTMLInputElement).files)"
             >
@@ -2772,8 +2772,8 @@ const toolbarRefresh = useRefreshFeedback(() => refreshPagesData({ manual: true 
                   No pages yet
                 </h2>
                 <p class="text-sm text-muted">
-                  Upload images, PAGE XML, ALTO, or PDFs to add the first pages to this project.
-                  ALTO is converted to PAGE XML, and only the converted file is kept.
+                  Upload images, PAGE XML, ALTO, FineReader XML, hOCR, or PDFs to add the first pages to this project.
+                  ALTO, FineReader and hOCR are converted to PAGE XML, and only the converted file is kept.
                 </p>
               </div>
               <button
@@ -2792,7 +2792,7 @@ const toolbarRefresh = useRefreshFeedback(() => refreshPagesData({ manual: true 
                 <span class="font-medium text-highlighted">
                   {{ isUploading ? 'Uploading files…' : 'Drop files here or click to browse' }}
                 </span>
-                <span class="text-xs text-muted">Images, PAGE XML, ALTO, and PDFs</span>
+                <span class="text-xs text-muted">Images, PAGE XML, ALTO, FineReader XML, hOCR, and PDFs</span>
               </button>
             </div>
 
@@ -2933,7 +2933,7 @@ const toolbarRefresh = useRefreshFeedback(() => refreshPagesData({ manual: true 
           :target="projectPagesDropZone"
           icon="i-lucide-files"
           title="Drop files to upload"
-          description="Images, PAGE XML, ALTO, and PDFs. ALTO is converted to PAGE XML."
+          description="Images, PAGE XML, ALTO, FineReader XML, hOCR, and PDFs. ALTO, FineReader and hOCR are converted to PAGE XML."
         />
       </div>
     </template>

@@ -93,6 +93,8 @@ export function formatProjectExportExtension(format: ExportFormat): string {
   switch (format) {
     case 'PAGE_XML': return 'xml'
     case 'ALTO_XML': return 'alto.xml'
+    case 'FINE_READER_XML': return 'finereader.xml'
+    case 'HOCR': return 'hocr'
     case 'TXT': return 'txt'
     case 'PDF': return 'pdf'
     case 'DOCX': return 'docx'

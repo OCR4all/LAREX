@@ -47,6 +47,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.storage.StorageTrackingService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
 import de.uniwue.zpd.dachs.larex.backend.service.toolkit.ToolkitPackageService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
+import de.uniwue.zpd.dachs.larex.backend.service.xml.OcrFormatToPageXml;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlCanonicalizationService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlValidationService;
 import org.springframework.core.io.FileSystemResource;
@@ -1275,9 +1276,10 @@ public class ProjectPackageService {
             for (ProjectPackageDto.XmlFileDescriptor xmlDescriptor : safeList(descriptor.xml())) {
                 Path source = importedPage.resolve(importedPackage.root(), xmlDescriptor.path());
                 XmlSchema schema = detectXmlSchema(source);
-                boolean alto = schema == XmlSchema.ALTO_XML;
+                boolean foreign = schema == XmlSchema.ALTO_XML || schema == XmlSchema.FINE_READER_XML
+                        || schema == XmlSchema.HOCR;
                 Path xmlSource = source;
-                if (alto) {
+                if (foreign) {
                     pageRepository.flush();
                     byte[] converted = pageXmlValidationService.toImportablePageXml(new FileSystemResource(source),
                             pageXmlCanonicalizationService.storedPageImage(page.getId())).orElseThrow();
@@ -1291,29 +1293,29 @@ public class ProjectPackageService {
                 try {
                     stored = hierarchicalFileStorageService.storeFromPath(
                             xmlSource,
-                            xmlDescriptor.fileName(),
-                            detectMimeType(xmlDescriptor.fileName(), "application/xml"),
+                            foreign ? OcrFormatToPageXml.pageXmlFileName(xmlDescriptor.fileName()) : xmlDescriptor.fileName(),
+                            foreign ? "application/xml" : detectMimeType(xmlDescriptor.fileName(), "application/xml"),
                             project.getLibrary().getWorkspaceId(),
                             project.getId(),
                             de.uniwue.zpd.dachs.larex.backend.entity.StoredFile.StoredFileType.XML,
                             userId,
-                            alto
+                            foreign
                     );
                 } finally {
-                    if (alto) {
+                    if (foreign) {
                         Files.deleteIfExists(xmlSource);
                     }
                 }
                 createdStoragePaths.add(stored.storagePath());
                 PageXml xml = pageXmlRepository.save(new PageXml(
-                        xmlDescriptor.fileName(),
+                        foreign ? OcrFormatToPageXml.pageXmlFileName(xmlDescriptor.fileName()) : xmlDescriptor.fileName(),
                         stored.storagePath(),
                         stored.mimeType(),
                         stored.sizeBytes(),
                         xmlDescriptor.variant(),
                         xmlDescriptor.baseName(),
                         schema,
-                        schema == XmlSchema.PAGE_XML && !alto ? pageXmlConversionService.detectPageVersion(source) : null,
+                        schema == XmlSchema.PAGE_XML && !foreign ? pageXmlConversionService.detectPageVersion(source) : null,
                         page
                 ));
                 if (schema == XmlSchema.PAGE_XML) {

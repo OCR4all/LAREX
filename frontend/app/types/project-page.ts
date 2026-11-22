@@ -129,7 +129,7 @@ export type Page = {
   }>
 }
 
-export type ExportFormat = 'PAGE_XML' | 'ALTO_XML' | 'TXT' | 'PDF' | 'DOCX' | 'TEI' | 'CSV' | 'XLSX'
+export type ExportFormat = 'PAGE_XML' | 'ALTO_XML' | 'FINE_READER_XML' | 'HOCR' | 'TXT' | 'PDF' | 'DOCX' | 'TEI' | 'CSV' | 'XLSX'
 export type TextLevel = 'PAGE' | 'REGION' | 'TEXT_LINE'
 export type SpreadsheetProfile = 'PAGE_METADATA' | 'TAGS' | 'REGIONS' | 'TABLES'
 export type PdfProfile = 'SEARCHABLE' | 'IMAGES_ONLY' | 'TEXT_PAGES' | 'PDFA_SEARCHABLE'

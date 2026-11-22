@@ -1,5 +1,5 @@
 export type ProjectPackageReleaseStatus = 'CREATING' | 'READY' | 'FAILED'
-export type ProjectReleaseExportFormat = 'ALTO_XML' | 'TXT' | 'PDF' | 'DOCX' | 'TEI' | 'CSV' | 'XLSX'
+export type ProjectReleaseExportFormat = 'ALTO_XML' | 'FINE_READER_XML' | 'HOCR' | 'TXT' | 'PDF' | 'DOCX' | 'TEI' | 'CSV' | 'XLSX'
 export type ProjectReleaseTextLevel = 'PAGE' | 'REGION' | 'TEXT_LINE'
 export type ProjectReleaseSpreadsheetProfile = 'PAGE_METADATA' | 'TAGS' | 'REGIONS' | 'TABLES'
 export type ProjectReleasePdfProfile = 'SEARCHABLE' | 'IMAGES_ONLY' | 'TEXT_PAGES' | 'PDFA_SEARCHABLE'

@@ -20,7 +20,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorage
 import de.uniwue.zpd.dachs.larex.backend.service.storage.StorageTrackingService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
 import de.uniwue.zpd.dachs.larex.backend.service.upload.events.UploadPageIndexingRequestedEvent;
-import de.uniwue.zpd.dachs.larex.backend.service.xml.AltoToPageXml;
+import de.uniwue.zpd.dachs.larex.backend.service.xml.OcrFormatToPageXml;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlCanonicalizationService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlValidationService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.SourceImages;
@@ -359,7 +359,7 @@ public class AsyncUploadProcessor {
                     Optional<byte[]> converted = pageXmlValidationService.toImportablePageXml(
                             new FileSystemResource(file.getTempFilePath()), pageImage);
                     if (converted.isPresent()) {
-                        AltoToPageXml.writeAtomically(Paths.get(file.getTempFilePath()), converted.get());
+                        OcrFormatToPageXml.writeAtomically(Paths.get(file.getTempFilePath()), converted.get());
                     }
                 } catch (InvalidPageXmlException error) {
                     file.setStatus(UploadFileStatus.FAILED);
@@ -463,7 +463,7 @@ public class AsyncUploadProcessor {
 
         var storedImage = hierarchicalFileStorageService.storeFromPath(
                 tempFilePath,
-                sessionFile.getOriginalFileName(),
+                OcrFormatToPageXml.pageXmlFileName(sessionFile.getOriginalFileName()),
                 sessionFile.getMimeType(),
                 workspaceId,
                 projectId,
@@ -534,7 +534,7 @@ public class AsyncUploadProcessor {
 
         var storedXml = hierarchicalFileStorageService.storeFromPath(
                 tempFilePath,
-                sessionFile.getOriginalFileName(),
+                OcrFormatToPageXml.pageXmlFileName(sessionFile.getOriginalFileName()),
                 sessionFile.getMimeType(),
                 workspaceId,
                 projectId,
@@ -863,8 +863,7 @@ public class AsyncUploadProcessor {
     }
 
     private boolean isXmlFile(UploadSessionFile file) {
-        String fileName = file.getOriginalFileName().toLowerCase();
-        return fileName.endsWith(".xml");
+        return OcrFormatToPageXml.hasSupportedExtension(file.getOriginalFileName());
     }
 
     private boolean isPdfFile(UploadSessionFile file) {

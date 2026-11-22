@@ -27,7 +27,7 @@ configurations[pageAudit.implementationConfigurationName].extendsFrom(configurat
 configurations[pageAudit.runtimeOnlyConfigurationName].extendsFrom(configurations.runtimeOnly.get())
 
 dependencies {
-	implementation("com.maxnth:page4j:1.0.0")
+	implementation("com.maxnth:page4j:1.1.0")
 	implementation("com.github.ben-manes.caffeine:caffeine:3.3.1")
 
 	implementation("org.springframework.boot:spring-boot-starter-cache")

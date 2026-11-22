@@ -54,7 +54,7 @@ public class DocumentExportService {
     private final PageXmlConversionService pageXmlConversionService;
     private final PageOrderService pageOrderService;
     private final TextDocumentExportWriter textDocumentExportWriter;
-    private final AltoExportWriter altoExportWriter;
+    private final OcrFormatExportWriter ocrFormatExportWriter;
     private final SpreadsheetExportWriter spreadsheetExportWriter;
 
     @Value("${file.upload-dir}")
@@ -67,7 +67,7 @@ public class DocumentExportService {
                                  PageXmlConversionService pageXmlConversionService,
                                  PageOrderService pageOrderService,
                                  TextDocumentExportWriter textDocumentExportWriter,
-                                 AltoExportWriter altoExportWriter,
+                                 OcrFormatExportWriter ocrFormatExportWriter,
                                  SpreadsheetExportWriter spreadsheetExportWriter) {
         this.projectRepository = projectRepository;
         this.pageXmlRepository = pageXmlRepository;
@@ -76,7 +76,7 @@ public class DocumentExportService {
         this.pageXmlConversionService = pageXmlConversionService;
         this.pageOrderService = pageOrderService;
         this.textDocumentExportWriter = textDocumentExportWriter;
-        this.altoExportWriter = altoExportWriter;
+        this.ocrFormatExportWriter = ocrFormatExportWriter;
         this.spreadsheetExportWriter = spreadsheetExportWriter;
     }
 
@@ -383,7 +383,7 @@ public class DocumentExportService {
             case DOCX -> textDocumentExportWriter.renderDocx(baseName, project, pages, options.docxOptions(), pageScope);
             case TEI -> textDocumentExportWriter.renderTei(baseName, project, pages, options.teiProfile());
             case PDF -> textDocumentExportWriter.renderPdf(baseName, project, pages, options.pdfProfile());
-            case ALTO_XML -> altoExportWriter.render(project, pages);
+            case ALTO_XML, FINE_READER_XML, HOCR -> ocrFormatExportWriter.render(project, pages, options.format());
             case PAGE_XML -> throw new IllegalArgumentException("PAGE XML export is only supported on the legacy page endpoint");
             case CSV, XLSX -> throw new IllegalStateException("Spreadsheet formats handled above");
         };

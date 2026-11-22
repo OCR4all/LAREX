@@ -31,6 +31,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.storage.ThumbnailService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshService;
 import de.uniwue.zpd.dachs.larex.backend.service.version.PageXmlVersionService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
+import de.uniwue.zpd.dachs.larex.backend.service.xml.OcrFormatToPageXml;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlCanonicalizationService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlValidationService;
 import de.uniwue.zpd.dachs.larex.backend.util.ImageFileUtils;
@@ -44,6 +45,7 @@ import java.util.function.Consumer;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,6 +61,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class PageService {
 
     private static final Logger log = LoggerFactory.getLogger(PageService.class);
+    private static final Set<String> XML_CONTENT_TYPES = Set.of("text/xml", "application/xml", "text/html", "application/xhtml+xml");
 
     private final ImageTypeService imageTypes;
     private final PageRepository pageRepository;
@@ -444,7 +447,7 @@ public class PageService {
         try {
             Files.write(converted, pageXml);
             return hierarchicalFileStorageService.storeFromPath(
-                    converted, originalFilename, "application/xml", workspaceId, projectId, StoredFileType.XML, userId, true);
+                    converted, OcrFormatToPageXml.pageXmlFileName(originalFilename), "application/xml", workspaceId, projectId, StoredFileType.XML, userId, true);
         } finally {
             Files.deleteIfExists(converted);
         }
@@ -755,8 +758,7 @@ public class PageService {
         String contentType = file.getContentType();
         String fileName = file.getOriginalFilename();
 
-        return (contentType != null && (contentType.equals("text/xml") || contentType.equals("application/xml"))) ||
-                (fileName != null && fileName.toLowerCase().endsWith(".xml"));
+        return (contentType != null && XML_CONTENT_TYPES.contains(contentType)) || OcrFormatToPageXml.hasSupportedExtension(fileName);
     }
 
     public boolean canReviewPages(String projectId, String userId) {
