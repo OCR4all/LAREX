@@ -172,6 +172,19 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=4096
         run: pnpm build
 
+  released-migrations:
+    name: Released Migrations
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Check released migrations are unchanged
+        run: scripts/ci/check-released-migrations.sh
+
   compose-validation:
     name: Compose Validation
     runs-on: ubuntu-latest

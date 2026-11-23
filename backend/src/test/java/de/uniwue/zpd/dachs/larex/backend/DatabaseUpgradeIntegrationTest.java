@@ -10,7 +10,8 @@ import org.flywaydb.core.api.MigrationVersion;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.init.ScriptUtils;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -20,25 +21,25 @@ import org.testcontainers.utility.DockerImageName;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.io.IOException;
 import java.sql.SQLException;
-import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.Arrays;
+import java.util.Comparator;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 class DatabaseUpgradeIntegrationTest {
 
-    private static final String RELEASE = "1.0.0";
-    private static final String RELEASE_SCHEMA_VERSION = "1";
-    private static final Map<String, Integer> RELEASED_MIGRATION_CHECKSUMS = Map.of("1", 1423058824);
+    private static final MigrationVersion BASELINE = MigrationVersion.fromVersion("1");
+    private static final String SEEDS = "classpath:db/upgrade/V*.sql";
 
     private static final PostgreSQLContainer POSTGRES =
             new PostgreSQLContainer(DockerImageName.parse("postgres:18.7-alpine"));
 
     static {
         POSTGRES.start();
-        installRelease();
+        installSeededHistory();
     }
 
     @DynamicPropertySource
@@ -56,24 +57,12 @@ class DatabaseUpgradeIntegrationTest {
     @Autowired PageRepository pages;
 
     @Test
-    void releasedMigrationsAreUnchanged() {
-        Map<String, Integer> applied = jdbc.queryForList(
-                        "SELECT version, checksum FROM flyway_schema_history WHERE version IS NOT NULL")
-                .stream()
-                .filter(row -> RELEASED_MIGRATION_CHECKSUMS.containsKey((String) row.get("version")))
-                .collect(Collectors.toMap(row -> (String) row.get("version"), row -> (Integer) row.get("checksum")));
-
-        assertThat(applied).isEqualTo(RELEASED_MIGRATION_CHECKSUMS);
-    }
-
-    @Test
     void upgradeAppliesEveryNewerMigration() {
         var info = flyway.info();
 
         assertThat(info.pending()).isEmpty();
         assertThat(info.applied()).allSatisfy(migration -> assertThat(migration.getState().isFailed()).isFalse());
-        assertThat(info.current().getVersion())
-                .isGreaterThanOrEqualTo(MigrationVersion.fromVersion(RELEASE_SCHEMA_VERSION));
+        assertThat(info.applied()).anySatisfy(migration -> assertThat(migration.getVersion()).isEqualTo(BASELINE));
     }
 
     @Test
@@ -100,18 +89,39 @@ class DatabaseUpgradeIntegrationTest {
                 .isEqualTo(1);
     }
 
-    private static void installRelease() {
-        Flyway.configure()
-                .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
-                .locations("classpath:db/migration")
-                .target(MigrationVersion.fromVersion(RELEASE_SCHEMA_VERSION))
-                .load()
-                .migrate();
-        try (Connection connection = DriverManager.getConnection(
-                POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())) {
-            ScriptUtils.executeSqlScript(connection, new ClassPathResource("db/upgrade/" + RELEASE + ".sql"));
-        } catch (SQLException e) {
-            throw new IllegalStateException("Could not seed the LAREX " + RELEASE + " database", e);
+    private static void installSeededHistory() {
+        Resource[] seeds = seeds();
+        if (seeds.length == 0 || !seedVersion(seeds[0]).equals(BASELINE)) {
+            throw new IllegalStateException("Upgrade seeds must start with V" + BASELINE + ".sql, the LAREX 1.0.0 schema");
         }
+        for (Resource seed : seeds) {
+            Flyway.configure()
+                    .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
+                    .locations("classpath:db/migration")
+                    .target(seedVersion(seed))
+                    .load()
+                    .migrate();
+            try (Connection connection = DriverManager.getConnection(
+                    POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())) {
+                ScriptUtils.executeSqlScript(connection, seed);
+            } catch (SQLException e) {
+                throw new IllegalStateException("Could not apply upgrade seed " + seed.getFilename(), e);
+            }
+        }
+    }
+
+    private static Resource[] seeds() {
+        try {
+            Resource[] seeds = new PathMatchingResourcePatternResolver().getResources(SEEDS);
+            Arrays.sort(seeds, Comparator.comparing(DatabaseUpgradeIntegrationTest::seedVersion));
+            return seeds;
+        } catch (IOException e) {
+            throw new IllegalStateException("Could not list upgrade seeds", e);
+        }
+    }
+
+    private static MigrationVersion seedVersion(Resource seed) {
+        String name = seed.getFilename();
+        return MigrationVersion.fromVersion(name.substring(1, name.length() - ".sql".length()));
     }
 }
