@@ -1,6 +1,6 @@
 {
   "name": "docs",
-  "packageManager": "pnpm@11.28.11",
+  "packageManager": "pnpm@11.28.12",
   "engines": {
     "node": ">=22.18.0"
   },
