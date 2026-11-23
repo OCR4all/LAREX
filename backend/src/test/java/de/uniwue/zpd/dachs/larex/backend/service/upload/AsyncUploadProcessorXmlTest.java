@@ -161,6 +161,41 @@ class AsyncUploadProcessorXmlTest {
     }
 
     @Test
+    void transkribusExportIsStoredAsNormalizedPageXml() throws Exception {
+        Project project = new Project();
+        project.setId("project");
+        Page page = new Page();
+        page.setId("page");
+        page.setName("page");
+        UploadSession session = new UploadSession("project", "workspace", "user", 1, 1);
+        session.setStatus(UploadSession.UploadSessionStatus.UPLOADING);
+        Path path = tempDir.resolve("page.xml");
+        Files.write(path, new org.springframework.core.io.ClassPathResource("transkribus/table.xml").getContentAsByteArray());
+        UploadSessionFile file = new UploadSessionFile("page.xml", Files.size(path), "application/xml", "page", "xml", 1);
+        file.setTempFilePath(path.toString());
+        when(sessions.findById("session")).thenReturn(Optional.of(session));
+        when(projects.findById("project")).thenReturn(Optional.of(project));
+        when(files.findBySessionIdAndStatus("session", UploadSessionFile.UploadFileStatus.UPLOADED)).thenReturn(List.of(file));
+        when(pages.findByProjectIdAndNameIn(eq("project"), any())).thenReturn(List.of(page));
+        byte[][] stored = new byte[1][];
+        when(storage.storeFromPath(eq(path), eq("page.xml"), eq("application/xml"), eq("workspace"), eq("project"),
+                eq(StoredFile.StoredFileType.XML), eq("user"), eq(true)))
+                .thenAnswer(invocation -> {
+                    stored[0] = Files.readAllBytes(path);
+                    return new HierarchicalFileStorageService.StoredFileDescriptor("xml", "page.xml", "page.xml",
+                            "application/xml", "xml", stored[0].length, "checksum", StoredFile.StoredFileType.XML);
+                });
+        when(xmls.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        processor.doProcessUploadSession("session");
+
+        assertThat(file.getStatus()).isEqualTo(UploadSessionFile.UploadFileStatus.COMPLETED);
+        assertThat(validation.validatePageXml(new org.springframework.core.io.ByteArrayResource(stored[0])).valid()).isTrue();
+        assertThat(new String(stored[0], java.nio.charset.StandardCharsets.UTF_8))
+                .contains("TableCellRole", "LAREX Transkribus import").doesNotContain("<CornerPts");
+    }
+
+    @Test
     void invalidXmlDoesNotPreventItsPairedImageFromBeingUploaded() throws Exception {
         Project project = new Project();
         project.setId("project");

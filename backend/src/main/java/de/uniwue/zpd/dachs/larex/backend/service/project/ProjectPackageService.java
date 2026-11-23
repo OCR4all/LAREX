@@ -1279,15 +1279,17 @@ public class ProjectPackageService {
                 boolean foreign = schema == XmlSchema.ALTO_XML || schema == XmlSchema.FINE_READER_XML
                         || schema == XmlSchema.HOCR;
                 Path xmlSource = source;
-                if (foreign) {
+                Optional<byte[]> converted = Optional.empty();
+                if (foreign || schema == XmlSchema.PAGE_XML) {
                     pageRepository.flush();
-                    byte[] converted = pageXmlValidationService.toImportablePageXml(new FileSystemResource(source),
-                            pageXmlCanonicalizationService.storedPageImage(page.getId())).orElseThrow();
+                    converted = pageXmlValidationService.toImportablePageXml(new FileSystemResource(source),
+                            pageXmlCanonicalizationService.storedPageImage(page.getId()));
+                }
+                boolean rewritten = converted.isPresent();
+                if (rewritten) {
                     xmlSource = Files.createTempFile("larex-converted-", ".xml");
-                    Files.write(xmlSource, converted);
+                    Files.write(xmlSource, converted.get());
                     schema = XmlSchema.PAGE_XML;
-                } else if (schema == XmlSchema.PAGE_XML) {
-                    pageXmlValidationService.assertValidPageXml(new FileSystemResource(source));
                 }
                 HierarchicalFileStorageService.StoredFileDescriptor stored;
                 try {
@@ -1299,10 +1301,10 @@ public class ProjectPackageService {
                             project.getId(),
                             de.uniwue.zpd.dachs.larex.backend.entity.StoredFile.StoredFileType.XML,
                             userId,
-                            foreign
+                            rewritten
                     );
                 } finally {
-                    if (foreign) {
+                    if (rewritten) {
                         Files.deleteIfExists(xmlSource);
                     }
                 }
@@ -1315,7 +1317,7 @@ public class ProjectPackageService {
                         xmlDescriptor.variant(),
                         xmlDescriptor.baseName(),
                         schema,
-                        schema == XmlSchema.PAGE_XML && !foreign ? pageXmlConversionService.detectPageVersion(source) : null,
+                        schema == XmlSchema.PAGE_XML && !rewritten ? pageXmlConversionService.detectPageVersion(source) : null,
                         page
                 ));
                 if (schema == XmlSchema.PAGE_XML) {

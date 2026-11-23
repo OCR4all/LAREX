@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15/pagecontent.xsd">
+    <Metadata>
+        <Creator>prov=READ-COOP:name=PyLaia@TranskribusPlatform:version=2.10.0:model_id=12345:lm=none:date=10_03_2023_14:12</Creator>
+        <Created>2023-03-10T14:10:02.118+01:00</Created>
+        <LastChange>2023-03-10T14:12:47.436+01:00</LastChange>
+        <TranskribusMetadata docId="1012345" pageId="45678901" pageNr="1" tsid="98765432" imageId="55501234" userId="4242" status="IN_PROGRESS" imgUrl="https://files.transkribus.eu/Get?id=IMAGEKEY" xmlUrl="https://files.transkribus.eu/Get?id=XMLKEY"/>
+    </Metadata>
+    <Page imageFilename="0001.jpg" imageWidth="1000" imageHeight="1400">
+        <ReadingOrder>
+            <OrderedGroup id="ro_1678453922118" caption="Regions reading order">
+                <RegionRefIndexed index="0" regionRef="r2"/>
+                <RegionRefIndexed index="1" regionRef="r1"/>
+            </OrderedGroup>
+        </ReadingOrder>
+        <TextRegion orientation="0.0" type="heading" id="r1" custom="readingOrder {index:1;} structure {type:heading;}">
+            <Coords points="100,100 900,100 900,200 100,200"/>
+            <TextLine id="r1l1" custom="readingOrder {index:0;}">
+                <Coords points="110,110 890,110 890,190 110,190"/>
+                <Baseline points="110,180 890,180"/>
+                <TextEquiv>
+                    <Unicode>Erstes Kapitel</Unicode>
+                </TextEquiv>
+            </TextLine>
+            <TextEquiv>
+                <Unicode>Erstes Kapitel</Unicode>
+            </TextEquiv>
+        </TextRegion>
+        <TextRegion orientation="0.0" id="r2" custom="readingOrder {index:0;}">
+            <Coords points="100,300 900,300 900,600 100,600"/>
+            <TextLine id="r2l1" custom="readingOrder {index:0;} person {offset:0; length:4;}">
+                <Coords points="110,310 890,310 890,390 110,390"/>
+                <Baseline points="110,380 890,380"/>
+                <TextEquiv conf="0.97">
+                    <Unicode>Anna schrieb einen Brief</Unicode>
+                </TextEquiv>
+            </TextLine>
+            <TextLine id="r2l2" custom="readingOrder {index:1;}">
+                <Coords points="110,410 890,410 890,490 110,490"/>
+                <Baseline points="110,480 890,480"/>
+                <TextEquiv conf="0.91">
+                    <Unicode>an ihre Schwester.</Unicode>
+                </TextEquiv>
+            </TextLine>
+            <TextEquiv>
+                <Unicode>Anna schrieb einen Brief
+an ihre Schwester.</Unicode>
+            </TextEquiv>
+        </TextRegion>
+    </Page>
+</PcGts>

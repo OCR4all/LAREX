@@ -74,6 +74,11 @@ public class PageXmlValidationService {
         if (OcrFormatToPageXml.isConvertible(xml)) {
             return Optional.of(OcrFormatToPageXml.convert(xml, pageImage).pageXml());
         }
+        Optional<TranskribusPageXml.Converted> transkribus = TranskribusPageXml.normalize(xml,
+                normalized -> assertValidPageXml(new ByteArrayResource(normalized)));
+        if (transkribus.isPresent()) {
+            return Optional.of(transkribus.get().pageXml());
+        }
         assertValidPageXml(new ByteArrayResource(xml));
         return Optional.empty();
     }
