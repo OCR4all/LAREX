@@ -120,8 +120,8 @@ importers:
         specifier: ^1.0.5
         version: 1.0.5
       dockview-core:
-        specifier: ^8.8.3
-        version: 8.8.3
+        specifier: ^8.9.0
+        version: 8.9.0
       dockview-vue:
         specifier: ^8.8.3
         version: 8.8.3(vue@3.5.45(typescript@6.0.3))
@@ -3929,8 +3929,8 @@ packages:
     resolution: {integrity: sha512-svtcdpS8CgJyqAjEQIXdb3OjhFVVYjzGAPO8WGCmRbrml64SPw/jJD4GoE98aR7r25A0XcgrK3F02yw9R/vhQw==}
     engines: {node: '>=0.3.1'}
 
-  dockview-core@8.8.3:
-    resolution: {integrity: sha512-B9v+ibiXnZ5qgFJ7VEqMcNxpG0S5Y7Yx7uuGqqSyEFSC3bRZktUoXWo3HCrFp+QTdFmA1dJD1ye/gI4yL3hU2g==}
+  dockview-core@8.9.0:
+    resolution: {integrity: sha512-qsXM+9wFik5WSEBq8x4KP041v19iM6cgSKVFrQpIgkJSXTM00+zEb66hI1kG3e+O7L4IKUfSziMUyZrofwetlg==}
 
   dockview-vue@8.8.3:
     resolution: {integrity: sha512-cBhbeIYZG7yqi+/olAI1q7pG8kZcEO3uAWssPD7VhcZ8HEPTDNeYTw07gwQeDJWv5ZFbyncLtWS9VLBgYOchow==}
@@ -11052,7 +11052,7 @@ snapshots:
 
   diff@9.0.0: {}
 
-  dockview-core@8.8.3: {}
+  dockview-core@8.9.0: {}
 
   dockview-vue@8.8.3(vue@3.5.45(typescript@6.0.3)):
     dependencies:
@@ -11061,7 +11061,7 @@ snapshots:
 
   dockview@8.8.3:
     dependencies:
-      dockview-core: 8.8.3
+      dockview-core: 8.9.0
 
   dot-prop@10.2.0:
     dependencies:

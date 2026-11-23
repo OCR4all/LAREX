@@ -53,7 +53,7 @@
     "d3-polygon": "^3.0.2",
     "date-fns": "^4.4.0",
     "diff-match-patch": "^1.0.5",
-    "dockview-core": "^8.8.3",
+    "dockview-core": "^8.9.0",
     "dockview-vue": "^8.8.3",
     "driver.js": "^1.10.2",
     "earcut": "^3.2.4",
