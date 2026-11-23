@@ -4,6 +4,41 @@
 
 ## v1.2.0 (2026-11-23)
 
+### Chores
+
+- Fix keycloak theme deps
+  ([`2951962`](https://github.com/OCR4all/LAREX/commit/29519621fe56d65a14cf92633fbe4eae8d783e74))
+
+- Update dependencies
+  ([`ce18839`](https://github.com/OCR4all/LAREX/commit/ce18839dce43cf99ccfba1b49c52755930520886))
+
+- **frontend**: Bump nuxt test-utils setup version
+  ([`109eb94`](https://github.com/OCR4all/LAREX/commit/109eb9412be5d943cc1dcbb88b9fe69f21a55583))
+
+### Continuous Integration
+
+- Target dev branch for dependabot updates
+  ([`1f73bf6`](https://github.com/OCR4all/LAREX/commit/1f73bf648c8fc2c76ab47c064702bdcec9b8fdd5))
+
+- **deps**: Target dev, add cooldown and limit dependabot to direct deps
+  ([`bd49aae`](https://github.com/OCR4all/LAREX/commit/bd49aaec6601a3cbdc0c7d0e315f7a4120bb25c5))
+
+### Features
+
+- **frontend**: Replace delete confirmations with undo toasts
+  ([`b690430`](https://github.com/OCR4all/LAREX/commit/b6904303d7d22a70f08090bd5c18b0198c89106e))
+
+- **import**: Normalize Transkribus PAGE XML exports on import
+  ([`194879a`](https://github.com/OCR4all/LAREX/commit/194879a541c0e143d83d9428662d7c7c325173d1))
+
+- **workspace**: Edit settings inline and allow an undefined GT index
+  ([`6e4160d`](https://github.com/OCR4all/LAREX/commit/6e4160d017810935551471122e9492acbf5d1adf))
+
+### Testing
+
+- **db**: Replay upgrade seeds from 1.0.0 and check released migrations in CI
+  ([`2491368`](https://github.com/OCR4all/LAREX/commit/24913683c66b4fe2a155519ddb4c82fa96000c6d))
+
 
 ## v1.1.1 (2026-11-23)
 
