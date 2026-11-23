@@ -11,7 +11,7 @@ public final class TextIndexDefaultsUtil {
 
     public static final int DEFAULT_GT_INDEX = 0;
     public static final List<Integer> DEFAULT_RECOGNITION_INDICES = List.of(1);
-    public static final int UNINDEXED_RECOGNITION_SENTINEL = -1;
+    public static final int UNINDEXED_TEXT_INDEX = -1;
 
     private TextIndexDefaultsUtil() {}
 
@@ -19,8 +19,16 @@ public final class TextIndexDefaultsUtil {
 
     public static int effectiveGtIndex(Integer value) {
         if (value == null) return DEFAULT_GT_INDEX;
-        if (value < 0) return DEFAULT_GT_INDEX;
+        if (value < 0 && value != UNINDEXED_TEXT_INDEX) return DEFAULT_GT_INDEX;
         return value;
+    }
+
+    public static int textIndexOf(Integer variantIndex) {
+        return variantIndex == null || variantIndex < 0 ? UNINDEXED_TEXT_INDEX : variantIndex;
+    }
+
+    public static boolean matchesTextIndex(Integer variantIndex, int textIndex) {
+        return textIndexOf(variantIndex) == textIndex;
     }
 
     public static List<Integer> effectiveRecognitionIndices(List<Integer> value) {
@@ -52,8 +60,8 @@ public final class TextIndexDefaultsUtil {
         if (value == null) {
             throw new IllegalArgumentException("Default Ground Truth Index is required.");
         }
-        if (value < 0) {
-            throw new IllegalArgumentException("Default Ground Truth Index must be >= 0.");
+        if (value < 0 && value != UNINDEXED_TEXT_INDEX) {
+            throw new IllegalArgumentException("Default Ground Truth Index must be >= 0 (or -1 for Undefined).");
         }
         return value;
     }
@@ -68,7 +76,7 @@ public final class TextIndexDefaultsUtil {
             if (value == null) {
                 throw new IllegalArgumentException("Recognition Indices cannot contain null values.");
             }
-            if (value < 0 && value != UNINDEXED_RECOGNITION_SENTINEL) {
+            if (value < 0 && value != UNINDEXED_TEXT_INDEX) {
                 throw new IllegalArgumentException("Recognition Indices must be >= 0 (or -1 for Undefined).");
             }
             normalized.add(value);
@@ -85,7 +93,9 @@ public final class TextIndexDefaultsUtil {
 
     public static void validateNoOverlap(int gtIndex, List<Integer> recognitionIndices) {
         if (recognitionIndices.contains(gtIndex)) {
-            throw new IllegalArgumentException("Ground Truth Index must not be part of Recognition Indices.");
+            throw new IllegalArgumentException(gtIndex == UNINDEXED_TEXT_INDEX
+                    ? "Undefined cannot be both the Ground Truth Index and a Recognition Index."
+                    : "Ground Truth Index must not be part of Recognition Indices.");
         }
     }
 

@@ -7,6 +7,7 @@ import de.uniwue.zpd.dachs.larex.backend.dto.page.region.RegionKind;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.text.TextContentVariantDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.text.TextLineDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.text.WordDto;
+import de.uniwue.zpd.dachs.larex.backend.util.TextIndexDefaultsUtil;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -187,12 +188,12 @@ final class ExportRegionExtractor {
         }
 
         for (TextContentVariantDto variant : variants) {
-            if (variant != null && Objects.equals(variant.index(), gtIndex) && hasText(variant.unicode())) {
+            if (variant != null && TextIndexDefaultsUtil.matchesTextIndex(variant.index(), gtIndex) && hasText(variant.unicode())) {
                 return new VariantSelection(variant.unicode(), variant.confidence());
             }
         }
 
-        if (gtIndex != 0) {
+        if (gtIndex != TextIndexDefaultsUtil.DEFAULT_GT_INDEX) {
             for (TextContentVariantDto variant : variants) {
                 if (variant != null && Objects.equals(variant.index(), 0) && hasText(variant.unicode())) {
                     return new VariantSelection(variant.unicode(), variant.confidence());

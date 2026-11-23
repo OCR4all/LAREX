@@ -74,6 +74,23 @@ describe('workspace project defaults', () => {
     }, base)).toBe(false)
   })
 
+  it('supports an unindexed ground-truth default', () => {
+    const defaults = normalizeWorkspaceProjectDefaults({ defaultGtIndex: -1, defaultRecognitionIndices: [0] })
+
+    expect(defaults.defaultGtIndex).toBe(-1)
+    expect(formatWorkspaceTextIndexDefault(defaults)).toBe('GT Undefined; Recognition 0')
+    expect(textIndicesMatchWorkspaceDefault({
+      gtIndexUndefined: true,
+      recognitionIndicesInput: ['0']
+    }, defaults)).toBe(true)
+    expect(resetTextIndexDefaults(defaults)).toEqual({
+      gtIndexInput: '',
+      gtIndexUndefined: true,
+      recognitionIndicesInput: ['0'],
+      recognitionIndicesUndefined: false
+    })
+  })
+
   it('builds reset values for project text-index drafts', () => {
     const reset = resetTextIndexDefaults({
       ...base,

@@ -23,7 +23,6 @@ type WorkspaceDefaults = {
 }
 
 const PAGE_XML_STANDARD_LABEL_SET_NAME = 'PAGE XML Standard'
-const UNDEFINED_RECOGNITION_SENTINEL = -1
 const initialTextIndexDraft = {
   gtIndexInput: '0',
   gtIndexUndefined: true,
@@ -345,13 +344,13 @@ watch(workspaceDetails, (workspace) => {
 watch(workspaceDetails, (workspace) => {
   if (hasAppliedTextIndexDefaults.value || !workspace || !textIndexDraftIsUntouched()) return
 
-  state.defaultGtIndexInput = String(workspace.defaultGtIndex ?? 0)
-  state.defaultGtIndexUndefined = false
+  state.defaultGtIndexInput = workspace.defaultGtIndex === UNINDEXED_TEXT_INDEX ? '' : String(workspace.defaultGtIndex ?? 0)
+  state.defaultGtIndexUndefined = workspace.defaultGtIndex === UNINDEXED_TEXT_INDEX
   state.defaultRecognitionIndicesInput = Array.isArray(workspace.defaultRecognitionIndices) && workspace.defaultRecognitionIndices.length > 0
-    ? workspace.defaultRecognitionIndices.filter(index => index !== UNDEFINED_RECOGNITION_SENTINEL).map(index => String(index))
+    ? workspace.defaultRecognitionIndices.filter(index => index !== UNINDEXED_TEXT_INDEX).map(index => String(index))
     : ['1']
   state.defaultRecognitionIndicesUndefined = Array.isArray(workspace.defaultRecognitionIndices)
-    ? workspace.defaultRecognitionIndices.includes(UNDEFINED_RECOGNITION_SENTINEL)
+    ? workspace.defaultRecognitionIndices.includes(UNINDEXED_TEXT_INDEX)
     : false
   hasAppliedTextIndexDefaults.value = true
 }, { immediate: true })
@@ -379,7 +378,7 @@ function parseRecognitionIndices(values: Array<string | number> | undefined, gtI
     })
 
   const unique = [...new Set(parsed)].sort((a, b) => a - b)
-  if (includeUndefined) unique.unshift(UNDEFINED_RECOGNITION_SENTINEL)
+  if (includeUndefined) unique.unshift(UNINDEXED_TEXT_INDEX)
   const normalized = [...new Set(unique)].sort((a, b) => a - b)
   if (normalized.length === 0) {
     throw new Error('Provide at least one recognition index and/or enable Undefined.')
@@ -401,13 +400,12 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     }
 
     const parsedGtIndex = defaultGtIndexUndefined
-      ? undefined
+      ? UNINDEXED_TEXT_INDEX
       : parseDefaultGtIndex(state.defaultGtIndexInput)
 
-    const effectiveGtIndexForValidation = parsedGtIndex ?? (workspaceDetails.value?.defaultGtIndex ?? 0)
     const parsedRecognitionIndices = parseRecognitionIndices(
       state.defaultRecognitionIndicesInput,
-      effectiveGtIndexForValidation,
+      parsedGtIndex,
       includeUndefinedRecognition
     )
 
@@ -429,7 +427,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
       allowTagSetOverride: event.data.allowTagSetOverride !== false,
       allowNormalizationProfileOverride: event.data.allowNormalizationProfileOverride !== false,
       allowValidationRulesetOverride: event.data.allowValidationRulesetOverride !== false,
-      ...(parsedGtIndex !== undefined ? { defaultGtIndex: parsedGtIndex } : {}),
+      defaultGtIndex: parsedGtIndex,
       ...(parsedRecognitionIndices.length > 0 ? { defaultRecognitionIndices: parsedRecognitionIndices } : {})
     }
   } catch (e: unknown) {
@@ -670,7 +668,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
 
           <template #text-variants>
             <div class="space-y-5 pb-4">
-              <UFormField label="Default GT Index" name="defaultGtIndexInput" help="The single ground-truth index used in the text editor.">
+              <UFormField label="Default GT Index" name="defaultGtIndexInput" help="The single ground-truth index used in the text editor. Undefined uses text without an index.">
                 <div class="flex items-center gap-3">
                   <UInput
                     v-model="state.defaultGtIndexInput"

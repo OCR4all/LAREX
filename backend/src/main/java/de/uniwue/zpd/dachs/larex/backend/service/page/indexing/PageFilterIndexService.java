@@ -699,7 +699,7 @@ public class PageFilterIndexService {
             return false;
         }
         String gtText = variants.stream()
-                .filter(variant -> variant != null && Objects.equals(variant.index(), gtIndex))
+                .filter(variant -> variant != null && TextIndexDefaultsUtil.matchesTextIndex(variant.index(), gtIndex))
                 .map(PageFilterIndexService::comparisonText)
                 .findFirst()
                 .orElse("");
@@ -708,9 +708,7 @@ public class PageFilterIndexService {
             if (variant == null) {
                 continue;
             }
-            int index = variant.index() == null || variant.index() < 0
-                    ? TextIndexDefaultsUtil.UNINDEXED_RECOGNITION_SENTINEL
-                    : variant.index();
+            int index = TextIndexDefaultsUtil.textIndexOf(variant.index());
             if (index != gtIndex && recognitionIndices.contains(index)
                     && !comparisonText(variant).equals(gtText)) {
                 return true;

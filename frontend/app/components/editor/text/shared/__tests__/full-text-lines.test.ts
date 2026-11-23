@@ -37,4 +37,15 @@ describe('resolveFullTextLineValue', () => {
       source: 'empty'
     })
   })
+
+  it('reads an unindexed GT when GT is undefined', () => {
+    expect(resolveFullTextLineValue([
+      { unicode: 'prediction', index: 0 },
+      { unicode: 'ground truth' }
+    ], -1, [0])).toEqual({
+      text: 'ground truth',
+      source: 'gt',
+      sourceIndex: undefined
+    })
+  })
 })

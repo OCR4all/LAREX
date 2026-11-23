@@ -222,7 +222,8 @@ public class SearchService {
                     WHERE l.workspace_id = :workspaceId
                       AND ptc.text_content IS NOT NULL
                       AND ptc.search_vector IS NOT NULL
-                      AND COALESCE(ptc.variant_index, 0) = COALESCE(pr.default_gt_index, 0)
+                      AND (COALESCE(ptc.variant_index, 0) = COALESCE(pr.default_gt_index, 0)
+                           OR (ptc.variant_index IS NULL AND pr.default_gt_index = -1))
                       AND ptc.search_vector @@ %1$s
                 ),
                 matched AS (

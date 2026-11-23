@@ -142,11 +142,13 @@ class AsyncUploadProcessorXmlTest {
         when(projects.findById("project")).thenReturn(Optional.of(project));
         when(files.findBySessionIdAndStatus("session", UploadSessionFile.UploadFileStatus.UPLOADED)).thenReturn(List.of(file));
         when(pages.findByProjectIdAndNameIn(eq("project"), any())).thenReturn(List.of(page));
+        byte[] uploaded = Files.readAllBytes(path);
         byte[][] stored = new byte[1][];
-        when(storage.storeFromPath(eq(path), eq("page.xml"), eq("text/html"), eq("workspace"), eq("project"),
+        when(storage.storeFromPath(any(Path.class), eq("page.xml"), eq("text/html"), eq("workspace"), eq("project"),
                 eq(StoredFile.StoredFileType.XML), eq("user"), eq(true)))
                 .thenAnswer(invocation -> {
-                    stored[0] = Files.readAllBytes(path);
+                    assertThat(path).hasBinaryContent(uploaded);
+                    stored[0] = Files.readAllBytes(invocation.<Path>getArgument(0));
                     return new HierarchicalFileStorageService.StoredFileDescriptor("xml", "page.xml", "page.xml",
                             "application/xml", "xml", stored[0].length, "checksum", StoredFile.StoredFileType.XML);
                 });
@@ -156,6 +158,7 @@ class AsyncUploadProcessorXmlTest {
 
         assertThat(file.getStatus()).isEqualTo(UploadSessionFile.UploadFileStatus.COMPLETED);
         assertThat(OcrFormatToPageXml.isConvertible(stored[0])).isFalse();
+        assertThat(path).doesNotExist();
         assertThat(validation.validatePageXml(new org.springframework.core.io.ByteArrayResource(stored[0])).valid()).isTrue();
         verify(xmls).save(argThat(xml -> "page.xml".equals(xml.getFileName()) && "page".equals(xml.getBaseName())));
     }
@@ -177,11 +180,13 @@ class AsyncUploadProcessorXmlTest {
         when(projects.findById("project")).thenReturn(Optional.of(project));
         when(files.findBySessionIdAndStatus("session", UploadSessionFile.UploadFileStatus.UPLOADED)).thenReturn(List.of(file));
         when(pages.findByProjectIdAndNameIn(eq("project"), any())).thenReturn(List.of(page));
+        byte[] uploaded = Files.readAllBytes(path);
         byte[][] stored = new byte[1][];
-        when(storage.storeFromPath(eq(path), eq("page.xml"), eq("application/xml"), eq("workspace"), eq("project"),
+        when(storage.storeFromPath(any(Path.class), eq("page.xml"), eq("application/xml"), eq("workspace"), eq("project"),
                 eq(StoredFile.StoredFileType.XML), eq("user"), eq(true)))
                 .thenAnswer(invocation -> {
-                    stored[0] = Files.readAllBytes(path);
+                    assertThat(path).hasBinaryContent(uploaded);
+                    stored[0] = Files.readAllBytes(invocation.<Path>getArgument(0));
                     return new HierarchicalFileStorageService.StoredFileDescriptor("xml", "page.xml", "page.xml",
                             "application/xml", "xml", stored[0].length, "checksum", StoredFile.StoredFileType.XML);
                 });

@@ -1904,6 +1904,8 @@ const {
   getCommandContext
 })
 
+const activeGtLabel = computed(() => activeGtIndex.value === UNINDEXED_TEXT_INDEX ? 'GT (unindexed)' : `GT #${activeGtIndex.value}`)
+
 canvasControls.createGtFromRecognition = createGtFromRecognition
 
 function handleOpenKeyboardEditor(): void {
@@ -2714,7 +2716,7 @@ watch([() => props.src, () => canvasState.value?.originalImage], ([newSrc], [old
                 </template>
               </UButton>
             </UTooltip>
-            <span class="font-medium text-muted">GT #{{ activeGtIndex }}</span>
+            <span class="font-medium text-muted">{{ activeGtLabel }}</span>
             <span class="text-muted">{{ correctionFontSizePx }}px</span>
             <div class="flex items-center gap-1">
               <UButton

@@ -655,6 +655,28 @@ class PageFilterIndexServiceTest {
     }
 
     @Test
+    void filterPages_comparesRecognitionAgainstUnindexedGroundTruth() throws Exception {
+        String projectId = "project-1";
+        Page sameText = page("same-text", projectId);
+        sameText.getProject().setDefaultGtIndex(-1);
+        sameText.getProject().setDefaultRecognitionIndicesList(List.of(0));
+        Page differentText = page("different-text", projectId);
+        List<Page> pages = List.of(sameText, differentText);
+        PageXml sameTextXml = pageXml(sameText);
+        PageXml differentTextXml = pageXml(differentText);
+        when(pageXmlRepository.findByPage_IdIn(pages.stream().map(Page::getId).toList()))
+                .thenReturn(List.of(sameTextXml, differentTextXml));
+        when(annotationProcessingService.parsePageXmlForScan(sameTextXml)).thenReturn(pageWithLines(
+                textLine("line", null, List.of(variant("same", null, null), variant("same", null, 0)), null, null)
+        ));
+        when(annotationProcessingService.parsePageXmlForScan(differentTextXml)).thenReturn(pageWithLines(
+                textLine("line", null, List.of(variant("ground truth", null, null), variant("prediction", null, 0)), null, null)
+        ));
+
+        assertEquals(Set.of("different-text"), filterByTextMismatch(projectId, pages, null, "and"));
+    }
+
+    @Test
     void filterPages_refreshesCachedTextMismatchesWhenTextIndexesOrFileChange() throws Exception {
         String projectId = "project-1";
         Page page = page("page-1", projectId);

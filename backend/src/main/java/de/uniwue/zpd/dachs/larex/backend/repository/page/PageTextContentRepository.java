@@ -131,7 +131,8 @@ public interface PageTextContentRepository extends JpaRepository<PageTextContent
             SELECT p.textContent
             FROM PageTextContent p
             WHERE p.page.project.id = :projectId
-              AND COALESCE(p.variantIndex, 0) = COALESCE(p.page.project.defaultGtIndex, 0)
+              AND (COALESCE(p.variantIndex, 0) = COALESCE(p.page.project.defaultGtIndex, 0)
+                   OR (p.variantIndex IS NULL AND p.page.project.defaultGtIndex = -1))
               AND (p.commentEntry = false OR p.commentEntry IS NULL)
               AND p.textContent IS NOT NULL
             """)

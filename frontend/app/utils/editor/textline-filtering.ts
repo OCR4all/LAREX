@@ -1,3 +1,5 @@
+import { matchesTextIndex } from '@/utils/text-index'
+
 export type PresenceFilter = 'all' | 'with' | 'without'
 
 export interface TextlineFilters {
@@ -21,8 +23,8 @@ export function matchesTextlineFilters(line: FilterableTextline, filters: Textli
   if (!matchesPresence(Boolean(line.comments?.trim()), filters.comments)) return false
 
   if (filters.diff !== 'all') {
-    const gtText = line.textContentVariants.find(variant => variant.index === gtIndex)?.text ?? ''
-    const hasMismatch = line.textContentVariants.some(variant => variant.index !== gtIndex && variant.text !== gtText)
+    const gtText = line.textContentVariants.find(variant => matchesTextIndex(variant.index, gtIndex))?.text ?? ''
+    const hasMismatch = line.textContentVariants.some(variant => !matchesTextIndex(variant.index, gtIndex) && variant.text !== gtText)
     if (!matchesPresence(hasMismatch, filters.diff)) return false
   }
 

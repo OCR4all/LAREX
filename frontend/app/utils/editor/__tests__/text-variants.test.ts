@@ -38,4 +38,22 @@ describe('text-variants', () => {
     expect(result.changed).toBe(false)
     expect(result.variants[0]?.unicode).toBe('gt')
   })
+
+  it('uses and creates an unindexed GT variant when GT is undefined', () => {
+    const existing = setGtVariantUnicode([
+      { unicode: 'ocr', index: 0 },
+      { unicode: 'old' }
+    ], -1, 'new')
+
+    expect(existing.created).toBe(false)
+    expect(existing.variants.map(v => [v.index, v.unicode])).toEqual([
+      [undefined, 'new'],
+      [0, 'ocr']
+    ])
+
+    const created = ensureGtVariantAtIndex([{ unicode: 'ocr', index: 0 }], -1)
+
+    expect(created.created).toBe(true)
+    expect(created.variants[created.gtPos]).toEqual({ unicode: '' })
+  })
 })

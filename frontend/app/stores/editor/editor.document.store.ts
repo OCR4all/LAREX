@@ -6,6 +6,7 @@ import type { DictionaryFormEntry } from '@/types/dictionary'
 import { LabelSet as LabelSetModel, LabelDefinition as LabelDefinitionModel } from '@/models/editor/labels'
 import { useEditorSessionStore } from './editor.session.store'
 import { parseCanvasId, parsePagePanelId } from './editor.keys'
+import { normalizeGtTextIndex, UNINDEXED_TEXT_INDEX } from '@/utils/text-index'
 
 function getVariantPreferenceKey(variant: ImageVariant): string {
   return variant.type ?? variant.label
@@ -54,17 +55,14 @@ const DEFAULT_TOOLKIT_SETTINGS: ProjectToolkitSettings = {
   allowValidationRulesetOverride: true
 }
 
-const UNINDEXED_RECOGNITION_SENTINEL = -1
-
 function normalizeProjectTextIndexDefaults(input?: Partial<ProjectTextIndexDefaults> | null): ProjectTextIndexDefaults {
-  const rawGt = Number(input?.gtIndex ?? 0)
-  const gtIndex = Number.isFinite(rawGt) && rawGt >= 0 ? Math.trunc(rawGt) : 0
+  const gtIndex = normalizeGtTextIndex(input?.gtIndex ?? 0)
 
   const recognitionRaw = Array.isArray(input?.recognitionIndices) ? input.recognitionIndices : [1]
   const recognitionIndices = [...new Set(
     recognitionRaw
       .map(v => Number(v))
-      .filter(v => Number.isFinite(v) && (v >= 0 || v === UNINDEXED_RECOGNITION_SENTINEL))
+      .filter(v => Number.isFinite(v) && (v >= 0 || v === UNINDEXED_TEXT_INDEX))
       .map(v => Math.trunc(v))
       .filter(v => v !== gtIndex)
   )].sort((a, b) => a - b)

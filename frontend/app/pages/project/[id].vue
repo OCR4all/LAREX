@@ -1444,10 +1444,7 @@ const normalizationManualRuleCount = computed(() =>
   activeNormalizationProfile.value?.replacementRules.length ?? 0
 )
 
-const defaultNormalizationVariantIndex = computed(() => {
-  const value = project.value?.defaultGtIndex
-  return Number.isInteger(value) && Number(value) >= 0 ? Number(value) : 0
-})
+const defaultNormalizationVariantIndex = computed(() => normalizeGtTextIndex(project.value?.defaultGtIndex ?? 0))
 
 const normalizedCustomNormalizationVariantIndex = computed(() => {
   const parsed = Number(normalizationVariantIndexInput.value)
@@ -1464,7 +1461,7 @@ const effectiveNormalizationVariantIndex = computed(() =>
 )
 
 watch(defaultNormalizationVariantIndex, (value) => {
-  if (normalizationVariantMode.value === 'PROJECT_GT') {
+  if (normalizationVariantMode.value === 'PROJECT_GT' && value !== UNINDEXED_TEXT_INDEX) {
     normalizationVariantIndexInput.value = value
   }
 }, { immediate: true })
@@ -1472,7 +1469,9 @@ watch(defaultNormalizationVariantIndex, (value) => {
 function buildNormalizationRequestBody(targets?: NormalizeTarget[]) {
   return {
     sources: getNormalizationSources(normalizationActionScope.value),
-    variantIndex: effectiveNormalizationVariantIndex.value,
+    ...(effectiveNormalizationVariantIndex.value === UNINDEXED_TEXT_INDEX
+      ? { unindexedOnly: true }
+      : { variantIndex: effectiveNormalizationVariantIndex.value }),
     ...(targets && targets.length > 0 ? { targets } : {})
   }
 }
@@ -1650,7 +1649,9 @@ async function openNormalizationPreviewModal(scope: ProjectActionScope = 'all') 
   if (!selectedWorkspace.value) return
 
   normalizationActionScope.value = scope
-  normalizationVariantIndexInput.value = defaultNormalizationVariantIndex.value
+  if (defaultNormalizationVariantIndex.value !== UNINDEXED_TEXT_INDEX) {
+    normalizationVariantIndexInput.value = defaultNormalizationVariantIndex.value
+  }
   selectedNormalizationProfileId.value = project.value?.normalizationProfileId ?? ''
   isNormalizationPreviewSlideoverOpen.value = true
   await Promise.all([
@@ -3172,7 +3173,7 @@ const toolbarRefresh = useRefreshFeedback(() => refreshPagesData({ manual: true 
               <USelect
                 v-model="normalizationVariantMode"
                 :items="[
-                  { label: `Project GT index (${defaultNormalizationVariantIndex})`, value: 'PROJECT_GT' },
+                  { label: `Project GT index (${formatTextIndex(defaultNormalizationVariantIndex)})`, value: 'PROJECT_GT' },
                   { label: 'Custom index', value: 'CUSTOM' }
                 ]"
                 value-key="value"

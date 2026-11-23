@@ -25,6 +25,7 @@ import {
   type ReadingDirection
 } from './reading-direction'
 import { getTextContentVariantRenderKey } from './variant-render-key'
+import { normalizeGtTextIndex, textIndexOf } from '@/utils/text-index'
 import { getHiddenTextVariantIndices } from './variant-filtering'
 import { fitCutoutDimensions } from './cutout-sizing'
 import { editorRasterCrop, loadEditorImage } from '@/services/editor/editor-image'
@@ -242,9 +243,9 @@ const hasElementComment = computed(() => normalizedComment.value.length > 0)
 const editableTextContentVariants = computed(() => props.textline.allTextContentVariants ?? props.textline.textContentVariants)
 
 function variantRole(index: number | undefined): 'gt' | 'recognition' | 'nonAssigned' {
-  if (typeof index === 'number' && index === props.gtIndex) return 'gt'
-  if (index === undefined && (props.recognitionIndices ?? []).includes(-1)) return 'recognition'
-  if (typeof index === 'number' && (props.recognitionIndices ?? []).includes(index)) return 'recognition'
+  const textIndex = textIndexOf(index)
+  if (textIndex === props.gtIndex) return 'gt'
+  if ((props.recognitionIndices ?? []).includes(textIndex)) return 'recognition'
   return 'nonAssigned'
 }
 
@@ -264,7 +265,7 @@ const recognitionCandidates = computed(() => {
 
 const hasGtVariant = computed(() => {
   if (typeof props.textline.hasGtVariant === 'boolean') return props.textline.hasGtVariant
-  return props.textline.textContentVariants.some(v => v.index === props.gtIndex)
+  return props.textline.textContentVariants.some(v => isGtVariant(v.index))
 })
 
 const isVerticalFocusMode = computed(() => isVertical.value && props.focusMode)
@@ -316,7 +317,7 @@ const focusMoreActionItems = computed(() => {
 
 function createGtFromRecognition() {
   if (!canCreateGtFromRecognition.value) return
-  const gtIndex = typeof props.gtIndex === 'number' && props.gtIndex >= 0 ? props.gtIndex : 0
+  const gtIndex = normalizeGtTextIndex(props.gtIndex)
   const source = recognitionCandidates.value[0]
   if (!source) return
   emit('createGtFromRecognition', props.textline.id, {
@@ -421,7 +422,7 @@ async function saveIndex(pos: number) {
 
 const gtText = computed(() => {
   if (!props.showDiff) return ''
-  const gt = localTextContentVariants.value.find(te => te.index === props.gtIndex)
+  const gt = localTextContentVariants.value.find(te => isGtVariant(te.index))
   return gt?.text ?? ''
 })
 

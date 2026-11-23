@@ -357,14 +357,12 @@ public class AsyncUploadProcessor {
                         ? Optional.empty()
                         : pageXmlCanonicalizationService.storedPageImage(existingPage.getId()).apply(imageFilename));
         List<UploadSessionFile> acceptedFiles = new ArrayList<>();
+        Map<UploadSessionFile, byte[]> convertedXml = new IdentityHashMap<>();
         for (UploadSessionFile file : files) {
             if (isXmlFile(file)) {
                 try {
-                    Optional<byte[]> converted = pageXmlValidationService.toImportablePageXml(
-                            new FileSystemResource(file.getTempFilePath()), pageImage);
-                    if (converted.isPresent()) {
-                        OcrFormatToPageXml.writeAtomically(Paths.get(file.getTempFilePath()), converted.get());
-                    }
+                    pageXmlValidationService.toImportablePageXml(new FileSystemResource(file.getTempFilePath()), pageImage)
+                            .ifPresent(converted -> convertedXml.put(file, converted));
                 } catch (InvalidPageXmlException error) {
                     file.setStatus(UploadFileStatus.FAILED);
                     file.setErrorMessage(error.getMessage());
@@ -404,7 +402,7 @@ public class AsyncUploadProcessor {
                         uploadRealtimePublisher.broadcastPageCreatedOrUpdated(sessionId, project.getId(), page.getId(), page.getName(), "image");
                     }
                 } else if (isXmlFile(sessionFile)) {
-                    boolean queuedForIndex = processXmlFile(page, sessionFile, workspaceId, project.getId(), createdByUserId);
+                    boolean queuedForIndex = processXmlFile(page, sessionFile, convertedXml.get(sessionFile), workspaceId, project.getId(), createdByUserId);
                     if (sessionFile.getStatus() == UploadFileStatus.COMPLETED) {
                         uploadRealtimePublisher.broadcastPageCreatedOrUpdated(sessionId, project.getId(), page.getId(), page.getName(), "xml");
                     }
@@ -507,6 +505,7 @@ public class AsyncUploadProcessor {
 
     private boolean processXmlFile(Page page,
                                    UploadSessionFile sessionFile,
+                                   byte[] convertedXml,
                                    String workspaceId,
                                    String projectId,
                                    String createdByUserId) throws IOException {
@@ -536,8 +535,13 @@ public class AsyncUploadProcessor {
             }
         }
 
+        Path sourcePath = tempFilePath;
+        if (convertedXml != null) {
+            sourcePath = tempFilePath.resolveSibling(tempFilePath.getFileName() + ".page.xml");
+            OcrFormatToPageXml.writeAtomically(sourcePath, convertedXml);
+        }
         var storedXml = hierarchicalFileStorageService.storeFromPath(
-                tempFilePath,
+                sourcePath,
                 OcrFormatToPageXml.pageXmlFileName(sessionFile.getOriginalFileName()),
                 sessionFile.getMimeType(),
                 workspaceId,
@@ -546,6 +550,9 @@ public class AsyncUploadProcessor {
                 createdByUserId,
                 true
         );
+        if (convertedXml != null) {
+            Files.deleteIfExists(tempFilePath);
+        }
 
         // Create PageXml entity
         String originalFileName = storedXml.originalFilename();

@@ -2313,7 +2313,7 @@ const loadProjectLabelSet = async (projectId?: string | null, force = false) => 
     editorStore.setProjectVirtualKeyboard(project.virtualKeyboardId ?? null, projectId)
 
     editorStore.setProjectTextIndexDefaults({
-      gtIndex: Number.isFinite(Number(project.defaultGtIndex)) ? Number(project.defaultGtIndex) : 0,
+      gtIndex: normalizeGtTextIndex(project.defaultGtIndex ?? 0),
       recognitionIndices: Array.isArray(project.defaultRecognitionIndices) ? project.defaultRecognitionIndices : [1]
     }, projectId)
 

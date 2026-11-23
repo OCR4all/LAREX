@@ -1,3 +1,5 @@
+import { matchesTextIndex, normalizeGtTextIndex, variantIndexFor } from '@/utils/text-index'
+
 export type EditableTextVariant = {
   unicode: string
   plainText?: string
@@ -6,10 +8,6 @@ export type EditableTextVariant = {
   dataType?: string
   dataTypeDetails?: string
   comments?: string
-}
-
-function normalizeGtIndex(gtIndex: number): number {
-  return Number.isFinite(gtIndex) && gtIndex >= 0 ? Math.trunc(gtIndex) : 0
 }
 
 function toSortableIndex(index: number | undefined): number {
@@ -35,18 +33,18 @@ export function ensureGtVariantAtIndex(
   gtPos: number
   created: boolean
 } {
-  const normalizedGtIndex = normalizeGtIndex(gtIndex)
+  const normalizedGtIndex = normalizeGtTextIndex(gtIndex)
   const nextVariants = normalizeEditableTextVariants(variants)
-  let gtPos = nextVariants.findIndex(variant => variant.index === normalizedGtIndex)
+  let gtPos = nextVariants.findIndex(variant => matchesTextIndex(variant.index, normalizedGtIndex))
   let created = false
 
   if (gtPos < 0) {
     nextVariants.push({
       unicode: '',
-      index: normalizedGtIndex
+      index: variantIndexFor(normalizedGtIndex)
     })
     nextVariants.sort(sortEditableTextVariantsByIndex)
-    gtPos = nextVariants.findIndex(variant => variant.index === normalizedGtIndex)
+    gtPos = nextVariants.findIndex(variant => matchesTextIndex(variant.index, normalizedGtIndex))
     created = true
   }
 

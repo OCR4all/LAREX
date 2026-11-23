@@ -1,4 +1,5 @@
 import type { TextContentVariantData } from '@/models/editor'
+import { matchesTextIndex, variantIndexFor } from '@/utils/text-index'
 
 export type FullTextLineSource = 'gt' | 'prediction' | 'empty'
 
@@ -20,12 +21,12 @@ export function resolveFullTextLineValue(
   recognitionIndices: number[]
 ): FullTextLineValue {
   const current = variants ?? []
-  const gt = current.find(variant => variant.index === gtIndex)
+  const gt = current.find(variant => matchesTextIndex(variant.index, gtIndex))
   if (gt) {
     return {
       text: gt.unicode ?? '',
       source: 'gt',
-      sourceIndex: gtIndex
+      sourceIndex: variantIndexFor(gtIndex)
     }
   }
 

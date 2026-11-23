@@ -1,4 +1,5 @@
 import type { GlyphDto, PageDto, PolygonDto, RegionDto, TextContentVariantDto, TextLineDto, WordDto } from '@/types/page-dto'
+import { matchesTextIndex } from '@/utils/text-index'
 
 export type PageVersionCompareSource = 'version' | 'action-result'
 export type PageVersionCompareElementKind = 'region' | 'textline' | 'word' | 'glyph' | 'baseline'
@@ -396,7 +397,7 @@ function textLineText(textLine: TextLineDto, gtIndex: number): string {
 
 function variantText(textContentVariants: TextContentVariantDto[] | undefined, gtIndex: number): string {
   const variants = textContentVariants ?? []
-  const exact = variants.find(variant => variant.index === gtIndex)
+  const exact = variants.find(variant => matchesTextIndex(variant.index, gtIndex))
   const fallback = variants.find(variant => variant.index === 0) ?? variants[0]
   return exact?.unicode ?? exact?.plainText ?? fallback?.unicode ?? fallback?.plainText ?? ''
 }

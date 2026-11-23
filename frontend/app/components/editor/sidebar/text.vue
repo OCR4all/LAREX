@@ -90,9 +90,8 @@ const hasProjectCodec = computed(() => {
 const defaultGtIndexModel = computed({
   get: () => editorStore.projectTextDefaultGtIndex ?? 0,
   set: (next: number) => {
-    const parsed = Number.parseInt(String(next), 10)
     editorStore.setProjectTextIndexDefaults({
-      gtIndex: Number.isFinite(parsed) && parsed >= 0 ? parsed : 0,
+      gtIndex: normalizeGtTextIndex(next),
       recognitionIndices: editorStore.projectTextDefaultRecognitionIndices ?? [1]
     })
   }

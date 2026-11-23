@@ -10,7 +10,6 @@ import type { ValidationRulesetSummary } from '~/types/validation-ruleset'
 import type { KeyboardLayout } from '@/types/virtual-keyboard'
 import type { WorkspaceProjectDefaultResourceKey } from '~/utils/workspace-project-defaults'
 
-const UNDEFINED_RECOGNITION_SENTINEL = -1
 const AUTOMATIC_IMAGE_VARIANT = '__automatic__'
 type SelectOption = { label: string, value: string }
 
@@ -108,13 +107,13 @@ const state = ref<Schema>({
   allowTagSetOverride: props.project.allowTagSetOverride !== false,
   allowNormalizationProfileOverride: props.project.allowNormalizationProfileOverride !== false,
   allowValidationRulesetOverride: props.project.allowValidationRulesetOverride !== false,
-  defaultGtIndexInput: String(props.project.defaultGtIndex ?? 0),
-  defaultGtIndexUndefined: props.project.defaultGtIndex == null,
+  defaultGtIndexInput: props.project.defaultGtIndex === UNINDEXED_TEXT_INDEX ? '' : String(props.project.defaultGtIndex ?? 0),
+  defaultGtIndexUndefined: props.project.defaultGtIndex === UNINDEXED_TEXT_INDEX,
   defaultRecognitionIndicesInput: Array.isArray(props.project.defaultRecognitionIndices) && props.project.defaultRecognitionIndices.length > 0
-    ? props.project.defaultRecognitionIndices.filter(index => index !== UNDEFINED_RECOGNITION_SENTINEL).map(index => String(index))
+    ? props.project.defaultRecognitionIndices.filter(index => index !== UNINDEXED_TEXT_INDEX).map(index => String(index))
     : ['1'],
   defaultRecognitionIndicesUndefined: Array.isArray(props.project.defaultRecognitionIndices)
-    ? props.project.defaultRecognitionIndices.includes(UNDEFINED_RECOGNITION_SENTINEL)
+    ? props.project.defaultRecognitionIndices.includes(UNINDEXED_TEXT_INDEX)
     : false,
   outputRetentionDaysInput: String(props.project.outputRetentionDays ?? 30),
   retainOutputsForever: props.project.outputRetentionDays == null,
@@ -366,7 +365,7 @@ function parseRecognitionIndices(values: Array<string | number> | undefined, gtI
       return Number.parseInt(v, 10)
     })
 
-  const withUndefined = includeUndefined ? [UNDEFINED_RECOGNITION_SENTINEL, ...parsed] : parsed
+  const withUndefined = includeUndefined ? [UNINDEXED_TEXT_INDEX, ...parsed] : parsed
   const unique = [...new Set(withUndefined)].sort((a, b) => a - b)
   if (unique.length === 0) {
     throw new Error('Provide at least one recognition index and/or enable Undefined.')
@@ -385,12 +384,11 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     }
 
     const defaultGtIndex = event.data.defaultGtIndexUndefined === true
-      ? undefined
+      ? UNINDEXED_TEXT_INDEX
       : parseDefaultGtIndex(event.data.defaultGtIndexInput)
-    const effectiveGtIndexForValidation = defaultGtIndex ?? (workspaceDefaults.value?.defaultGtIndex ?? props.project.defaultGtIndex ?? 0)
     const defaultRecognitionIndices = parseRecognitionIndices(
       event.data.defaultRecognitionIndicesInput,
-      effectiveGtIndexForValidation,
+      defaultGtIndex,
       event.data.defaultRecognitionIndicesUndefined === true
     )
     const outputRetentionDays = event.data.retainOutputsForever === true
@@ -424,7 +422,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
           ? null
           : event.data.primaryImageVariant || null,
         reviewRequired: event.data.reviewRequired === true,
-        ...(defaultGtIndex !== undefined ? { defaultGtIndex } : {}),
+        defaultGtIndex,
         ...(defaultRecognitionIndices.length > 0 ? { defaultRecognitionIndices } : {})
       }
     })
@@ -719,7 +717,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
 
           <template #text-variants>
             <div class="space-y-5 pb-4">
-              <UFormField label="Default GT Index" name="defaultGtIndexInput" help="The single ground-truth index used in the text editor.">
+              <UFormField label="Default GT Index" name="defaultGtIndexInput" help="The single ground-truth index used in the text editor. Undefined uses text without an index.">
                 <div class="flex items-center gap-3">
                   <UInput
                     v-model="state.defaultGtIndexInput"

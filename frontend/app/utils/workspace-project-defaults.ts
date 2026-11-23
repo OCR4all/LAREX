@@ -1,4 +1,5 @@
 import type { ProjectDefaultKey } from '~/types/workspace-project-defaults'
+import { formatTextIndex, normalizeGtTextIndex, UNINDEXED_TEXT_INDEX } from '~/utils/text-index'
 
 export type WorkspaceProjectDefaultResourceKey = Exclude<ProjectDefaultKey, 'TEXT_INDICES' | 'REVIEW_REQUIRED'>
 
@@ -61,9 +62,7 @@ export function normalizeWorkspaceProjectDefaults(
     tagSetId: normalizeId(value?.tagSetId),
     normalizationProfileId: value?.normalizationProfileId ? normalizeId(value.normalizationProfileId) : null,
     validationRulesetId: value?.validationRulesetId ? normalizeId(value.validationRulesetId) : null,
-    defaultGtIndex: Number.isInteger(value?.defaultGtIndex) && (value?.defaultGtIndex as number) >= 0
-      ? value?.defaultGtIndex as number
-      : 0,
+    defaultGtIndex: normalizeGtTextIndex(value?.defaultGtIndex ?? 0),
     defaultRecognitionIndices: Array.isArray(value?.defaultRecognitionIndices) && value.defaultRecognitionIndices.length > 0
       ? [...new Set(value.defaultRecognitionIndices.filter(Number.isInteger))].sort((left, right) => left - right)
       : [1]
@@ -101,7 +100,7 @@ export function formatWorkspaceTextIndexDefault(defaults: WorkspaceProjectDefaul
   const recognitionLabel = undefinedRecognition
     ? recognition ? `Undefined, ${recognition}` : 'Undefined'
     : recognition || 'None'
-  return `GT ${defaults.defaultGtIndex}; Recognition ${recognitionLabel}`
+  return `GT ${formatTextIndex(defaults.defaultGtIndex)}; Recognition ${recognitionLabel}`
 }
 
 export function resourceMatchesWorkspaceDefault(
@@ -129,7 +128,7 @@ export function textIndicesMatchWorkspaceDefault(
   draft: TextIndexDefaultsDraft,
   defaults: WorkspaceProjectDefaultsSnapshot
 ): boolean {
-  const gtIndex = draft.gtIndexUndefined === true ? null : parseIndex(String(draft.gtIndexInput ?? ''))
+  const gtIndex = draft.gtIndexUndefined === true ? UNINDEXED_TEXT_INDEX : parseIndex(String(draft.gtIndexInput ?? ''))
   const recognitionIndices = normalizeDraftIndices(draft.recognitionIndicesInput, draft.recognitionIndicesUndefined === true)
   const expectedGtIndex = defaults.defaultGtIndex
   return gtIndex === expectedGtIndex && sameNumbers(recognitionIndices, defaults.defaultRecognitionIndices)
@@ -137,8 +136,8 @@ export function textIndicesMatchWorkspaceDefault(
 
 export function resetTextIndexDefaults(defaults: WorkspaceProjectDefaultsSnapshot): ResetTextIndexDefaults {
   return {
-    gtIndexInput: String(defaults.defaultGtIndex),
-    gtIndexUndefined: false,
+    gtIndexInput: defaults.defaultGtIndex === UNINDEXED_TEXT_INDEX ? '' : String(defaults.defaultGtIndex),
+    gtIndexUndefined: defaults.defaultGtIndex === UNINDEXED_TEXT_INDEX,
     recognitionIndicesInput: defaults.defaultRecognitionIndices
       .filter(index => index !== -1)
       .map(index => String(index)),

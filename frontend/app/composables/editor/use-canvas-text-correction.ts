@@ -25,6 +25,7 @@ import { computeCanvasTextCorrectionAnchorTarget, computeCanvasTextCorrectionPla
 import { clipToWorldCoords, imageToWorld } from '@/utils/editor/coordinates'
 import { WORLD_COORD_THRESHOLD, ZOOM } from '@/utils/editor/editor-constants'
 import { normalizeEditableTextVariants, setGtVariantUnicode } from '@/utils/editor/text-variants'
+import { matchesTextIndex, textIndexOf } from '@/utils/text-index'
 import { collectTextlineIdsInReadingOrder, getAdjacentTextlineId, isTextlinePolygonType } from '@/utils/editor/textline-navigation'
 
 export const CORRECTION_FONT_MIN = 14
@@ -655,7 +656,7 @@ export function useCanvasTextCorrection(options: CanvasTextCorrectionOptions) {
     const polygon = selectedTextlinePolygon.value
     if (!polygon) return ''
     const variants = normalizeEditableTextVariants(polygon.textContentVariants)
-    const gt = variants.find(variant => variant.index === activeGtIndex.value)
+    const gt = variants.find(variant => matchesTextIndex(variant.index, activeGtIndex.value))
     return gt?.unicode ?? ''
   })
 
@@ -663,14 +664,14 @@ export function useCanvasTextCorrection(options: CanvasTextCorrectionOptions) {
     const polygon = selectedTextlinePolygon.value
     if (!polygon) return undefined
     return normalizeEditableTextVariants(polygon.textContentVariants)
-      .find(variant => variant.index === activeGtIndex.value)
+      .find(variant => matchesTextIndex(variant.index, activeGtIndex.value))
   })
 
   function findFirstRecognitionVariant(polygon: RenderableTextlinePolygon) {
     const variants = normalizeEditableTextVariants(polygon.textContentVariants)
     for (const recognitionIndex of activeRecognitionIndices.value) {
       const variant = variants.find(candidate => (
-        (recognitionIndex === -1 ? candidate.index === undefined : candidate.index === recognitionIndex)
+        matchesTextIndex(candidate.index, recognitionIndex)
         && candidate.unicode.trim().length > 0
       ))
       if (variant) return variant
@@ -720,11 +721,8 @@ export function useCanvasTextCorrection(options: CanvasTextCorrectionOptions) {
 
     return variants
       .filter((variant) => {
-        if (typeof variant.index === 'number') {
-          if (variant.index === activeGtIndex.value) return false
-          return recognitionIndices.includes(variant.index)
-        }
-        return recognitionIndices.includes(-1)
+        const textIndex = textIndexOf(variant.index)
+        return textIndex !== activeGtIndex.value && recognitionIndices.includes(textIndex)
       })
       .map((variant, pos) => {
         const unicode = variant.unicode ?? ''
@@ -1069,7 +1067,7 @@ export function useCanvasTextCorrection(options: CanvasTextCorrectionOptions) {
 
     if (populateGt && isCanvasWritable.value) {
       const nextPolygon = polygons.find(polygon => polygon.id === nextId) as RenderableTextlinePolygon | undefined
-      if (nextPolygon && !nextPolygon.textContentVariants?.some(variant => variant.index === activeGtIndex.value)) {
+      if (nextPolygon && !nextPolygon.textContentVariants?.some(variant => matchesTextIndex(variant.index, activeGtIndex.value))) {
         const source = findFirstRecognitionVariant(nextPolygon)
         updateTextlineGtTextById(nextId, source?.unicode ?? '')
       }

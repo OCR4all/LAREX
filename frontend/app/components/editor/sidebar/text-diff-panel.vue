@@ -16,34 +16,59 @@ const emit = defineEmits<{
   saveDefaults: [payload: { defaultGtIndex: number, defaultRecognitionIndices: number[] }]
 }>()
 
-const gtIndexInput = ref(String(defaultGtIndex.value ?? 0))
-const recognitionIndicesInput = ref((defaultRecognitionIndices.value ?? [1]).join(', '))
+const gtIndexInput = ref('')
+const gtIndexUndefined = ref(false)
+const recognitionIndicesInput = ref('')
+const recognitionIndicesUndefined = ref(false)
 const localError = ref<string | null>(null)
 
 watch(() => defaultGtIndex.value, (val) => {
-  gtIndexInput.value = String(val ?? 0)
-})
+  const gtIndex = val ?? 0
+  gtIndexUndefined.value = gtIndex === UNINDEXED_TEXT_INDEX
+  gtIndexInput.value = gtIndex === UNINDEXED_TEXT_INDEX ? '' : String(gtIndex)
+}, { immediate: true })
 
 watch(() => defaultRecognitionIndices.value, (val) => {
-  recognitionIndicesInput.value = (val ?? [1]).join(', ')
-})
+  const indices = val ?? [1]
+  recognitionIndicesUndefined.value = indices.includes(UNINDEXED_TEXT_INDEX)
+  recognitionIndicesInput.value = indices.filter(index => index !== UNINDEXED_TEXT_INDEX).join(', ')
+}, { immediate: true })
 
 function parsePayload(): { defaultGtIndex: number, defaultRecognitionIndices: number[] } | null {
   localError.value = null
 
-  const gt = Number.parseInt(gtIndexInput.value.trim(), 10)
-  if (!Number.isFinite(gt) || gt < 0) {
-    localError.value = 'GT index must be a non-negative integer.'
+  if (gtIndexUndefined.value && recognitionIndicesUndefined.value) {
+    localError.value = 'Undefined cannot be selected for both GT and recognition.'
     return null
   }
 
-  const parsed = recognitionIndicesInput.value
+  let gt = UNINDEXED_TEXT_INDEX
+  if (!gtIndexUndefined.value) {
+    const value = gtIndexInput.value.trim()
+    if (!/^\d+$/.test(value)) {
+      localError.value = 'GT index must be a non-negative integer.'
+      return null
+    }
+    gt = Number.parseInt(value, 10)
+  }
+
+  const values = recognitionIndicesInput.value
     .split(',')
-    .map(v => Number.parseInt(v.trim(), 10))
-    .filter(v => Number.isFinite(v) && v >= 0)
-  const recognition = [...new Set(parsed)].sort((a, b) => a - b).filter(v => v !== gt)
+    .map(v => v.trim())
+    .filter(Boolean)
+  if (values.some(v => !/^\d+$/.test(v))) {
+    localError.value = 'Recognition indices must be non-negative integers.'
+    return null
+  }
+  const parsed = values.map(v => Number.parseInt(v, 10))
+  if (parsed.includes(gt)) {
+    localError.value = 'Recognition indices must not include the GT index.'
+    return null
+  }
+  const recognition = [...new Set(recognitionIndicesUndefined.value ? [UNINDEXED_TEXT_INDEX, ...parsed] : parsed)]
+    .sort((a, b) => a - b)
   if (recognition.length === 0) {
-    localError.value = 'Provide at least one recognition index different from the GT index.'
+    localError.value = 'Add at least one recognition index or enable Undefined.'
     return null
   }
 
@@ -69,26 +94,45 @@ function handleSave() {
       <div class="flex justify-between items-center mb-2">
         <span class="text-sm font-medium">Default Ground Truth Index</span>
       </div>
-      <UInput
-        v-model="gtIndexInput"
-        size="sm"
-        :disabled="!props.canEditDefaults || props.isSavingDefaults"
-        placeholder="0"
-      />
+      <div class="flex items-center gap-3">
+        <UInput
+          v-model="gtIndexInput"
+          size="sm"
+          inputmode="numeric"
+          :disabled="!props.canEditDefaults || props.isSavingDefaults || gtIndexUndefined"
+          placeholder="0"
+          class="flex-1 min-w-0"
+        />
+        <UCheckbox
+          v-model="gtIndexUndefined"
+          size="sm"
+          label="Undefined"
+          :disabled="!props.canEditDefaults || props.isSavingDefaults"
+        />
+      </div>
     </div>
 
     <div>
       <div class="flex justify-between items-center mb-2">
         <span class="text-sm font-medium">Default Recognition Indices</span>
       </div>
-      <UInput
-        v-model="recognitionIndicesInput"
-        size="sm"
-        :disabled="!props.canEditDefaults || props.isSavingDefaults"
-        placeholder="1, 2"
-      />
+      <div class="flex items-center gap-3">
+        <UInput
+          v-model="recognitionIndicesInput"
+          size="sm"
+          :disabled="!props.canEditDefaults || props.isSavingDefaults"
+          placeholder="1, 2"
+          class="flex-1 min-w-0"
+        />
+        <UCheckbox
+          v-model="recognitionIndicesUndefined"
+          size="sm"
+          label="Undefined"
+          :disabled="!props.canEditDefaults || props.isSavingDefaults"
+        />
+      </div>
       <p class="text-xs text-muted mt-1">
-        Comma-separated list (multiple recognition indices allowed).
+        Comma-separated list. Undefined uses text without an index.
       </p>
     </div>
 

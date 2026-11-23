@@ -6,6 +6,7 @@ import type { TextContentVariantData } from '@/models/editor'
 import type { Point } from '@/models/editor/types'
 import { worldToImage } from '@/utils/editor/coordinates'
 import { matchesTextlineFilters } from '@/utils/editor/textline-filtering'
+import { matchesTextIndex, textIndexOf, variantIndexFor } from '@/utils/text-index'
 import type { PresenceFilter } from '@/utils/editor/textline-filtering'
 import { getRegionColor } from '@/utils/editor/region-colors'
 import {
@@ -180,6 +181,7 @@ const canCheckDictionaryTokens = computed(() => {
 
 const gtIndexModel = computed(() => editorStore.projectTextDefaultGtIndex ?? 0)
 const recognitionIndicesModel = computed(() => editorStore.projectTextDefaultRecognitionIndices ?? [1])
+const gtTextequivIndexKey = computed(() => String(variantIndexFor(gtIndexModel.value) ?? ''))
 
 const showDiffModel = computed({
   get: () => textViewSettings.value.showDiff,
@@ -322,11 +324,10 @@ function getRenderedTextlineOrder(): typeof displayTextlines.value {
 }
 
 function findVisibleGtTextarea(textlineId: string): HTMLTextAreaElement | undefined {
-  const gtIndex = String(gtIndexModel.value)
   return getVisibleTextContentVariantTextareas(rootEl)
     .find(textarea =>
       textarea.dataset.textlineId === textlineId
-      && textarea.dataset.textequivIndex === gtIndex
+      && textarea.dataset.textequivIndex === gtTextequivIndexKey.value
     )
 }
 
@@ -352,7 +353,7 @@ function focusAdjacentTextlineGtField(direction: 1 | -1): boolean {
 
   const active = document.activeElement
   if (!(active instanceof HTMLTextAreaElement)) return false
-  if (active.dataset.textequivIndex !== String(gtIndexModel.value)) return false
+  if (active.dataset.textequivIndex !== gtTextequivIndexKey.value) return false
 
   const currentTextlineId = active.dataset.textlineId ?? selectedTextlineId.value
   if (!currentTextlineId) return false
@@ -679,7 +680,7 @@ function handleCreateGtFromRecognition(textlineId: string, payload: CreateGtPayl
   if (!region) return false
 
   const current = normalizeTextContentVariants(region.textContentVariants)
-  if (current.some(t => t.index === payload.gtIndex)) return false
+  if (current.some(t => matchesTextIndex(t.index, payload.gtIndex))) return false
 
   const sourceText = typeof payload.sourceRecognitionText === 'string'
     ? payload.sourceRecognitionText
@@ -689,7 +690,7 @@ function handleCreateGtFromRecognition(textlineId: string, payload: CreateGtPayl
 
   current.push({
     unicode: normalizeSingleLineText(sourceText ?? ''),
-    index: payload.gtIndex
+    index: variantIndexFor(payload.gtIndex)
   })
   current.sort(sortByIndex)
   commitTextContentVariants(textlineId, current)
@@ -869,9 +870,9 @@ function handleCommitTextContentVariantIndex(textlineId: string, pos: number, to
 }
 
 function variantRole(index: number | undefined): 'gt' | 'recognition' | 'nonAssigned' {
-  if (typeof index === 'number' && index === gtIndexModel.value) return 'gt'
-  if (index === undefined && recognitionIndicesModel.value.includes(-1)) return 'recognition'
-  if (typeof index === 'number' && recognitionIndicesModel.value.includes(index)) return 'recognition'
+  const textIndex = textIndexOf(index)
+  if (textIndex === gtIndexModel.value) return 'gt'
+  if (recognitionIndicesModel.value.includes(textIndex)) return 'recognition'
   return 'nonAssigned'
 }
 
@@ -923,13 +924,10 @@ const textlines = computed(() => {
     const lineConfidence = getMinVariantConfidence(visibleTextContentVariants)
     const matchesVariantFilter = !variantFilterState.hasVariantFilter || filteredTextContentVariants.length > 0
     const matchesAssignedVisibility = !variantFilterState.hasVariantFilter || visibleTextContentVariants.length > 0
-    const hasGtVariant = allTextContentVariants.some(te => te.index === gtIndexModel.value)
-    const recognitionCandidates = recognitionIndicesModel.value.flatMap((idx: number) => {
-      if (idx === -1) {
-        return allTextContentVariants.filter(te => te.index === undefined && te.text.trim().length > 0)
-      }
-      return allTextContentVariants.filter(te => te.index === idx && te.text.trim().length > 0)
-    })
+    const hasGtVariant = allTextContentVariants.some(te => matchesTextIndex(te.index, gtIndexModel.value))
+    const recognitionCandidates = recognitionIndicesModel.value.flatMap((idx: number) =>
+      allTextContentVariants.filter(te => matchesTextIndex(te.index, idx) && te.text.trim().length > 0)
+    )
 
     return {
       id: tl.id,

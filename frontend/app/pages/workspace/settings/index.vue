@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { LazyUiDeleteSlideover } from '#components'
+import { LazyUiConfirmSlideover, LazyUiDeleteSlideover } from '#components'
 import WorkspaceModalProjectDefaultPropagation from '~/components/workspace/modal/project-default-propagation.vue'
 import type { CodecSummary } from '@/types/codec'
 import type { DictionarySummary } from '@/types/dictionary'
@@ -58,6 +58,7 @@ const { refreshWorkspaceDetails, refreshWorkspaceList } = useDataRefresh()
 const { allow } = useActionVisibility()
 
 const deleteSlideover = overlay.create(LazyUiDeleteSlideover)
+const confirmSlideover = overlay.create(LazyUiConfirmSlideover)
 const projectDefaultsPropagationModal = overlay.create(WorkspaceModalProjectDefaultPropagation)
 
 const selectedWorkspace = computed(() => workspaceStore.selectedWorkspaceId)
@@ -104,29 +105,69 @@ const canEditWorkspaceTextIndexDefaults = computed(() =>
   canSetWorkspacePresets.value && allow(workspaceCapabilities.value.canEditWorkspaceTextIndexDefaults)
 )
 
-const isEditing = ref(false)
-const isSaving = ref(false)
-const form = reactive({
-  name: '',
-  description: '',
-  codecId: '',
-  labelSetId: '',
-  dictionaryId: '',
-  tagSetId: '',
-  normalizationProfileId: '',
-  validationRulesetId: '',
-  defaultGtIndexInput: '0',
-  defaultRecognitionIndicesInput: '1',
-  allowEditorsToEditPageName: false,
-  allowEditorsToEditPageDescription: false,
-  allowEditorsToEditPageTags: false,
-  defaultReviewRequired: false,
-  recordPageXmlAuthors: true,
-  pageXmlCreatorFromUser: true
-})
+const canEditName = computed(() => !workspace.value?.isPersonal && canEditWorkspaceMetadata.value)
+const canEditDescription = computed(() => workspace.value?.isPersonal
+  ? canEditWorkspaceSettings.value
+  : canEditWorkspaceMetadata.value)
+const canEditTextIndices = computed(() => workspace.value?.isPersonal
+  ? canEditWorkspaceSettings.value
+  : canEditWorkspaceTextIndexDefaults.value)
+const showWorkspaceRules = computed(() => workspace.value?.isPersonal
+  ? canEditWorkspaceSettings.value
+  : canSetWorkspacePresets.value)
 
-function formatRecognitionIndices(value?: number[] | null): string {
-  return Array.isArray(value) && value.length > 0 ? value.join(', ') : '1'
+function formFromWorkspace(ws?: Workspace | null) {
+  return {
+    name: ws?.name || '',
+    description: ws?.description || '',
+    codecId: ws?.codecId || '',
+    labelSetId: ws?.labelSetId || '',
+    dictionaryId: ws?.dictionaryId || '',
+    tagSetId: ws?.tagSetId || '',
+    normalizationProfileId: ws?.normalizationProfileId || '',
+    validationRulesetId: ws?.validationRulesetId || '',
+    defaultGtIndexInput: ws?.defaultGtIndex === UNINDEXED_TEXT_INDEX ? '' : String(ws?.defaultGtIndex ?? 0),
+    defaultGtIndexUndefined: ws?.defaultGtIndex === UNINDEXED_TEXT_INDEX,
+    defaultRecognitionIndicesInput: recognitionIndexTags(ws?.defaultRecognitionIndices),
+    defaultRecognitionIndicesUndefined: effectiveRecognitionIndices(ws?.defaultRecognitionIndices).includes(UNDEFINED_RECOGNITION_INDEX),
+    allowEditorsToEditPageName: ws?.allowEditorsToEditPageName ?? false,
+    allowEditorsToEditPageDescription: ws?.allowEditorsToEditPageDescription ?? false,
+    allowEditorsToEditPageTags: ws?.allowEditorsToEditPageTags ?? false,
+    defaultReviewRequired: ws?.defaultReviewRequired ?? false,
+    recordPageXmlAuthors: ws?.recordPageXmlAuthors ?? true,
+    pageXmlCreatorFromUser: ws?.pageXmlCreatorFromUser ?? true
+  }
+}
+
+const isSaving = ref(false)
+const form = reactive(formFromWorkspace())
+const baseline = ref(JSON.stringify(form))
+const isDirty = computed(() => JSON.stringify(form) !== baseline.value)
+const canSave = computed(() => !!form.name.trim() || !!workspace.value?.isPersonal)
+
+function resetForm() {
+  const next = formFromWorkspace(workspace.value)
+  Object.assign(form, next)
+  baseline.value = JSON.stringify(next)
+}
+
+watch(workspace, (ws, previous) => {
+  if (!ws) return
+  const keepEdits = isDirty.value && ws.id === previous?.id
+  baseline.value = JSON.stringify(formFromWorkspace(ws))
+  if (!keepEdits) Object.assign(form, formFromWorkspace(ws))
+}, { immediate: true })
+
+const UNDEFINED_RECOGNITION_INDEX = -1
+
+function effectiveRecognitionIndices(value?: number[] | null): number[] {
+  return Array.isArray(value) && value.length > 0 ? value : [1]
+}
+
+function recognitionIndexTags(value?: number[] | null): string[] {
+  return effectiveRecognitionIndices(value)
+    .filter(index => index !== UNDEFINED_RECOGNITION_INDEX)
+    .map(String)
 }
 
 const defaultLabels: Record<ProjectDefaultKey, string> = {
@@ -152,9 +193,7 @@ function optionLabel(options: SelectOption[], id?: string | null): string {
 function changedWorkspaceDefaults(defaultGtIndex: number, defaultRecognitionIndices: number[]) {
   if (!workspace.value) return []
 
-  const currentRecognitionIndices = workspace.value.defaultRecognitionIndices?.length
-    ? workspace.value.defaultRecognitionIndices
-    : [1]
+  const currentRecognitionIndices = effectiveRecognitionIndices(workspace.value.defaultRecognitionIndices)
   const changedKeys = changedProjectDefaultKeys(
     {
       codecId: workspace.value.codecId,
@@ -204,8 +243,8 @@ function changedWorkspaceDefaults(defaultGtIndex: number, defaultRecognitionIndi
     changed.push({
       key: 'TEXT_INDICES',
       label: defaultLabels.TEXT_INDICES,
-      before: `GT ${currentGtIndex}; Recognition ${currentRecognitionIndices.join(', ')}`,
-      after: `GT ${defaultGtIndex}; Recognition ${defaultRecognitionIndices.join(', ')}`
+      before: formatWorkspaceTextIndexDefault({ defaultGtIndex: currentGtIndex, defaultRecognitionIndices: currentRecognitionIndices }),
+      after: formatWorkspaceTextIndexDefault({ defaultGtIndex, defaultRecognitionIndices })
     })
   }
 
@@ -221,22 +260,36 @@ function changedWorkspaceDefaults(defaultGtIndex: number, defaultRecognitionIndi
   return changed
 }
 
-function parseDefaultGtIndex(value: string | undefined): number {
-  const parsed = Number.parseInt(String(value ?? '').trim(), 10)
-  if (!Number.isFinite(parsed) || parsed < 0) {
+function parseDefaultGtIndex(value: string, isUndefined: boolean): number {
+  if (isUndefined) return UNINDEXED_TEXT_INDEX
+  const trimmed = value.trim()
+  if (!/^\d+$/.test(trimmed)) {
     throw new Error('Default GT index must be a non-negative integer.')
   }
-  return parsed
+  return Number.parseInt(trimmed, 10)
 }
 
-function parseRecognitionIndices(value: string | undefined, gtIndex: number): number[] {
-  const parsed = String(value ?? '')
-    .split(',')
-    .map(v => Number.parseInt(v.trim(), 10))
-    .filter(v => Number.isFinite(v) && v >= 0)
-  const unique = [...new Set(parsed)].sort((a, b) => a - b).filter(v => v !== gtIndex)
+function parseRecognitionIndices(values: string[], includeUndefined: boolean, gtIndex: number): number[] {
+  const parsed = values
+    .flatMap(value => value.split(','))
+    .map(value => value.trim())
+    .filter(Boolean)
+    .map((value) => {
+      if (!/^\d+$/.test(value)) {
+        throw new Error('Recognition indices must be non-negative integers.')
+      }
+      return Number.parseInt(value, 10)
+    })
+  if (includeUndefined && gtIndex === UNINDEXED_TEXT_INDEX) {
+    throw new Error('Undefined cannot be selected for both GT and recognition.')
+  }
+  if (parsed.includes(gtIndex)) {
+    throw new Error('Recognition indices must not include the GT index.')
+  }
+  const withUndefined = includeUndefined ? [UNDEFINED_RECOGNITION_INDEX, ...parsed] : parsed
+  const unique = [...new Set(withUndefined)].sort((a, b) => a - b)
   if (unique.length === 0) {
-    throw new Error('Provide at least one recognition index different from the GT index.')
+    throw new Error('Add at least one recognition index or enable Undefined.')
   }
   return unique
 }
@@ -338,62 +391,14 @@ const validationRulesetsSafe = computed<SelectOption[]>(() => (validationRuleset
   value: ruleset.id
 })))
 
-watchEffect(() => {
-  if (workspace.value) {
-    form.name = workspace.value.name || ''
-    form.description = workspace.value.description || ''
-    form.codecId = workspace.value.codecId || ''
-    form.labelSetId = workspace.value.labelSetId || ''
-    form.dictionaryId = workspace.value.dictionaryId || ''
-    form.tagSetId = workspace.value.tagSetId || ''
-    form.normalizationProfileId = workspace.value.normalizationProfileId || ''
-    form.validationRulesetId = workspace.value.validationRulesetId || ''
-    form.defaultGtIndexInput = String(workspace.value.defaultGtIndex ?? 0)
-    form.defaultRecognitionIndicesInput = formatRecognitionIndices(workspace.value.defaultRecognitionIndices)
-    form.allowEditorsToEditPageName = workspace.value.allowEditorsToEditPageName ?? false
-    form.allowEditorsToEditPageDescription = workspace.value.allowEditorsToEditPageDescription ?? false
-    form.allowEditorsToEditPageTags = workspace.value.allowEditorsToEditPageTags ?? false
-    form.defaultReviewRequired = workspace.value.defaultReviewRequired ?? false
-    form.recordPageXmlAuthors = workspace.value.recordPageXmlAuthors ?? true
-    form.pageXmlCreatorFromUser = workspace.value.pageXmlCreatorFromUser ?? true
-  }
-})
-
-const startEditing = () => {
-  if (!canEditWorkspaceSettings.value) return
-  isEditing.value = true
-}
-
-const cancelEditing = () => {
-  if (workspace.value) {
-    form.name = workspace.value.name || ''
-    form.description = workspace.value.description || ''
-    form.codecId = workspace.value.codecId || ''
-    form.labelSetId = workspace.value.labelSetId || ''
-    form.dictionaryId = workspace.value.dictionaryId || ''
-    form.tagSetId = workspace.value.tagSetId || ''
-    form.normalizationProfileId = workspace.value.normalizationProfileId || ''
-    form.validationRulesetId = workspace.value.validationRulesetId || ''
-    form.defaultGtIndexInput = String(workspace.value.defaultGtIndex ?? 0)
-    form.defaultRecognitionIndicesInput = formatRecognitionIndices(workspace.value.defaultRecognitionIndices)
-    form.allowEditorsToEditPageName = workspace.value.allowEditorsToEditPageName ?? false
-    form.allowEditorsToEditPageDescription = workspace.value.allowEditorsToEditPageDescription ?? false
-    form.allowEditorsToEditPageTags = workspace.value.allowEditorsToEditPageTags ?? false
-    form.defaultReviewRequired = workspace.value.defaultReviewRequired ?? false
-    form.recordPageXmlAuthors = workspace.value.recordPageXmlAuthors ?? true
-    form.pageXmlCreatorFromUser = workspace.value.pageXmlCreatorFromUser ?? true
-  }
-  isEditing.value = false
-}
-
 const saveWorkspace = async () => {
-  if (!canEditWorkspaceSettings.value) return
+  if (!canEditWorkspaceSettings.value || !canSave.value) return
   if (!selectedWorkspace.value) return
 
   isSaving.value = true
   try {
-    const defaultGtIndex = parseDefaultGtIndex(form.defaultGtIndexInput)
-    const defaultRecognitionIndices = parseRecognitionIndices(form.defaultRecognitionIndicesInput, defaultGtIndex)
+    const defaultGtIndex = parseDefaultGtIndex(form.defaultGtIndexInput, form.defaultGtIndexUndefined)
+    const defaultRecognitionIndices = parseRecognitionIndices(form.defaultRecognitionIndicesInput, form.defaultRecognitionIndicesUndefined, defaultGtIndex)
     const changedDefaults = changedWorkspaceDefaults(defaultGtIndex, defaultRecognitionIndices)
     let propagationScope: ProjectDefaultPropagationScope = 'FUTURE_ONLY'
 
@@ -449,7 +454,8 @@ const saveWorkspace = async () => {
       refreshWorkspaceList()
     ])
 
-    isEditing.value = false
+    resetForm()
+    toast.add({ title: 'Workspace settings saved', color: 'success' })
   } catch (err: unknown) {
     toast.add({
       title: 'Failed to update workspace',
@@ -509,28 +515,96 @@ async function openDeleteSlideover() {
     toast.add({ title: 'Failed to delete', description: err instanceof Error ? err.message : 'An error occurred', color: 'error' })
   }
 }
+type DefaultResourceField = 'codecId' | 'labelSetId' | 'dictionaryId' | 'tagSetId' | 'normalizationProfileId' | 'validationRulesetId'
+
+const defaultResourceFields = computed<Array<{ field: DefaultResourceField, label: string, icon: string, placeholder: string, options: SelectOption[], unavailable: boolean }>>(() => [
+  { field: 'codecId', label: 'Codec', icon: 'i-lucide-case-lower', placeholder: 'Select a codec', options: codecsSafe.value, unavailable: !!codecsError.value },
+  { field: 'labelSetId', label: 'Label set', icon: 'i-lucide-tags', placeholder: 'Select a label set', options: labelSetsSafe.value, unavailable: !!labelSetsError.value },
+  { field: 'dictionaryId', label: 'Dictionary', icon: 'i-lucide-book-copy', placeholder: 'Select a dictionary', options: dictionariesSafe.value, unavailable: !!dictionariesError.value },
+  { field: 'tagSetId', label: 'Tag set', icon: 'i-lucide-network', placeholder: 'Select a tag set', options: tagSetsSafe.value, unavailable: !!tagSetsError.value },
+  { field: 'normalizationProfileId', label: 'Normalization profile', icon: 'i-lucide-wand-sparkles', placeholder: 'Select a normalization profile', options: normalizationProfilesSafe.value, unavailable: !!normalizationProfilesError.value },
+  { field: 'validationRulesetId', label: 'Validation ruleset', icon: 'i-lucide-shield-alert', placeholder: 'Select a validation ruleset', options: validationRulesetsSafe.value, unavailable: !!validationRulesetsError.value }
+])
+
+const hasStorageCard = computed(() => !!storageQuota.value)
+
+onBeforeRouteLeave(async () => {
+  if (!isDirty.value) return true
+  const instance = confirmSlideover.open({
+    title: 'Discard workspace changes?',
+    message: 'Your unsaved workspace settings will be lost if you leave this page.',
+    confirmLabel: 'Discard and leave',
+    cancelLabel: 'Keep editing',
+    confirmColor: 'warning',
+    confirmIcon: 'i-lucide-log-out'
+  })
+  return await instance.result === true
+})
+
+function beforeUnload(event: BeforeUnloadEvent) {
+  if (isDirty.value) event.preventDefault()
+}
+
+onMounted(() => window.addEventListener('beforeunload', beforeUnload))
+onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
 </script>
 
 <template>
-  <div class="flex flex-col gap-y-6">
+  <div class="grid grid-cols-1 xl:grid-cols-12 gap-4 lg:gap-6">
+    <UPageCard
+      data-tour="workspace-general-panel"
+      title="General"
+      :description="workspace?.isPersonal
+        ? 'Your personal workspace. It cannot be renamed, left, or deleted.'
+        : 'How this workspace appears to its members.'"
+      variant="subtle"
+      :class="hasStorageCard ? 'xl:col-span-8' : 'xl:col-span-12'"
+    >
+      <div class="flex flex-col gap-4">
+        <UFormField label="Name" :required="canEditName">
+          <UInput
+            v-if="canEditName"
+            v-model="form.name"
+            placeholder="Workspace name"
+            class="w-full"
+          />
+          <p v-else class="text-sm text-highlighted">
+            {{ workspace?.name }}
+          </p>
+        </UFormField>
+        <UFormField label="Description">
+          <UTextarea
+            v-if="canEditDescription"
+            v-model="form.description"
+            placeholder="Optional description"
+            :rows="3"
+            autoresize
+            class="w-full"
+          />
+          <p v-else class="text-sm" :class="workspace?.description ? 'text-highlighted whitespace-pre-line' : 'text-muted'">
+            {{ workspace?.description || 'No description' }}
+          </p>
+        </UFormField>
+        <p v-if="!workspace?.isPersonal && canSetWorkspacePresets && !canEditWorkspaceMetadata" class="text-xs text-muted">
+          Only workspace owners can change the name and description.
+        </p>
+      </div>
+    </UPageCard>
+
     <UPageCard
       v-if="storageQuota"
       title="Storage"
-      description="Storage usage for this workspace."
       variant="subtle"
+      class="xl:col-span-4"
     >
-      <div class="flex flex-col gap-2 w-full">
-        <div class="flex items-center justify-between text-sm">
-          <span class="text-muted">Used</span>
-          <span>{{ storageQuota.currentUsageFormatted }} / {{ storageQuota.quotaLimitFormatted }}</span>
-        </div>
-        <div v-if="storageQuota.reservedBytes > 0" class="flex items-center justify-between text-sm">
-          <span class="text-muted">Reserved</span>
-          <span>{{ storageQuota.reservedBytesFormatted }}</span>
-        </div>
-        <div class="flex items-center justify-between text-sm">
-          <span class="text-muted">Available for uploads/imports</span>
-          <span>{{ storageQuota.availableBytesFormatted }}</span>
+      <div class="flex flex-col gap-3 w-full">
+        <div>
+          <p class="text-2xl font-semibold text-highlighted tabular-nums">
+            {{ storageQuota.currentUsageFormatted }}
+          </p>
+          <p class="text-sm text-muted tabular-nums">
+            of {{ storageQuota.quotaLimitFormatted }} used ({{ storageQuota.usagePercentage.toFixed(1) }}%)
+          </p>
         </div>
         <UProgress
           v-model="storageProgressValue"
@@ -538,9 +612,24 @@ async function openDeleteSlideover() {
           :color="storageColor"
           size="sm"
         />
-        <p class="text-xs text-muted mt-1">
-          {{ storageQuota.usagePercentage.toFixed(1) }}% of quota used
-        </p>
+        <dl class="flex flex-col gap-1 text-sm">
+          <div v-if="storageQuota.reservedBytes > 0" class="flex items-center justify-between gap-3">
+            <dt class="text-muted">
+              Reserved
+            </dt>
+            <dd class="tabular-nums">
+              {{ storageQuota.reservedBytesFormatted }}
+            </dd>
+          </div>
+          <div class="flex items-center justify-between gap-3">
+            <dt class="text-muted">
+              Available for uploads/imports
+            </dt>
+            <dd class="tabular-nums">
+              {{ storageQuota.availableBytesFormatted }}
+            </dd>
+          </div>
+        </dl>
         <UAlert
           v-if="storageAlertState === 'exceeded'"
           color="error"
@@ -548,7 +637,6 @@ async function openDeleteSlideover() {
           icon="i-lucide-alert-triangle"
           title="Storage quota exceeded"
           :description="`You're using ${storageQuota.usagePercentage.toFixed(0)}% of your storage quota. Uploads and imports are blocked until you remove data or an admin increases the quota.`"
-          class="mt-2"
         />
         <UAlert
           v-else-if="storageAlertState === 'warning'"
@@ -557,405 +645,139 @@ async function openDeleteSlideover() {
           icon="i-lucide-alert-triangle"
           title="Storage quota approaching limit"
           :description="`You're using ${storageQuota.usagePercentage.toFixed(0)}% of your storage quota.`"
-          class="mt-2"
         />
       </div>
     </UPageCard>
 
-    <UPageCard
-      v-if="workspace?.isPersonal"
-      data-tour="workspace-general-panel"
-      title="Personal Workspace"
-      description="This is your personal workspace. It cannot be renamed or deleted."
-      variant="subtle"
-    >
-      <UTooltip v-if="!isEditing" text="Edit workspace settings">
-        <UButton
-          icon="i-lucide-pencil"
-          color="primary"
-          variant="ghost"
-          size="sm"
-          square
-          aria-label="Edit workspace settings"
-          type="button"
-          class="absolute end-4 top-4 sm:end-6 sm:top-6"
-          @click="startEditing"
-        />
-      </UTooltip>
-
-      <div class="flex flex-col gap-4">
-        <UiFormSectionHeader title="Metadata" />
-        <UFormField label="Name">
-          <UInput :model-value="workspace?.name" disabled class="max-w-md" />
-        </UFormField>
-        <UFormField label="Description">
-          <UTextarea
-            v-model="form.description"
-            :disabled="!isEditing"
-            placeholder="Optional description"
-            class="max-w-md"
-          />
-        </UFormField>
-        <UiFormSectionHeader data-tour="workspace-general-presets" title="Project defaults">
-          <ProjectWorkspaceDefaultsInfo context="workspace" />
-        </UiFormSectionHeader>
-        <UFormField label="Default Codec">
-          <USelectMenu
-            v-model="form.codecId"
-            :items="codecsSafe"
-            value-key="value"
-            icon="i-lucide-case-lower"
-            :clear="isEditing"
-            :search-input="false"
-            :disabled="!isEditing || !!codecsError"
-            placeholder="Select a codec"
-            class="max-w-md"
-          />
-        </UFormField>
-        <UFormField label="Default Label Set">
-          <USelectMenu
-            v-model="form.labelSetId"
-            :items="labelSetsSafe"
-            value-key="value"
-            icon="i-lucide-tags"
-            :clear="isEditing"
-            :search-input="false"
-            :disabled="!isEditing || !!labelSetsError"
-            placeholder="Select a label set"
-            class="max-w-md"
-          />
-        </UFormField>
-        <UFormField label="Default Dictionary">
-          <USelectMenu
-            v-model="form.dictionaryId"
-            :items="dictionariesSafe"
-            value-key="value"
-            icon="i-lucide-book-copy"
-            :clear="isEditing"
-            :search-input="false"
-            :disabled="!isEditing || !!dictionariesError"
-            placeholder="Select a dictionary"
-            class="max-w-md"
-          />
-        </UFormField>
-        <UFormField label="Default Tag Set">
-          <USelectMenu
-            v-model="form.tagSetId"
-            :items="tagSetsSafe"
-            value-key="value"
-            icon="i-lucide-network"
-            :clear="isEditing"
-            :search-input="false"
-            :disabled="!isEditing || !!tagSetsError"
-            placeholder="Select a tag set"
-            class="max-w-md"
-          />
-        </UFormField>
-        <UFormField label="Default Normalization Profile">
-          <USelectMenu
-            v-model="form.normalizationProfileId"
-            :items="normalizationProfilesSafe"
-            value-key="value"
-            icon="i-lucide-wand-sparkles"
-            :clear="isEditing"
-            :search-input="false"
-            :disabled="!isEditing || !!normalizationProfilesError"
-            placeholder="Select a normalization profile"
-            class="max-w-md"
-          />
-        </UFormField>
-        <UFormField label="Default Validation Ruleset">
-          <USelectMenu
-            v-model="form.validationRulesetId"
-            :items="validationRulesetsSafe"
-            value-key="value"
-            icon="i-lucide-shield-alert"
-            :clear="isEditing"
-            :search-input="false"
-            :disabled="!isEditing || !!validationRulesetsError"
-            placeholder="Select a validation ruleset"
-            class="max-w-md"
-          />
-        </UFormField>
-        <UFormField label="Default GT Index">
-          <UInput
-            v-model="form.defaultGtIndexInput"
-            :disabled="!isEditing"
-            placeholder="0"
-            class="max-w-md"
-          />
-        </UFormField>
-        <UFormField label="Default Recognition Indices">
-          <UInput
-            v-model="form.defaultRecognitionIndicesInput"
-            :disabled="!isEditing"
-            placeholder="1"
-            class="max-w-md"
-          />
-        </UFormField>
-
-        <USeparator />
-        <WorkspacePageXmlAttributionSettings
-          v-model:creator-from-user="form.pageXmlCreatorFromUser"
-          v-model:record-authors="form.recordPageXmlAuthors"
-          :disabled="!isEditing"
-        />
-
-        <div class="flex gap-2">
-          <template v-if="isEditing">
-            <UButton
-              label="Save changes"
-              icon="i-lucide-save"
-              color="primary"
-              variant="solid"
-              :loading="isSaving"
-              @click="saveWorkspace"
-            />
-            <UButton
-              label="Cancel"
-              color="neutral"
-              variant="subtle"
-              @click="cancelEditing"
-            />
-          </template>
-        </div>
-      </div>
-    </UPageCard>
-
-    <template v-else>
+    <template v-if="showWorkspaceRules">
       <UPageCard
-        data-tour="workspace-general-panel"
-        title="Workspace Details"
-        :description="canEditWorkspaceSettings ? 'Update workspace settings based on your role permissions.' : 'View workspace details.'"
+        data-tour="workspace-general-presets"
         variant="subtle"
+        class="xl:col-span-8"
       >
-        <UTooltip v-if="canEditWorkspaceSettings && !isEditing" text="Edit workspace settings">
-          <UButton
-            icon="i-lucide-pencil"
-            color="primary"
-            variant="ghost"
-            size="sm"
-            square
-            aria-label="Edit workspace settings"
-            type="button"
-            class="absolute end-4 top-4 sm:end-6 sm:top-6"
-            @click="startEditing"
-          />
-        </UTooltip>
+        <template #title>
+          <span class="inline-flex items-center gap-2">
+            Project defaults
+            <ProjectWorkspaceDefaultsInfo context="workspace" />
+          </span>
+        </template>
+        <template #description>
+          Starting point for new projects in this workspace.
+        </template>
 
-        <div class="flex flex-col gap-4">
-          <UFormField label="Name" :hint="isEditing ? 'Required' : ''">
-            <UInput
-              v-model="form.name"
-              :disabled="!isEditing || !canEditWorkspaceMetadata"
-              placeholder="Workspace name"
-            />
-          </UFormField>
-          <UFormField label="Description">
-            <UTextarea
-              v-model="form.description"
-              :disabled="!isEditing || !canEditWorkspaceMetadata"
-              placeholder="Optional description"
-            />
-          </UFormField>
-
-          <p v-if="isEditing && canSetWorkspacePresets && !canEditWorkspaceMetadata" class="text-xs text-muted">
-            Only workspace owners can edit workspace name and description.
-          </p>
+        <div class="flex flex-col gap-6">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <UFormField v-for="resource in defaultResourceFields" :key="resource.field" :label="resource.label">
+              <USelectMenu
+                v-model="form[resource.field]"
+                :items="resource.options"
+                value-key="value"
+                :icon="resource.icon"
+                clear
+                :search-input="false"
+                :disabled="resource.unavailable || resource.options.length === 0"
+                :placeholder="resource.options.length === 0 ? 'None available' : resource.placeholder"
+                class="w-full"
+              />
+            </UFormField>
+          </div>
 
           <USeparator />
 
-          <UiFormSectionHeader v-if="canSetWorkspacePresets" data-tour="workspace-general-presets" title="Project defaults">
-            <ProjectWorkspaceDefaultsInfo context="workspace" />
-          </UiFormSectionHeader>
-
-          <UFormField
-            v-if="canSetWorkspacePresets"
-            label="Default Codec"
-          >
-            <USelectMenu
-              v-model="form.codecId"
-              :items="codecsSafe"
-              value-key="value"
-              :clear="isEditing && canSetWorkspacePresets"
-              :search-input="false"
-              :disabled="!isEditing || !canSetWorkspacePresets || !!codecsError || codecsSafe.length === 0"
-              placeholder="Select a codec"
-            />
-          </UFormField>
-          <UFormField v-if="canSetWorkspacePresets" label="Default Label Set">
-            <USelectMenu
-              v-model="form.labelSetId"
-              :items="labelSetsSafe"
-              value-key="value"
-              :clear="isEditing && canSetWorkspacePresets"
-              :search-input="false"
-              :disabled="!isEditing || !canSetWorkspacePresets || !!labelSetsError || labelSetsSafe.length === 0"
-              placeholder="Select a label set"
-            />
-          </UFormField>
-          <UFormField v-if="canSetWorkspacePresets" label="Default Dictionary">
-            <USelectMenu
-              v-model="form.dictionaryId"
-              :items="dictionariesSafe"
-              value-key="value"
-              :clear="isEditing && canSetWorkspacePresets"
-              :search-input="false"
-              :disabled="!isEditing || !canSetWorkspacePresets || !!dictionariesError || dictionariesSafe.length === 0"
-              placeholder="Select a dictionary"
-            />
-          </UFormField>
-          <UFormField v-if="canSetWorkspacePresets" label="Default Tag Set">
-            <USelectMenu
-              v-model="form.tagSetId"
-              :items="tagSetsSafe"
-              value-key="value"
-              :clear="isEditing && canSetWorkspacePresets"
-              :search-input="false"
-              :disabled="!isEditing || !canSetWorkspacePresets || !!tagSetsError || tagSetsSafe.length === 0"
-              placeholder="Select a tag set"
-            />
-          </UFormField>
-          <UFormField v-if="canSetWorkspacePresets" label="Default Normalization Profile">
-            <USelectMenu
-              v-model="form.normalizationProfileId"
-              :items="normalizationProfilesSafe"
-              value-key="value"
-              :clear="isEditing && canSetWorkspacePresets"
-              :search-input="false"
-              :disabled="!isEditing || !canSetWorkspacePresets || !!normalizationProfilesError || normalizationProfilesSafe.length === 0"
-              placeholder="Select a normalization profile"
-            />
-          </UFormField>
-          <UFormField v-if="canSetWorkspacePresets" label="Default Validation Ruleset">
-            <USelectMenu
-              v-model="form.validationRulesetId"
-              :items="validationRulesetsSafe"
-              value-key="value"
-              :clear="isEditing && canSetWorkspacePresets"
-              :search-input="false"
-              :disabled="!isEditing || !canSetWorkspacePresets || !!validationRulesetsError || validationRulesetsSafe.length === 0"
-              placeholder="Select a validation ruleset"
-            />
-          </UFormField>
-          <UFormField v-if="canSetWorkspacePresets" label="Default GT Index">
-            <UInput
-              v-model="form.defaultGtIndexInput"
-              :disabled="!isEditing || !canEditWorkspaceTextIndexDefaults"
-              placeholder="0"
-            />
-          </UFormField>
-          <UFormField v-if="canSetWorkspacePresets" label="Default Recognition Indices">
-            <UInput
-              v-model="form.defaultRecognitionIndicesInput"
-              :disabled="!isEditing || !canEditWorkspaceTextIndexDefaults"
-              placeholder="1"
-            />
-          </UFormField>
-          <p v-if="canSetWorkspacePresets && !canEditWorkspaceTextIndexDefaults" class="text-xs text-muted">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <UFormField label="GT index" description="Text index that holds ground truth.">
+              <div class="flex items-center gap-3">
+                <UInput
+                  v-model="form.defaultGtIndexInput"
+                  :disabled="!canEditTextIndices || form.defaultGtIndexUndefined"
+                  inputmode="numeric"
+                  :placeholder="form.defaultGtIndexUndefined ? 'No index' : '0'"
+                  class="flex-1 min-w-0"
+                />
+                <UCheckbox
+                  v-model="form.defaultGtIndexUndefined"
+                  label="Undefined"
+                  :disabled="!canEditTextIndices || form.defaultRecognitionIndicesUndefined"
+                />
+              </div>
+            </UFormField>
+            <UFormField label="Recognition indices" description="Comma-separated or one tag per index.">
+              <div class="flex items-center gap-3">
+                <UInputTags
+                  v-model="form.defaultRecognitionIndicesInput"
+                  :disabled="!canEditTextIndices"
+                  placeholder="Add indices (e.g. 1, 2)"
+                  class="flex-1 min-w-0"
+                />
+                <UCheckbox
+                  v-model="form.defaultRecognitionIndicesUndefined"
+                  label="Undefined"
+                  :disabled="!canEditTextIndices || form.defaultGtIndexUndefined"
+                />
+              </div>
+            </UFormField>
+          </div>
+          <p class="-mt-3 text-xs text-muted">
+            Undefined uses text without an <code>index</code> attribute. Only one of GT and recognition can use it.
+          </p>
+          <p v-if="!canEditTextIndices" class="-mt-3 text-xs text-muted">
             You do not have permission to change default text-index settings.
           </p>
 
-          <USeparator v-if="canSetWorkspacePresets" />
-
-          <template v-if="canSetWorkspacePresets">
-            <UiFormSectionHeader title="Page metadata permissions" />
-            <p class="text-sm text-muted">
-              Allow editors to update these page metadata fields in the editor.
-            </p>
-            <div class="flex flex-col gap-2">
-              <div class="flex items-center justify-between gap-3">
-                <div>
-                  <p class="text-sm font-medium">
-                    Page name
-                  </p>
-                  <p class="text-xs text-muted">
-                    Editors can rename pages.
-                  </p>
-                </div>
-                <USwitch
-                  v-model="form.allowEditorsToEditPageName"
-                  :disabled="!isEditing || !canSetWorkspacePresets"
-                />
-              </div>
-              <div class="flex items-center justify-between gap-3">
-                <div>
-                  <p class="text-sm font-medium">
-                    Page description
-                  </p>
-                  <p class="text-xs text-muted">
-                    Editors can edit page descriptions.
-                  </p>
-                </div>
-                <USwitch
-                  v-model="form.allowEditorsToEditPageDescription"
-                  :disabled="!isEditing || !canSetWorkspacePresets"
-                />
-              </div>
-              <div class="flex items-center justify-between gap-3">
-                <div>
-                  <p class="text-sm font-medium">
-                    Page tags
-                  </p>
-                  <p class="text-xs text-muted">
-                    Editors can assign and remove page tags.
-                  </p>
-                </div>
-                <USwitch
-                  v-model="form.allowEditorsToEditPageTags"
-                  :disabled="!isEditing || !canSetWorkspacePresets"
-                />
-              </div>
-            </div>
-
-            <template v-if="!workspace?.isPersonal">
-              <USeparator />
-              <UiFormSectionHeader title="Page review" />
-              <div class="flex items-center justify-between gap-3">
-                <div>
-                  <p class="text-sm font-medium">
-                    Require review in new projects
-                  </p>
-                  <p class="text-xs text-muted">
-                    Editors submit finished pages, and only curators can mark them as done.
-                  </p>
-                </div>
-                <USwitch
-                  v-model="form.defaultReviewRequired"
-                  :disabled="!isEditing || !canSetWorkspacePresets"
-                />
-              </div>
-            </template>
-
+          <template v-if="!workspace?.isPersonal">
             <USeparator />
-            <WorkspacePageXmlAttributionSettings
-              v-model:creator-from-user="form.pageXmlCreatorFromUser"
-              v-model:record-authors="form.recordPageXmlAuthors"
-              :disabled="!isEditing || !canSetWorkspacePresets"
+            <WorkspaceSettingsToggle
+              v-model="form.defaultReviewRequired"
+              label="Require page review"
+              description="Editors submit finished pages, and only curators can mark them as done."
             />
           </template>
+        </div>
+      </UPageCard>
 
-          <div class="flex gap-2">
-            <template v-if="canEditWorkspaceSettings">
-              <template v-if="isEditing">
-                <UButton
-                  label="Save changes"
-                  icon="i-lucide-save"
-                  color="primary"
-                  variant="solid"
-                  :loading="isSaving"
-                  :disabled="!form.name.trim()"
-                  @click="saveWorkspace"
-                />
-                <UButton
-                  label="Cancel"
-                  color="neutral"
-                  variant="outline"
-                  @click="cancelEditing"
-                />
-              </template>
-            </template>
-          </div>
+      <UPageCard
+        v-if="!workspace?.isPersonal"
+        title="Editor permissions"
+        description="Page metadata editors may change in the editor."
+        variant="subtle"
+        class="xl:col-span-4"
+      >
+        <div class="flex flex-col gap-4">
+          <WorkspaceSettingsToggle
+            v-model="form.allowEditorsToEditPageName"
+            label="Page name"
+            description="Editors can rename pages."
+          />
+          <WorkspaceSettingsToggle
+            v-model="form.allowEditorsToEditPageDescription"
+            label="Page description"
+            description="Editors can edit page descriptions."
+          />
+          <WorkspaceSettingsToggle
+            v-model="form.allowEditorsToEditPageTags"
+            label="Page tags"
+            description="Editors can assign and remove page tags."
+          />
+        </div>
+      </UPageCard>
+
+      <UPageCard
+        title="PAGE XML attribution"
+        description="Which names saved PAGE XML files and their exports include."
+        variant="subtle"
+        :class="workspace?.isPersonal ? 'xl:col-span-4' : 'xl:col-span-8'"
+      >
+        <div class="flex flex-col gap-4">
+          <WorkspaceSettingsToggle
+            v-model="form.pageXmlCreatorFromUser"
+            label="Name the creator"
+            description="New annotations use the creating user's name followed by &quot;(LAREX)&quot; as Creator. Off: just &quot;LAREX&quot;."
+          />
+          <WorkspaceSettingsToggle
+            v-model="form.recordPageXmlAuthors"
+            label="Record editors"
+            description="Each save adds the user to the file's author entries."
+          />
         </div>
       </UPageCard>
     </template>
@@ -963,50 +785,63 @@ async function openDeleteSlideover() {
     <UPageCard
       v-if="!workspace?.isPersonal"
       data-tour="workspace-danger-zone"
-      title="Danger Zone"
-      description="Irreversible actions for this workspace."
+      title="Danger zone"
+      :description="canDeleteWorkspace ? 'Permanently delete this workspace and all its data.' : 'Remove yourself from this workspace.'"
       variant="subtle"
       class="bg-linear-to-tl from-error/5 from-5% to-default"
+      :class="showWorkspaceRules ? 'xl:col-span-4' : 'xl:col-span-12'"
     >
-      <template #footer>
-        <div class="flex flex-col gap-4">
-          <div v-if="!canDeleteWorkspace" class="flex items-center justify-between">
-            <div>
-              <h4 class="font-medium">
-                Leave workspace
-              </h4>
-              <p class="text-sm text-muted">
-                Remove yourself from this workspace.
-              </p>
-            </div>
-            <UButton
-              label="Leave"
-              color="error"
-              variant="outline"
-              icon="i-lucide-log-out"
-              @click="leaveWorkspace"
-            />
-          </div>
-
-          <div v-if="canDeleteWorkspace" class="flex flex-col gap-y-2 items-start justify-between">
-            <div>
-              <h4 class="font-medium">
-                Delete workspace
-              </h4>
-              <p class="text-sm text-muted">
-                Permanently delete this workspace and all its data.
-              </p>
-            </div>
-            <UButton
-              label="Delete workspace"
-              color="error"
-              variant="solid"
-              icon="i-lucide-trash-2"
-              @click="openDeleteSlideover"
-            />
-          </div>
-        </div>
-      </template>
+      <div>
+        <UButton
+          v-if="canDeleteWorkspace"
+          label="Delete workspace"
+          color="error"
+          variant="solid"
+          icon="i-lucide-trash-2"
+          @click="openDeleteSlideover"
+        />
+        <UButton
+          v-else
+          label="Leave workspace"
+          color="error"
+          variant="outline"
+          icon="i-lucide-log-out"
+          @click="leaveWorkspace"
+        />
+      </div>
     </UPageCard>
+
+    <Transition
+      enter-active-class="transition duration-200 ease-out"
+      enter-from-class="opacity-0 translate-y-2"
+      leave-active-class="transition duration-150 ease-in"
+      leave-to-class="opacity-0 translate-y-2"
+    >
+      <div
+        v-if="isDirty && canEditWorkspaceSettings"
+        class="sticky bottom-4 z-10 xl:col-span-12 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-default bg-elevated/90 backdrop-blur px-4 py-3 shadow-lg"
+        role="status"
+      >
+        <p class="text-sm text-highlighted">
+          You have unsaved changes.
+        </p>
+        <div class="flex gap-2">
+          <UButton
+            label="Discard"
+            color="neutral"
+            variant="outline"
+            :disabled="isSaving"
+            @click="resetForm"
+          />
+          <UButton
+            label="Save changes"
+            icon="i-lucide-save"
+            :loading="isSaving"
+            :disabled="!canSave"
+            @click="saveWorkspace"
+          />
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>

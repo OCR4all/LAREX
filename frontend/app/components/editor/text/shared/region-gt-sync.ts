@@ -1,5 +1,6 @@
 import type { TextContentVariantData } from '@/models/editor'
 import { normalizeTextContentVariants, sortByIndex } from './text-view-runtime'
+import { matchesTextIndex, variantIndexFor } from '@/utils/text-index'
 
 type TextLineLike = {
   textContentVariants?: TextContentVariantData[] | undefined
@@ -8,7 +9,7 @@ type TextLineLike = {
 export function composeRegionGtFromTextLines(textLines: TextLineLike[] | undefined, gtIndex: number): string | null {
   const lines = (textLines ?? []).map((textLine) => {
     const gtVariant = normalizeTextContentVariants(textLine.textContentVariants)
-      .find(variant => variant.index === gtIndex)
+      .find(variant => matchesTextIndex(variant.index, gtIndex))
     return gtVariant?.unicode ?? ''
   })
 
@@ -22,8 +23,8 @@ export function buildRegionGtSyncedVariants(
   gtIndex: number
 ): TextContentVariantData[] | undefined {
   const current = normalizeTextContentVariants(currentVariants)
-  const existingGt = current.find(variant => variant.index === gtIndex)
-  const withoutGt = current.filter(variant => variant.index !== gtIndex)
+  const existingGt = current.find(variant => matchesTextIndex(variant.index, gtIndex))
+  const withoutGt = current.filter(variant => !matchesTextIndex(variant.index, gtIndex))
 
   // TODO: add region -> textline GT sync once we have a safe split/assignment strategy.
   if (!nextGtText) {
@@ -33,7 +34,7 @@ export function buildRegionGtSyncedVariants(
   withoutGt.push({
     ...existingGt,
     unicode: nextGtText,
-    index: gtIndex
+    index: variantIndexFor(gtIndex)
   })
   withoutGt.sort(sortByIndex)
   return withoutGt
