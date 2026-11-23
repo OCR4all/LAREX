@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "version": "1.1.0-rc.3",
+  "version": "1.1.0",
   "theme": "keycloakify-larex",
   "types": [
     "login",
