@@ -3,6 +3,10 @@ updates:
   - package-ecosystem: "gradle"
     directory: "/backend"
     target-branch: "dev"
+    cooldown:
+      default-days: 7
+    allow:
+      - dependency-type: "direct"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -19,6 +23,10 @@ updates:
   - package-ecosystem: "npm"
     directory: "/frontend"
     target-branch: "dev"
+    cooldown:
+      default-days: 7
+    allow:
+      - dependency-type: "direct"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -34,10 +42,18 @@ updates:
           - "@vue/*"
       dev-dependencies:
         dependency-type: "development"
+      security:
+        applies-to: security-updates
+        patterns:
+          - "*"
 
   - package-ecosystem: "npm"
     directory: "/docs"
     target-branch: "dev"
+    cooldown:
+      default-days: 7
+    allow:
+      - dependency-type: "direct"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -49,18 +65,33 @@ updates:
           - "nuxt*"
       dev-dependencies:
         dependency-type: "development"
+      security:
+        applies-to: security-updates
+        patterns:
+          - "*"
 
   - package-ecosystem: "npm"
     directory: "/keycloak-theme"
     target-branch: "dev"
+    cooldown:
+      default-days: 10
+    allow:
+      - dependency-type: "direct"
     schedule:
       interval: "weekly"
       day: "monday"
     open-pull-requests-limit: 3
+    groups:
+      security:
+        applies-to: security-updates
+        patterns:
+          - "*"
 
   - package-ecosystem: "docker"
     directory: "/backend"
     target-branch: "dev"
+    cooldown:
+      default-days: 7
     schedule:
       interval: "weekly"
       day: "monday"
@@ -69,6 +100,8 @@ updates:
   - package-ecosystem: "docker"
     directory: "/frontend"
     target-branch: "dev"
+    cooldown:
+      default-days: 7
     schedule:
       interval: "weekly"
       day: "monday"
@@ -77,6 +110,8 @@ updates:
   - package-ecosystem: "docker"
     directory: "/docs"
     target-branch: "dev"
+    cooldown:
+      default-days: 7
     schedule:
       interval: "weekly"
       day: "monday"
@@ -85,6 +120,8 @@ updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     target-branch: "dev"
+    cooldown:
+      default-days: 7
     schedule:
       interval: "weekly"
       day: "monday"
