@@ -1,4 +1,4 @@
-FROM ghcr.io/pnpm/pnpm:11.28.11
+FROM ghcr.io/pnpm/pnpm:12.23.0
 
 RUN pnpm runtime set node 22.23.5 -g
 
