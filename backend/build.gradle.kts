@@ -48,7 +48,7 @@ dependencies {
 	implementation("com.lopcode.vips-ffm:vips-ffm-core:1.11.1")
 	implementation("org.apache.pdfbox:pdfbox:3.0.8")
 	implementation("org.apache.pdfbox:xmpbox:3.0.8")
-	implementation("org.apache.poi:poi-ooxml:5.5.1")
+	implementation("org.apache.poi:poi-ooxml:6.0.0")
 	implementation("net.sf.saxon:Saxon-HE:12.10")
 	developmentOnly("org.springframework.boot:spring-boot-devtools")
 	runtimeOnly("org.flywaydb:flyway-database-postgresql")
