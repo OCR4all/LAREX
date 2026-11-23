@@ -12,6 +12,8 @@ import {
   LazyActionSlideoverRun,
   LazyEditorSlideoverPageOrder,
   LazyPageSlideoverEdit,
+  LazyProjectSlideoverAddToDataset,
+  LazyProjectSlideoverExportTarget,
   LazyUiConfirmSlideover
 } from '#components'
 
@@ -60,6 +62,7 @@ import { useFocusedWorkQueue } from '@/composables/editor/use-focused-work-queue
 import type { EditorQueuePage } from '@/types'
 import { useEditorTaskState } from '@/composables/editor/use-editor-task-state'
 import { useEditorCollaboration } from '@/composables/editor/use-editor-collaboration'
+import { useActivePageCommands, type ActivePageCommand, type SaveBeforePrompt } from '@/composables/editor/use-active-page-commands'
 import { useEditorActiveCanvasStatus } from '@/composables/editor/use-editor-active-canvas-status'
 import { useEditorDeepLinks } from '@/composables/editor/use-editor-deep-links'
 import { useEditorDockviewTabs } from '@/composables/editor/use-editor-dockview-tabs'
@@ -279,7 +282,10 @@ const actionRunSlideover = overlay.create(LazyActionSlideoverRun)
 const pageOrderSlideover = overlay.create(LazyEditorSlideoverPageOrder)
 const pageEditSlideover = overlay.create(LazyPageSlideoverEdit)
 const openProjectPagesModal = overlay.create(LazyEditorModalOpenProjectPages)
+const addToDatasetSlideover = overlay.create(LazyProjectSlideoverAddToDataset)
+const exportTargetSlideover = overlay.create(LazyProjectSlideoverExportTarget)
 const confirmSlideover = overlay.create(LazyUiConfirmSlideover)
+const { exportPageOutput } = usePageExport(exportTargetSlideover, confirmSlideover)
 const handledActionPageResultEvents = ref<Set<number>>(new Set())
 const pageFocusModeBusy = ref(false)
 let editorActionIndexStatusTimers: Array<ReturnType<typeof setTimeout>> = []
@@ -418,7 +424,8 @@ const {
   },
   openProjectSelection: async (selection, source) => {
     await openSelectionsInEditor([selection], source)
-  }
+  },
+  pageCommands: () => activePageCommands.value
 })
 
 const closeRequests = useEditorCloseRequests()
@@ -931,6 +938,39 @@ async function openCodecValidationForLoadedPages() {
   await instance.result as ValidateCodecAgainstSourcesResponse | null
 }
 
+async function saveBeforeContinuing(canvasIds: string[], prompt: SaveBeforePrompt): Promise<boolean> {
+  const unsavedCanvasIds = canvasIds.filter(canvasId => editorStore.canvases[canvasId]?.hasUnsavedChanges === true)
+  if (unsavedCanvasIds.length === 0) return true
+
+  const pageNames = unsavedCanvasIds
+    .map((canvasId) => {
+      const { pageId, projectId } = editorStore.canvases[canvasId] ?? {}
+      return (pageId && editorStore.getPage(pageId, projectId ?? undefined)?.label) || pageId || canvasId
+    })
+    .join(', ')
+  const confirmation = confirmSlideover.open({
+    title: prompt.title,
+    message: prompt.message(pageNames),
+    confirmLabel: prompt.confirmLabel,
+    cancelLabel: 'Cancel',
+    confirmColor: 'primary',
+    confirmIcon: 'i-lucide-save',
+    showCancel: true
+  })
+  if (!await confirmation.result) return false
+
+  const saved = await Promise.all(unsavedCanvasIds.map(canvasId => editorStore.saveAnnotations(canvasId)))
+  if (saved.every(Boolean)) return true
+
+  toast.add({
+    title: 'Save failed',
+    description: prompt.failureDescription,
+    color: 'error',
+    icon: 'i-lucide-alert-circle'
+  })
+  return false
+}
+
 async function openActionRunForEditorTarget(payload: { targetSelection: ActionTargetSelection, targetSummary: string }) {
   if (!selectedWorkspace.value || !currentProjectId.value) {
     toast.add({
@@ -958,36 +998,16 @@ async function openActionRunForEditorTarget(payload: { targetSelection: ActionTa
     }
   })
 
-  const unsavedEntries = pageIds
-    .map(pageId => ({ pageId, canvasId: getCanvasId(currentProjectId.value as string, pageId) }))
-    .filter(entry => editorStore.canvases[entry.canvasId]?.hasUnsavedChanges === true)
-  if (unsavedEntries.length > 0) {
-    const pageNames = unsavedEntries
-      .map(entry => editorStore.getPage(entry.pageId, currentProjectId.value ?? undefined)?.label ?? entry.pageId)
-      .join(', ')
-    const confirmation = confirmSlideover.open({
+  const saved = await saveBeforeContinuing(
+    pageIds.map(pageId => getCanvasId(currentProjectId.value as string, pageId)),
+    {
       title: 'Save before running Action?',
-      message: `Actions process the saved PAGE XML. Save changes for ${pageNames} before continuing?`,
+      message: names => `Actions process the saved PAGE XML. Save changes for ${names} before continuing?`,
       confirmLabel: 'Save and Continue',
-      cancelLabel: 'Cancel',
-      confirmColor: 'primary',
-      confirmIcon: 'i-lucide-save',
-      showCancel: true
-    })
-    const confirmed = await confirmation.result
-    if (!confirmed) return
-
-    const saved = await Promise.all(unsavedEntries.map(entry => editorStore.saveAnnotations(entry.canvasId)))
-    if (!saved.every(Boolean)) {
-      toast.add({
-        title: 'Save failed',
-        description: 'Could not save all annotations. Please try again before running an Action.',
-        color: 'error',
-        icon: 'i-lucide-alert-circle'
-      })
-      return
+      failureDescription: 'Could not save all annotations. Please try again before running an Action.'
     }
-  }
+  )
+  if (!saved) return
 
   const instance = actionRunSlideover.open({
     workspaceId: selectedWorkspace.value,
@@ -1245,6 +1265,10 @@ function forceUnlockActivePage() {
   }
 }
 
+function toDropdownItem({ label, icon, disabled, onSelect }: ActivePageCommand): DropdownMenuItem {
+  return { label, icon, disabled, onSelect }
+}
+
 const rightSidebarActionItems = computed<DropdownMenuItem[][]>(() => {
   const canvas = activeCanvasId.value ? editorStore.canvases[activeCanvasId.value] : undefined
   const page = canvas?.projectId && canvas.pageId
@@ -1266,7 +1290,7 @@ const rightSidebarActionItems = computed<DropdownMenuItem[][]>(() => {
     }))
   ]
 
-  const pageActions: DropdownMenuItem[] = [
+  const annotationItems: DropdownMenuItem[] = [
     {
       label: 'Version History',
       icon: 'i-lucide-history',
@@ -1281,7 +1305,10 @@ const rightSidebarActionItems = computed<DropdownMenuItem[][]>(() => {
       onSelect: () => {
         void openXmlEditor()
       }
-    },
+    }
+  ]
+
+  const pageItems: DropdownMenuItem[] = [
     {
       label: 'Edit Page Metadata',
       icon: 'i-lucide-tags',
@@ -1308,29 +1335,41 @@ const rightSidebarActionItems = computed<DropdownMenuItem[][]>(() => {
       icon: 'i-lucide-history',
       disabled: !activePageId.value || !currentProjectId.value,
       onSelect: openActivePageHistory
-    },
+    }
+  ]
+
+  const outputItems: DropdownMenuItem[] = [
+    toDropdownItem(activePageExportCommand.value),
     {
       label: 'Download',
       icon: 'i-lucide-download',
       disabled: downloadItems.length === 0,
       children: downloadItems
+    },
+    {
+      label: 'Copy',
+      icon: 'i-lucide-copy',
+      disabled: activePageCopyCommands.value.every(command => command.disabled),
+      children: activePageCopyCommands.value.map(toDropdownItem)
     }
   ]
 
+  const groups = [annotationItems, pageItems, activePageProcessCommands.value.map(toDropdownItem), outputItems]
+
   if (activeUiMode.value === 'layout') {
     if (canCompleteActivePageSubtasks.value) {
-      pageActions.push({
+      groups.push([{
         label: completeActionLabel.value ?? 'Save + Complete',
         icon: 'i-lucide-check-square',
         disabled: isSavingActiveCanvas.value || isCompletingOpenSubtasks.value || isActivePageLocked.value || !activeCanvasCanEdit.value,
         onSelect: () => {
           void handleSaveAndCompleteOpenSubtasks()
         }
-      })
+      }])
     }
   }
 
-  return [pageActions]
+  return groups
 })
 
 const backendFilterSignature = computed(() => JSON.stringify({
@@ -1654,6 +1693,25 @@ const {
 const activeCanvasIsComparison = computed(() => {
   const canvasId = activeCanvasId.value
   return canvasId ? Boolean(editorStore.canvases[canvasId]?.comparison) : false
+})
+const {
+  commands: activePageCommands,
+  copyCommands: activePageCopyCommands,
+  exportCommand: activePageExportCommand,
+  processCommands: activePageProcessCommands
+} = useActivePageCommands({
+  activeCanvasId,
+  activePage,
+  activeAnnotationMode,
+  activeCanvasCanEdit,
+  activeCanvasIsComparison,
+  isActivePageLocked,
+  canManageDatasets: computed(() => workspaceCapabilities.value.canManageProjects),
+  getProjectTitle,
+  saveBeforeContinuing,
+  exportPage: exportPageOutput,
+  runAction: openActionRunForEditorTarget,
+  openAddToDataset: props => addToDatasetSlideover.open(props)
 })
 const activePageMetadata = computed(() => {
   const canvas = activeCanvasId.value ? editorStore.canvases[activeCanvasId.value] : undefined

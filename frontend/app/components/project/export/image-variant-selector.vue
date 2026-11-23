@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { ImageVariantSelection, Page } from '@/types/project-page'
+import type { ExportPageRef, ImageVariantSelection } from '@/types/project-page'
 
 const props = withDefaults(defineProps<{
-  pages?: Page[]
+  pages?: ExportPageRef[]
 }>(), {
   pages: () => []
 })
@@ -118,7 +118,7 @@ function reconcileSelection() {
   }
 }
 
-function optionsForPage(page: Page) {
+function optionsForPage(page: ExportPageRef) {
   return Array.from(variantsByPageId.value[page.id] ?? [])
     .sort((left, right) => left.localeCompare(right))
     .map(variant => ({ label: variant, value: variant }))

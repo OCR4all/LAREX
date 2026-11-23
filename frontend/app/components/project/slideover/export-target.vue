@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { PreparedDownloadTarget } from '@/composables/use-background-downloads'
-import type { ImageVariantSelection, Page } from '@/types/project-page'
+import type { ExportPageRef, ImageVariantSelection } from '@/types/project-page'
 import { PAGE_XML_PRIMARY_VERSION } from '@/utils/project-export'
 
 type ExportFormat = 'PAGE_XML' | 'ALTO_XML' | 'FINE_READER_XML' | 'HOCR' | 'TXT' | 'PDF' | 'DOCX' | 'TEI' | 'CSV' | 'XLSX'
@@ -135,7 +135,7 @@ const props = withDefaults(defineProps<{
   suggestedBaseName?: string
   suggestedFileName?: string
   prepareDownload?: (suggestedName: string) => Promise<PreparedDownloadTarget | null>
-  imageVariantPages?: Page[]
+  imageVariantPages?: ExportPageRef[]
   confirmLabel?: string
 }>(), {
   title: 'Export',

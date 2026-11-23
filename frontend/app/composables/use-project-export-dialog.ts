@@ -1,10 +1,10 @@
-import type { ExportDialogMode, ExportDialogResult, Page } from '@/types/project-page'
+import type { ExportDialogMode, ExportDialogResult, ExportPageRef, ImageVariantSelection } from '@/types/project-page'
 import type { PreparedDownloadTarget } from '@/composables/use-background-downloads'
 
 type SlideoverInstance<T> = { result: Promise<T> }
 type ExportDialogResultWithDownload = ExportDialogResult & { downloadTarget?: PreparedDownloadTarget }
-type ExportTargetSlideover = { open: (props: Record<string, unknown>) => SlideoverInstance<ExportDialogResultWithDownload | null> }
-type ConfirmSlideover = { open: (props: Record<string, unknown>) => SlideoverInstance<boolean> }
+export type ExportTargetSlideover = { open: (props: Record<string, unknown>) => SlideoverInstance<ExportDialogResultWithDownload | null> }
+export type ConfirmSlideover = { open: (props: Record<string, unknown>) => SlideoverInstance<boolean> }
 
 export function useProjectExportDialog(exportTargetSlideover: ExportTargetSlideover, confirmSlideover: ConfirmSlideover) {
   async function requestExportOptions(
@@ -13,7 +13,8 @@ export function useProjectExportDialog(exportTargetSlideover: ExportTargetSlideo
       suggestedBaseName?: string
       suggestedFileName?: string
       prepareDownload?: (suggestedName: string) => Promise<PreparedDownloadTarget | null>
-      imageVariantPages?: Page[]
+      imageVariantPages?: ExportPageRef[]
+      initialImageVariantSelection?: ImageVariantSelection
     } = {}
   ): Promise<ExportDialogResultWithDownload | null> {
     const selector = exportTargetSlideover.open({
@@ -22,6 +23,7 @@ export function useProjectExportDialog(exportTargetSlideover: ExportTargetSlideo
       suggestedFileName: options.suggestedFileName,
       prepareDownload: options.prepareDownload,
       imageVariantPages: options.imageVariantPages,
+      initialImageVariantSelection: options.initialImageVariantSelection,
       title: mode === 'page'
         ? 'Export Page'
         : mode === 'project'

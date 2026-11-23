@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { DropdownMenuItem } from '@nuxt/ui'
 import type { PageData } from '@/stores/editor/types'
+import { useEditorPageLink } from '@/composables/editor/use-editor-page-link'
 
 type VariantItem = { label: string, value: string }
 
@@ -24,7 +25,7 @@ const imageLoader = useEditorImageLoader()
 const actionRunsStore = useActionRunsStore()
 const pageSummaries = useCollaborationPageSummary()
 const toast = useToast()
-const router = useRouter()
+const { getPageLink } = useEditorPageLink()
 const { user } = useUserSession()
 
 const isSelected = computed(() => props.page.id === props.currentPageId)
@@ -218,17 +219,7 @@ function getPageDeepLink(): string | null {
   const projectId = props.page.projectId
   if (!projectId) return null
 
-  const query: Record<string, string> = {
-    projectId,
-    pageId: props.page.id
-  }
-  if (props.selectedVariant) {
-    query.variantId = props.selectedVariant
-  }
-
-  const href = router.resolve({ path: '/editor', query }).href
-  if (typeof window === 'undefined') return href
-  return new URL(href, window.location.origin).toString()
+  return getPageLink({ projectId, pageId: props.page.id, variantId: props.selectedVariant })
 }
 
 async function copyToClipboard(text: string, successTitle: string) {

@@ -59,6 +59,7 @@ type EditorCommandCenterOptions = {
   openProjectModal: () => Promise<void>
   openProjectSelection: (selection: OpenSelection, source: 'project-search' | 'page-search') => Promise<void>
   onNavigateAway?: () => void
+  pageCommands?: () => DashboardSearchItem[]
 }
 
 const MAX_PROJECT_RESULTS = 20
@@ -276,6 +277,23 @@ export function useEditorCommandCenter(options: EditorCommandCenterOptions) {
     }]
   }))
 
+  const activePageGroup = computed<DashboardSearchGroup | null>(() => {
+    const items = (options.pageCommands?.() ?? []).filter(item => !item.disabled)
+    if (items.length === 0) return null
+
+    return {
+      id: 'editor-active-page',
+      label: 'Active Page',
+      items: items.map(item => ({
+        ...item,
+        onSelect: () => {
+          closeCommandCenter()
+          return item.onSelect?.()
+        }
+      }))
+    }
+  })
+
   const dashboardNavigationGroup = computed<DashboardSearchGroup>(() => ({
     id: 'dashboard-navigation',
     label: 'Navigation',
@@ -440,6 +458,7 @@ export function useEditorCommandCenter(options: EditorCommandCenterOptions) {
 
   const groups = computed<DashboardSearchGroup[]>(() => {
     const baseGroups: DashboardSearchGroup[] = [
+      ...(activePageGroup.value ? [activePageGroup.value] : []),
       editorActionGroup.value,
       dashboardNavigationGroup.value
     ]

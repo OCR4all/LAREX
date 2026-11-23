@@ -63,6 +63,25 @@ describe('useEditorCommandCenter', () => {
     expect(navigateTo).not.toHaveBeenCalled()
   })
 
+  it('lists enabled active page commands and closes before running them', async () => {
+    const exportPage = vi.fn()
+    const { useEditorCommandCenter } = await import('../use-editor-command-center')
+    const center = useEditorCommandCenter({
+      openProjectModal: vi.fn(async () => {}),
+      openProjectSelection: vi.fn(async () => {}),
+      pageCommands: () => [
+        { id: 'page-export', label: 'Export Page', onSelect: exportPage },
+        { id: 'page-run-action', label: 'Run Action', disabled: true }
+      ]
+    })
+    center.open.value = true
+    const group = center.groups.value.find(item => item.id === 'editor-active-page')
+    expect(group?.items.map(item => item.id)).toEqual(['page-export'])
+    await group?.items[0]?.onSelect?.()
+    expect(exportPage).toHaveBeenCalledOnce()
+    expect(center.open.value).toBe(false)
+  })
+
   it('builds workspace index once and refetches when workspace changes', async () => {
     const fetchMock = vi.fn(async (url: string) => {
       if (url === '/api/workspaces/ws-1/projects') {
