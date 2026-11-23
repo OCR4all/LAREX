@@ -55,7 +55,7 @@
     "diff-match-patch": "^1.0.5",
     "dockview-core": "^8.8.3",
     "dockview-vue": "^8.8.3",
-    "driver.js": "^1.10.2",
+    "driver.js": "^1.14.0",
     "earcut": "^3.2.4",
     "h3": "^2.0.8",
     "jsts": "^2.12.1",

@@ -126,8 +126,8 @@ importers:
         specifier: ^8.8.3
         version: 8.8.3(vue@3.5.45(typescript@6.0.3))
       driver.js:
-        specifier: ^1.10.2
-        version: 1.10.2
+        specifier: ^1.14.0
+        version: 1.14.0
       earcut:
         specifier: ^3.2.4
         version: 3.2.4
@@ -3948,8 +3948,8 @@ packages:
     resolution: {integrity: sha512-nI4U3TottKAcAD9LLud4Cb7b2QztQMUEfHbvhTH09bqXTxnSie8WnjPALV/WMCrJZ6UV/qHJ6L03OqO3LcdYZw==}
     engines: {node: '>=12'}
 
-  driver.js@1.10.2:
-    resolution: {integrity: sha512-L/EMTriJPAmg+5kIFmrjzt3TI+1NblhHOV/UZkfpgU/uxhSflGheynMBxk5oImDSy6seAEkIl6MzNOc0zdoKtg==}
+  driver.js@1.14.0:
+    resolution: {integrity: sha512-BnCFuNU8QO2rrYiDra43Ortx6D6chqMvEMF1q3fWQfsC3xNyCX4T1P1vZDTXTxGdtcXh2v5r11hxSpNLF3DJVw==}
 
   duplexer@0.1.2:
     resolution: {integrity: sha512-jtD6YG370ZCIi/9GTaJKQxWTZD045+4R4hTk/x1UyoqadyJ9x9CgSi1RlVDQF8U2sxLLSnFkCaMihqljHIWgMg==}
@@ -11069,7 +11069,7 @@ snapshots:
 
   dotenv@17.4.2: {}
 
-  driver.js@1.10.2: {}
+  driver.js@1.14.0: {}
 
   duplexer@0.1.2: {}
 
