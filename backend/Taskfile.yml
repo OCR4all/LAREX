@@ -11,7 +11,7 @@ tasks:
   dev:debug:
     desc: Run development server with debug enabled
     cmds:
-      - ./gradlew bootRun -Pdebug
+      - ./gradlew bootRun --debug-jvm
 
   build:
     desc: Build the application
