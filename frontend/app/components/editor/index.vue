@@ -728,15 +728,15 @@ function handlePropertiesClose() {
   editorCommands.closeProperties()
 }
 
-async function handlePropertiesDelete() {
+function handlePropertiesDelete() {
   const target = propertiesTarget.value
   if (!target) return
   const element = target.element
   if (!element) return
   if (target.type === 'polygon') {
-    await editorCommands.deletePolygon(element.id)
+    editorCommands.deletePolygon(element.id)
   } else {
-    await editorCommands.deletePolyline(element.id)
+    editorCommands.deletePolyline(element.id)
   }
   editorCommands.closeProperties()
 }

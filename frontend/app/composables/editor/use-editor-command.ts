@@ -14,6 +14,7 @@ import { clearLarexRegionLabelMetadata, findRegionLabelDefinitionForRegion, reso
 import { createScopedLogger } from '@/services/editor/logger-service'
 import type { MergeSettings } from '@/components/editor/slideover/merge-settings.vue'
 import { useOverlayDialogs } from '@/composables/editor/use-overlay-dialogs'
+import { showEditorDeleteUndoToast } from '@/composables/editor/use-editor-delete-undo-toast'
 import { showTableRepairResult } from '@/composables/editor/use-table-issues'
 import { findRegionRecursive, toPolygonElementType, type PolygonElementType } from '@/utils/editor/pcgts-editor-primitives'
 import { buildTableModel, readTableCells } from '@/utils/editor/table/table-model'
@@ -471,28 +472,29 @@ export function useEditorCommand(
     return [tableOperationItem(tableId, { kind: 'merge-cells', cellIds: selected.map(p => p.id) }, 'Merge Cells', 'i-lucide-merge')]
   }
 
-  async function runTableOperation(tableId: string, operation: TableOperation): Promise<void> {
+  function runTableOperation(tableId: string, operation: TableOperation): void {
     const table = findSessionRegion(tableId)
     if (!table) return
     const removed = new Set(cellsRemovedBy(buildTableModel(table), operation))
     const lineCount = (table.regions ?? [])
       .filter(child => removed.has(child.id))
       .reduce((sum, child) => sum + (isTextRegion(child) ? child.textLines?.length ?? 0 : 0), 0)
-    if (lineCount > 0) {
-      const confirmed = await dialogs.confirm({
-        title: operation.kind === 'delete-row' ? 'Delete Row' : 'Delete Column',
-        message: `This deletes ${removed.size} cell${removed.size === 1 ? '' : 's'} with ${lineCount} text line${lineCount === 1 ? '' : 's'}. Continue?`,
-        confirmLabel: 'Delete',
-        cancelLabel: 'Cancel',
-        confirmColor: 'error'
-      })
-      if (!confirmed) return
-    }
+    const command = new TableStructureCommand({ tableId, operation })
     try {
-      commander.execute(new TableStructureCommand({ tableId, operation }), getCommandContext())
+      commander.execute(command, getCommandContext())
       if (operation.kind === 'merge-cells') clearSelectionRefs()
     } catch (error) {
       showTableError('Could not change the table', error)
+      return
+    }
+    if (lineCount > 0) {
+      showEditorDeleteUndoToast({
+        title: operation.kind === 'delete-row' ? 'Deleted table row' : 'Deleted table column',
+        description: `Removed ${formatElementCount(removed.size, 'cell')} with ${formatElementCount(lineCount, 'text line')}.`,
+        commander,
+        command,
+        canvasId
+      })
     }
   }
 
@@ -1196,7 +1198,7 @@ export function useEditorCommand(
     commander.execute(new CompoundCommand(commands, `Change type for ${selectedRegions.length} regions`), getCommandContext())
   }
 
-  async function deleteSelection(selection: ContextMenuSelection): Promise<void> {
+  function deleteSelection(selection: ContextMenuSelection): void {
     const totalCount = selection.polygonIds.length + selection.polylineIds.length
     if (totalCount === 0) return
 
@@ -1204,23 +1206,20 @@ export function useEditorCommand(
     const childCount = polygons.filter(p => p.parentId && childParentIds.has(p.parentId)).length
       + polylines.filter(p => p.parentId && childParentIds.has(p.parentId)).length
 
-    const confirmed = await dialogs.confirm({
-      title: `Delete ${formatElementCount(totalCount, 'Element')}?`,
-      message: childCount > 0
-        ? `Delete ${totalCount} selected elements and ${childCount} associated child element${childCount === 1 ? '' : 's'}?`
-        : `Delete ${totalCount} selected element${totalCount === 1 ? '' : 's'}?`,
-      confirmLabel: 'Delete',
-      cancelLabel: 'Cancel',
-      confirmColor: 'error'
-    })
-    if (!confirmed) return
-
     clearHoverAndSelectionCallback()
     clearSelectionRefs()
-    commander.execute(new DeleteSelectedElementsCommand({
+    const deleteCommand = new DeleteSelectedElementsCommand({
       polygonIds: selection.polygonIds,
       polylineIds: selection.polylineIds
-    }), getCommandContext())
+    })
+    commander.execute(deleteCommand, getCommandContext())
+    showEditorDeleteUndoToast({
+      title: `Deleted ${formatElementCount(totalCount, 'element')}`,
+      description: childCount > 0 ? `Also removed ${formatElementCount(childCount, 'child element')}.` : undefined,
+      commander,
+      command: deleteCommand,
+      canvasId
+    })
   }
 
   function duplicateSelection(selection: ContextMenuSelection): void {
@@ -1365,7 +1364,7 @@ export function useEditorCommand(
 
     const tableOperation = tableMenuOperations.get(item.id)
     if (tableOperation) {
-      await runTableOperation(tableOperation.tableId, tableOperation.operation)
+      runTableOperation(tableOperation.tableId, tableOperation.operation)
       return
     }
 
@@ -1397,7 +1396,7 @@ export function useEditorCommand(
           runActionForContextMenuTarget(target)
           break
         case 'delete-selection':
-          await deleteSelection(selection)
+          deleteSelection(selection)
           break
         case 'duplicate-selection':
           duplicateSelection(selection)
@@ -1547,9 +1546,9 @@ export function useEditorCommand(
         break
       case 'delete':
         if (target.type === 'polygon') {
-          await deletePolygon((target.element as RenderablePolygon).id)
+          deletePolygon((target.element as RenderablePolygon).id)
         } else if (target.type === 'polyline') {
-          await deletePolyline((target.element as RenderablePolyline).id)
+          deletePolyline((target.element as RenderablePolyline).id)
         }
         break
       case 'add-to-reading-order':
@@ -1670,7 +1669,7 @@ export function useEditorCommand(
   /**
    * Delete a polygon (with confirmation dialog)
    */
-  async function deletePolygon(polygonId: string): Promise<void> {
+  function deletePolygon(polygonId: string): void {
     const polygon = polygons.find(p => p.id === polygonId)
     if (!polygon) return
 
@@ -1683,47 +1682,36 @@ export function useEditorCommand(
     const elementType = toPolygonElementType(polygon.type)
     const elementLabel = POLYGON_ELEMENT_LABELS[elementType]
 
-    const confirmed = await dialogs.confirm({
-      title: hasChildren ? `Delete ${elementLabel} and Children?` : `Delete ${elementLabel}?`,
-      message: hasChildren
-        ? `Are you sure you want to delete "${displayLabel}"? This will also delete all of its ${POLYGON_CHILD_DESCRIPTIONS[elementType]}.`
-        : `Are you sure you want to delete "${displayLabel}"?`,
-      confirmLabel: 'Delete',
-      cancelLabel: 'Cancel',
-      confirmColor: 'error'
-    })
-    if (!confirmed) return
-
     clearHoverAndSelectionCallback()
 
     const deleteCommand = new DeletePolygonCommand({ polygonId })
-    const session = getEditorSession(canvasId)
-    const commandCtx: CommandContext | undefined = session ? { canvasId, session } : undefined
-    commander.execute(deleteCommand, commandCtx)
+    commander.execute(deleteCommand, getCommandContext())
+    showEditorDeleteUndoToast({
+      title: `Deleted ${elementLabel.toLowerCase()} "${displayLabel}"`,
+      description: hasChildren ? `Also removed its ${POLYGON_CHILD_DESCRIPTIONS[elementType]}.` : undefined,
+      commander,
+      command: deleteCommand,
+      canvasId
+    })
   }
 
   /**
    * Delete a polyline (with confirmation dialog)
    */
-  async function deletePolyline(polylineId: string): Promise<void> {
+  function deletePolyline(polylineId: string): void {
     const polyline = polylines.find(p => p.id === polylineId)
     if (!polyline) return
-
-    const confirmed = await dialogs.confirm({
-      title: 'Delete Baseline?',
-      message: `Are you sure you want to delete baseline "${polyline.label}"?`,
-      confirmLabel: 'Delete',
-      cancelLabel: 'Cancel',
-      confirmColor: 'error'
-    })
-    if (!confirmed) return
 
     clearHoverAndSelectionCallback()
 
     const deleteCommand = new DeletePolylineCommand({ polylineId })
-    const session = getEditorSession(canvasId)
-    const commandCtx: CommandContext | undefined = session ? { canvasId, session } : undefined
-    commander.execute(deleteCommand, commandCtx)
+    commander.execute(deleteCommand, getCommandContext())
+    showEditorDeleteUndoToast({
+      title: `Deleted baseline "${polyline.label || polyline.id}"`,
+      commander,
+      command: deleteCommand,
+      canvasId
+    })
   }
 
   /**

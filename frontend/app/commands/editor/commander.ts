@@ -26,6 +26,10 @@ export class Commander {
     return false
   }
 
+  isLatest(command: Command): boolean {
+    return this.currentIndex >= 0 && this.history[this.currentIndex] === command
+  }
+
   redo(ctx?: CommandContext): boolean {
     if (this.canRedo()) {
       this.currentIndex++

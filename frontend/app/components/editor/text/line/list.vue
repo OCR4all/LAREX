@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { LazyDictionarySlideoverBrowser, LazyUiConfirmModal } from '#components'
+import { LazyDictionarySlideoverBrowser } from '#components'
 import { getEditorSession } from '@/session/editor/editor-session'
 import { PolygonType } from '@/models/editor'
 import type { TextContentVariantData } from '@/models/editor'
@@ -16,6 +16,7 @@ import {
 import type { RegionKind } from '@/models/editor/region'
 import { DeletePolygonCommand, ReorderTextLinesCommand, UpdateTextlineCommentCommand } from '@/commands'
 import { useEditorCollaboration } from '@/composables/editor/use-editor-collaboration'
+import { showEditorDeleteUndoToast } from '@/composables/editor/use-editor-delete-undo-toast'
 import { createScopedLogger } from '@/services/editor/logger-service'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 import type { KeyboardItem, KeyboardLayout } from '@/types/virtual-keyboard'
@@ -72,7 +73,6 @@ const {
 } = usePageFilter(projectId)
 
 const overlay = useOverlay()
-const confirmModal = overlay.create(LazyUiConfirmModal)
 const dictionaryBrowserSlideover = overlay.create(LazyDictionarySlideoverBrowser)
 const {
   ensureTokenResults,
@@ -520,22 +520,22 @@ function persistRegionOrder(regionId: string, orderedTextLineIds: string[]): voi
   )
 }
 
-async function handleDeleteTextline(textlineId: string): Promise<void> {
+function handleDeleteTextline(textlineId: string): void {
   if (!isCanvasEditable.value) return
-  const instance = confirmModal.open({
-    title: 'Delete Textline?',
-    description: `Are you sure you want to delete "${textlineId}"? This action cannot be undone.`,
-    confirmLabel: 'Delete',
-    confirmColor: 'error'
-  })
-  const confirmed = await instance.result
-  if (!confirmed) return
-
-  const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
+  const canvasId = effectiveCanvasId.value
+  if (!canvasId) return
+  const runtime = getTextViewRuntimeControls(canvasId, editorStore)
   if (!runtime?.commander) return
 
-  runtime.commander.execute(new DeletePolygonCommand({ polygonId: textlineId }), createTextViewCommandContext(effectiveCanvasId.value))
+  const deleteCommand = new DeletePolygonCommand({ polygonId: textlineId })
+  runtime.commander.execute(deleteCommand, createTextViewCommandContext(canvasId))
   if (selectedTextlineId.value === textlineId) selectedTextlineId.value = null
+  showEditorDeleteUndoToast({
+    title: `Deleted text line "${textlineId}"`,
+    commander: runtime.commander,
+    command: deleteCommand,
+    canvasId
+  })
 }
 
 function handleUpdateTextlineComment(textlineId: string, comment: string): void {

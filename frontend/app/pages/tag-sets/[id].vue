@@ -11,6 +11,7 @@ import {
 const route = useRoute()
 const router = useRouter()
 const toast = useToast()
+const showUndoToast = useUndoToast()
 const overlay = useOverlay()
 const backgroundDownloads = useBackgroundDownloads()
 const { allow } = useActionVisibility()
@@ -42,6 +43,7 @@ const {
   totalErrors,
   createTag,
   deleteTag,
+  restoreTag,
   duplicateTag,
   selectTag,
   optimizeColors,
@@ -334,22 +336,17 @@ async function handleShareTagSet() {
   }
 }
 
-const handleDeleteTag = async (tagId: string) => {
+const handleDeleteTag = (tagId: string) => {
   if (!canEditTagSet.value) return
-  const tag = tags.value.find(t => t.id === tagId)
-    || tags.value.flatMap(function findDeep(t): typeof tags.value { return [t, ...(t.children?.flatMap(findDeep) || [])] }).find(t => t.id === tagId)
+  const snapshot = deleteTag(tagId)
+  if (!snapshot) return
 
-  const instance = confirmSlideover.open({
-    title: 'Delete Tag?',
-    message: `Are you sure you want to delete "${tag?.title || 'this tag'}"? This will also delete all child tags.`,
-    confirmLabel: 'Delete',
-    confirmColor: 'error'
+  const childCount = snapshot.descendantCount
+  showUndoToast({
+    title: `Deleted "${snapshot.tag.title || 'Untitled Tag'}"`,
+    description: childCount > 0 ? `Also removed ${childCount} child tag${childCount === 1 ? '' : 's'}.` : undefined,
+    onUndo: () => restoreTag(snapshot)
   })
-  const confirmed = await instance.result
-
-  if (confirmed) {
-    deleteTag(tagId)
-  }
 }
 </script>
 

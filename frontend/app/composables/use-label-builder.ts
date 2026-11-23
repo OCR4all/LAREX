@@ -38,6 +38,12 @@ export interface GroupMeta {
 
 export type BuilderEntry = EditableLabelDefinition | GroupMeta
 
+export interface DeletedLabelsSnapshot {
+  entries: { index: number, entry: EditableLabelDefinition }[]
+  defaultLabelId: string | null
+  activeLabelId: string | null
+}
+
 export function isGroupMeta(entry: BuilderEntry): entry is GroupMeta {
   return 'isGroup' in entry && entry.isGroup === true
 }
@@ -482,21 +488,53 @@ export function createLabelBuilder() {
     }
   }
 
-  const deleteLabel = (id: string) => {
-    labels.value = labels.value.filter(l => l.id !== id)
-    if (meta.defaultLabelId === id) meta.defaultLabelId = null
-    if (activeLabel.value?.id === id) activeLabel.value = null
+  const removeLabels = (ids: Set<string>): DeletedLabelsSnapshot | null => {
+    const removed = labels.value.flatMap((entry, index) =>
+      isEditableLabelDefinition(entry) && ids.has(entry.id) ? [{ index, entry }] : []
+    )
+    if (removed.length === 0) return null
+
+    const snapshot: DeletedLabelsSnapshot = {
+      entries: removed,
+      defaultLabelId: meta.defaultLabelId && ids.has(meta.defaultLabelId) ? meta.defaultLabelId : null,
+      activeLabelId: activeLabel.value && ids.has(activeLabel.value.id) ? activeLabel.value.id : null
+    }
+    labels.value = labels.value.filter(label => isGroupMeta(label) || !ids.has(label.id))
+    if (snapshot.defaultLabelId) meta.defaultLabelId = null
+    if (snapshot.activeLabelId) activeLabel.value = null
+    return snapshot
   }
 
-  const deleteSelectedLabels = () => {
-    if (selectedLabelIds.value.size === 0) return
-    const ids = new Set(selectedLabelIds.value)
-    labels.value = labels.value.filter(label => isGroupMeta(label) || !ids.has(label.id))
-    if (meta.defaultLabelId && ids.has(meta.defaultLabelId)) meta.defaultLabelId = null
-    if (activeLabel.value && ids.has(activeLabel.value.id)) {
-      activeLabel.value = null
-    }
+  const deleteLabel = (id: string): DeletedLabelsSnapshot | null => removeLabels(new Set([id]))
+
+  const deleteSelectedLabels = (): DeletedLabelsSnapshot | null => {
+    if (selectedLabelIds.value.size === 0) return null
+    const snapshot = removeLabels(new Set(selectedLabelIds.value))
     clearSelection()
+    return snapshot
+  }
+
+  const restoreLabels = (snapshot: DeletedLabelsSnapshot) => {
+    const presentIds = new Set(labels.value.filter(isEditableLabelDefinition).map(label => label.id))
+    const groupMetaIds = new Set(labels.value.filter(isGroupMeta).map(group => group.id))
+    const next = [...labels.value]
+
+    for (const { index, entry } of snapshot.entries) {
+      if (presentIds.has(entry.id)) continue
+      next.splice(Math.min(index, next.length), 0, entry)
+      if (entry.group && !groupMetaIds.has(entry.group)) {
+        next.push({ id: entry.group, name: entry.group, isGroup: true })
+        groupMetaIds.add(entry.group)
+      }
+    }
+
+    labels.value = next
+    if (snapshot.defaultLabelId && meta.defaultLabelId === null) meta.defaultLabelId = snapshot.defaultLabelId
+    if (snapshot.activeLabelId) {
+      activeLabel.value = next.find((entry): entry is EditableLabelDefinition =>
+        isEditableLabelDefinition(entry) && entry.id === snapshot.activeLabelId
+      ) ?? activeLabel.value
+    }
   }
 
   const moveLabel = (labelId: string, targetGroup: string | null, targetIndex: number) => {
@@ -667,7 +705,7 @@ export function createLabelBuilder() {
   return {
     meta, labels, activeLabel, searchQuery, filteredLabels,
     PRESET_COLORS, PAGE_REGIONS, PAGE_TEXT_TYPES,
-    createLabel, deleteLabel, deleteSelectedLabels, selectLabel, setDefaultLabel, createMapping,
+    createLabel, deleteLabel, deleteSelectedLabels, restoreLabels, selectLabel, setDefaultLabel, createMapping,
     getErrors, getWarnings, hasError, totalErrors, optimizeColors,
     selectedLabelIds, toggleSelection, selectLabelRange, clearSelection, selectedLabels, canGroup,
     groupSelectedLabels, dissolveGroup, moveSelectedToGroup, mergeGroups,

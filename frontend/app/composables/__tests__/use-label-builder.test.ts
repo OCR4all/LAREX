@@ -239,6 +239,52 @@ describe('default label builder state', () => {
   })
 })
 
+describe('label deletion undo', () => {
+  it('restores a deleted label at its position with default and active state', () => {
+    const builder = createLabelBuilder()
+    const second = label('second')
+    builder.labels.value = [label('first'), second, label('third')]
+    builder.meta.defaultLabelId = 'second'
+    builder.selectLabel(second)
+
+    const snapshot = builder.deleteLabel('second')
+    expect(labelIds(builder.labels.value)).toEqual(['first', 'third'])
+    expect(builder.meta.defaultLabelId).toBeNull()
+    expect(builder.activeLabel.value).toBeNull()
+
+    builder.restoreLabels(snapshot!)
+    expect(labelIds(builder.labels.value)).toEqual(['first', 'second', 'third'])
+    expect(builder.meta.defaultLabelId).toBe('second')
+    expect(builder.activeLabel.value?.id).toBe('second')
+  })
+
+  it('restores selected labels in order and keeps labels added in between', () => {
+    const builder = createLabelBuilder()
+    builder.labels.value = [label('a'), label('b'), label('c'), label('d')]
+    builder.selectedLabelIds.value = new Set(['b', 'd'])
+
+    const snapshot = builder.deleteSelectedLabels()
+    expect(builder.selectedLabelIds.value.size).toBe(0)
+    builder.labels.value = [...builder.labels.value, label('e')]
+
+    builder.restoreLabels(snapshot!)
+    builder.restoreLabels(snapshot!)
+    expect(labelIds(builder.labels.value)).toEqual(['a', 'b', 'c', 'd', 'e'])
+  })
+
+  it('recreates a group that was dissolved after the deletion', () => {
+    const builder = createLabelBuilder()
+    builder.labels.value = [label('grouped', 'Group'), label('other', 'Group'), { id: 'Group', name: 'Group', isGroup: true }]
+
+    const snapshot = builder.deleteLabel('grouped')
+    builder.dissolveGroup('Group')
+    builder.restoreLabels(snapshot!)
+
+    expect(builder.labels.value.filter(entry => 'isGroup' in entry).map(entry => entry.id)).toEqual(['Group'])
+    expect(builder.labels.value.find(entry => entry.id === 'grouped')).toMatchObject({ group: 'Group' })
+  })
+})
+
 describe('PAGE mapping field changes', () => {
   it('normalizes loaded labels to the canonical custom block', () => {
     const loaded = label('loaded')

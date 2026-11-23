@@ -3,11 +3,12 @@ import type { BreadcrumbItem, DropdownMenuItem } from '@nuxt/ui'
 import type { LabelSet, LabelSetCreateOrUpdateRequest, LabelSetSummary } from '@/types/label-set'
 import type { ResourceCapabilities } from '@/types/capabilities'
 import { LazyEditorSlideoverUnsavedProgress, LazyLabelBuilderModalImportPreview, LazyUiDeleteSlideover, LazyUiConfirmModal, LazyShareSlideover } from '#components'
-import type { BuilderEntry } from '@/composables/use-label-builder'
+import type { BuilderEntry, DeletedLabelsSnapshot } from '@/composables/use-label-builder'
 
 const route = useRoute()
 const router = useRouter()
 const toast = useToast()
+const showUndoToast = useUndoToast()
 const overlay = useOverlay()
 const backgroundDownloads = useBackgroundDownloads()
 const { allow } = useActionVisibility()
@@ -41,10 +42,10 @@ const {
   createLabel,
   deleteLabel,
   deleteSelectedLabels,
+  restoreLabels,
   selectLabel,
   optimizeColors,
   selectedLabelIds,
-  selectedLabels,
   clearSelection,
   groupSelectedLabels,
   moveSelectedToGroup,
@@ -444,20 +445,19 @@ async function handleShareLabelSet() {
   }
 }
 
-const handleDelete = async (labelId: string) => {
-  if (isReadOnlyLabelSet.value) return
-  const label = labels.value.find(l => l.id === labelId)
-  const instance = confirmModal.open({
-    title: 'Delete Label?',
-    description: `Are you sure you want to delete "${label?.name || 'this label'}"?`,
-    confirmLabel: 'Delete',
-    confirmColor: 'error'
+const showLabelUndoToast = (snapshot: DeletedLabelsSnapshot | null) => {
+  if (!snapshot) return
+  const count = snapshot.entries.length
+  const [first] = snapshot.entries
+  showUndoToast({
+    title: count === 1 ? `Deleted "${first?.entry.name || 'Untitled'}"` : `Deleted ${count} labels`,
+    onUndo: () => restoreLabels(snapshot)
   })
-  const confirmed = await instance.result
+}
 
-  if (confirmed) {
-    deleteLabel(labelId)
-  }
+const handleDelete = (labelId: string) => {
+  if (isReadOnlyLabelSet.value) return
+  showLabelUndoToast(deleteLabel(labelId))
 }
 
 const openGroupSelectedDialog = () => {
@@ -490,24 +490,9 @@ const handleMoveSelectedToGroup = (groupName: string) => {
   toast.add({ title: 'Labels moved', description: `${count} label${count === 1 ? '' : 's'} moved to "${groupName}".`, color: 'success' })
 }
 
-const handleDeleteSelected = async () => {
+const handleDeleteSelected = () => {
   if (isReadOnlyLabelSet.value || selectedLabelCount.value === 0) return
-
-  const count = selectedLabelCount.value
-  const names = selectedLabels.value.map(label => label.name || 'Untitled')
-  const instance = confirmModal.open({
-    title: count === 1 ? 'Delete Selected Label?' : 'Delete Selected Labels?',
-    description: count === 1
-      ? `Are you sure you want to delete "${names[0] ?? 'this label'}"?`
-      : `Delete ${count} selected labels? This action cannot be undone.`,
-    confirmLabel: count === 1 ? 'Delete Label' : 'Delete Labels',
-    confirmColor: 'error'
-  })
-  const confirmed = await instance.result
-  if (!confirmed) return
-
-  deleteSelectedLabels()
-  toast.add({ title: count === 1 ? 'Label deleted' : 'Labels deleted', description: `${count} label${count === 1 ? '' : 's'} removed.`, color: 'success' })
+  showLabelUndoToast(deleteSelectedLabels())
 }
 
 const confirmNavigationAway = async (): Promise<boolean> => {

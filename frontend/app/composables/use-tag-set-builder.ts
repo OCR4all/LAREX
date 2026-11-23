@@ -72,6 +72,14 @@ function collectDescendantIds(tag: TagSetBuilderTag): string[] {
   return ids
 }
 
+export interface DeletedTagSnapshot {
+  tag: TagSetBuilderTag
+  parentId: string | null
+  index: number
+  wasActive: boolean
+  descendantCount: number
+}
+
 type TagTitleSnapshot = {
   id: string
   title: string
@@ -139,23 +147,49 @@ export function createTagSetBuilder() {
     return tag
   }
 
-  function deleteTag(tagId: string): void {
-    const rootIdx = tags.value.findIndex(t => t.id === tagId)
-    if (rootIdx !== -1) {
-      tags.value = tags.value.filter(t => t.id !== tagId)
-      if (activeTag.value?.id === tagId) {
-        activeTag.value = null
-      }
-      return
-    }
+  function deleteTag(tagId: string): DeletedTagSnapshot | null {
+    const tag = findTagById(tagId, tags.value)
+    if (!tag) return null
 
     const parent = findParentTag(tagId, tags.value)
-    if (parent && parent.children) {
-      parent.children = parent.children.filter(t => t.id !== tagId)
+    const siblings = parent ? (parent.children ?? []) : tags.value
+    const snapshot: DeletedTagSnapshot = {
+      tag,
+      parentId: parent?.id ?? null,
+      index: siblings.findIndex(t => t.id === tagId),
+      wasActive: activeTag.value?.id === tagId,
+      descendantCount: collectDescendantIds(tag).length
     }
 
-    if (activeTag.value?.id === tagId) {
+    if (parent) {
+      parent.children = siblings.filter(t => t.id !== tagId)
+    } else {
+      tags.value = tags.value.filter(t => t.id !== tagId)
+    }
+
+    if (snapshot.wasActive) {
       activeTag.value = null
+    }
+    return snapshot
+  }
+
+  function restoreTag(snapshot: DeletedTagSnapshot): void {
+    if (findTagById(snapshot.tag.id, tags.value)) return
+
+    const parent = snapshot.parentId ? findTagById(snapshot.parentId, tags.value) : null
+    if (parent) {
+      const children = [...(parent.children ?? [])]
+      children.splice(Math.min(snapshot.index, children.length), 0, snapshot.tag)
+      parent.children = children
+      expandedIds.value.add(parent.id)
+    } else {
+      const roots = [...tags.value]
+      roots.splice(snapshot.parentId ? roots.length : Math.min(snapshot.index, roots.length), 0, snapshot.tag)
+      tags.value = roots
+    }
+
+    if (snapshot.wasActive) {
+      activeTag.value = findTagById(snapshot.tag.id, tags.value)
     }
   }
 
@@ -399,6 +433,7 @@ export function createTagSetBuilder() {
 
     createTag,
     deleteTag,
+    restoreTag,
     duplicateTag,
     moveTag,
     selectTag,

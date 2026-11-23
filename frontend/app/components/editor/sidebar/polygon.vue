@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { LazyUiConfirmModal } from '#components'
 import { PolygonType, type ReadingOrder } from '@/models/editor'
 import type { Region, TextRegion } from '@/models/editor/region'
 import type { Glyph, TextLine, Word } from '@/models/editor/text'
@@ -22,11 +21,9 @@ import {
   SetHiddenElementsCommand
 } from '@/commands'
 import { getEditorSession } from '@/session/editor/editor-session'
+import { showEditorDeleteUndoToast } from '@/composables/editor/use-editor-delete-undo-toast'
 import { resolveRegionLabelDisplayName } from '@/utils/editor/page-label-mapping'
 import { cloneReadingOrder } from '@/commands/editor/reading-order-utils'
-
-const overlay = useOverlay()
-const confirmModal = overlay.create(LazyUiConfirmModal)
 
 const editorStore = useEditorStore()
 const editorUiStore = useEditorUiStore()
@@ -398,33 +395,31 @@ function togglePolygonVisibility(polygonId: string): void {
   )
 }
 
-async function deletePolygon(polygonId: string): Promise<void> {
+function deletePolygon(polygonId: string): void {
   if (!props.commander || props.isPageLocked) return
 
   const ctx = getCommandContext()
+  if (!ctx) return
+  const commander = props.commander
 
   const polyline = props.polylines.find(p => p.id === polygonId)
   if (polyline) {
-    const instance = confirmModal.open({
-      title: 'Delete Baseline?',
-      description: `Are you sure you want to delete baseline "${polyline.label || polyline.id}"?`,
-      confirmLabel: 'Delete',
-      confirmColor: 'error'
-    })
-    const confirmed = await instance.result
-    if (!confirmed) return
-
     const parentId = polyline.parentId
-
     const deleteCommand = new DeletePolylineCommand({
       polylineId: polygonId
     })
 
-    props.commander.execute(deleteCommand, ctx)
+    commander.execute(deleteCommand, ctx)
 
     if (parentId) {
       emit('select-polygon', parentId, { zoomToFit: false })
     }
+    showEditorDeleteUndoToast({
+      title: `Deleted baseline "${polyline.label || polyline.id}"`,
+      commander,
+      command: deleteCommand,
+      canvasId: ctx.canvasId
+    })
     return
   }
 
@@ -440,28 +435,26 @@ async function deletePolygon(polygonId: string): Promise<void> {
   const elementLabel = isPageFrameType(polygon.type)
     ? PAGE_FRAME_LABELS[polygon.type]
     : DELETE_ELEMENT_LABELS[toPolygonElementType(polygon.type)]
-  const instance = confirmModal.open({
-    title: hasChildren ? `Delete ${elementLabel} and Children?` : `Delete ${elementLabel}?`,
-    description: hasChildren
-      ? `Are you sure you want to delete "${displayLabel}"? This will also delete all of its child elements.`
-      : `Are you sure you want to delete "${displayLabel}"?`,
-    confirmLabel: 'Delete',
-    confirmColor: 'error'
-  })
-  const confirmed = await instance.result
-  if (!confirmed) return
 
   const deleteCommand = new DeletePolygonCommand({
     polygonId: polygonId
   })
 
-  props.commander.execute(deleteCommand, ctx)
+  commander.execute(deleteCommand, ctx)
 
   if (parentId) {
     emit('select-polygon', parentId, { zoomToFit: false })
   } else {
     emit('select-polygon', null)
   }
+  showEditorDeleteUndoToast({
+    title: `Deleted ${elementLabel.toLowerCase()} "${displayLabel}"`,
+    description: hasChildren ? 'Also removed its child elements.' : undefined,
+    commander,
+    command: deleteCommand,
+    canvasId: ctx.canvasId,
+    onUndone: () => emit('select-polygon', polygonId, { zoomToFit: false })
+  })
 }
 
 function handleMetadataApply(payload: MetadataApplyPayload) {
