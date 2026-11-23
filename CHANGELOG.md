@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.1.1 (2026-11-23)
+
+### Bug Fixes
+
+- **upload**: Keep uploaded temp files unchanged when converting XML so finalize cannot fail the
+  session
+  ([`e0ff96b`](https://github.com/OCR4all/LAREX/commit/e0ff96b3d5482f24cd8f291f6598e673a4bd73f2))
+
+
 ## v1.1.0 (2026-11-23)
 
 ### Bug Fixes
