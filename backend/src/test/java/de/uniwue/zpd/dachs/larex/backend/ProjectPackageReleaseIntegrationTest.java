@@ -250,6 +250,35 @@ class ProjectPackageReleaseIntegrationTest {
     }
 
     @Test
+    void packagedTranskribusExportIsImportedAsNormalizedPageXml() throws Exception {
+        TestProjectSource source = createProjectSource("ws-project-transkribus-package");
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        projectPackageService.writeProjectPackage(
+                source.workspaceId(),
+                source.project().getId(),
+                "user-1",
+                new ProjectPackageDto.ExportRequest(List.of(source.firstXml().getPage().getId()), null, List.of(), false),
+                output
+        );
+        byte[] packaged = replaceEntries(output.toByteArray(), Map.of(
+                "page-a.xml", new ClassPathResource("transkribus/export.xml").getContentAsByteArray()));
+
+        ProjectPackageDto.ImportResult imported = projectPackageService.importProjectPackage(
+                source.workspaceId(),
+                "user-1",
+                new MockMultipartFile("file", "transkribus.zip", "application/zip", packaged)
+        );
+
+        Page importedPage = pageRepository.findByProjectId(imported.projectId()).getFirst();
+        PageXml importedXml = pageXmlRepository.findByPage_Id(importedPage.getId()).orElseThrow();
+        assertEquals(PageXmlConversionService.PRIMARY_PAGE_VERSION, importedXml.getSchemaVersion());
+        String xml = Files.readString(hierarchicalFileStorageService.resolveUploadPath(importedXml.getFilePath()));
+        assertTrue(xml.contains("LAREX Transkribus import"));
+        assertTrue(xml.contains("Anna schrieb einen Brief"));
+        assertFalse(xml.contains("<TranskribusMetadata"));
+    }
+
+    @Test
     void selectedPagePackageRoundTripKeepsOnlyTheRequestedPage() throws Exception {
         TestProjectSource source = createProjectSource("ws-project-selected-roundtrip");
         ByteArrayOutputStream output = new ByteArrayOutputStream();
