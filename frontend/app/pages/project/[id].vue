@@ -2736,6 +2736,7 @@ const toolbarRefresh = useRefreshFeedback(() => refreshPagesData({ manual: true 
               </div>
             </div>
             <UButton
+              v-if="canManageProjects"
               color="warning"
               class="self-center"
               icon="i-lucide-git-merge"

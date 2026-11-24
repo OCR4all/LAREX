@@ -21,6 +21,9 @@ public interface UploadSessionFileRepository extends JpaRepository<UploadSession
     @Query("SELECT f FROM UploadSessionFile f WHERE f.id = :fileId AND f.session.id = :sessionId")
     Optional<UploadSessionFile> findByIdAndSessionId(@Param("fileId") String fileId, @Param("sessionId") String sessionId);
 
+    @Query("SELECT f FROM UploadSessionFile f WHERE f.id = :fileId AND f.session.projectId = :projectId")
+    Optional<UploadSessionFile> findByIdAndProjectId(@Param("fileId") String fileId, @Param("projectId") String projectId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT f FROM UploadSessionFile f WHERE f.id = :fileId AND f.session.id = :sessionId")
     Optional<UploadSessionFile> lockByIdAndSessionId(@Param("fileId") String fileId, @Param("sessionId") String sessionId);

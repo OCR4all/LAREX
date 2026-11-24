@@ -13,7 +13,6 @@ interface ConflictInfo {
   conflictType: ConflictType
   existingFileName: string
   newFileName: string
-  existingFilePath: string
   newFilePath: string | null
   conflictTimestamp: string
   pageId: string

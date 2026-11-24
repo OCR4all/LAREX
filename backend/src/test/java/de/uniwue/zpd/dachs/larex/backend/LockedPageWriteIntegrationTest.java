@@ -428,7 +428,7 @@ class LockedPageWriteIntegrationTest {
     }
 
     private UploadConflictDto.BatchConflictResolutionResponse resolve(String action, UploadSessionFile... files) {
-        return conflicts.resolveConflicts(project.getId(), USER, new UploadConflictDto.BatchConflictResolutionRequest(
+        return conflicts.resolveConflicts(workspace, project.getId(), USER, new UploadConflictDto.BatchConflictResolutionRequest(
                 java.util.Arrays.stream(files)
                         .map(file -> new UploadConflictDto.ConflictResolution(file.getId(), action))
                         .toList()));

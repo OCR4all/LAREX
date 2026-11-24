@@ -64,7 +64,6 @@ export type ConflictInfo = {
   conflictType: 'IMAGE_VARIANT_EXISTS' | 'XML_FILE_EXISTS'
   existingFileName: string
   newFileName: string
-  existingFilePath: string
   newFilePath: string | null
   conflictTimestamp: string
   pageId: string

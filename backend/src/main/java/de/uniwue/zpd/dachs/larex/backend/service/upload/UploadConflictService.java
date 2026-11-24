@@ -8,9 +8,11 @@ import de.uniwue.zpd.dachs.larex.backend.entity.StoredFile.StoredFileType;
 import de.uniwue.zpd.dachs.larex.backend.entity.UploadSessionFile.UploadFileStatus;
 import de.uniwue.zpd.dachs.larex.backend.entity.UploadSessionFile;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
+import de.uniwue.zpd.dachs.larex.backend.exception.ResourceNotFoundException;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageImageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.upload.UploadSessionFileRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.dataset.LinkedDatasetItemSync;
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageWriteGuard;
@@ -42,6 +44,7 @@ public class UploadConflictService {
 
     private static final Logger log = LoggerFactory.getLogger(UploadConflictService.class);
 
+    private final ProjectRepository projectRepository;
     private final PageRepository pageRepository;
     private final PageImageRepository pageImageRepository;
     private final PageXmlRepository pageXmlRepository;
@@ -55,7 +58,8 @@ public class UploadConflictService {
     private final WorkspaceAccessService workspaceAccessService;
     private final TransactionTemplate cleanupTransaction;
 
-    public UploadConflictService(PageRepository pageRepository,
+    public UploadConflictService(ProjectRepository projectRepository,
+                                  PageRepository pageRepository,
                                   PageImageRepository pageImageRepository,
                                   PageXmlRepository pageXmlRepository,
                                   UploadSessionFileRepository uploadSessionFileRepository,
@@ -67,6 +71,7 @@ public class UploadConflictService {
                                   PageWriteGuard pageWriteGuard,
                                   WorkspaceAccessService workspaceAccessService,
                                   PlatformTransactionManager transactionManager) {
+        this.projectRepository = projectRepository;
         this.pageRepository = pageRepository;
         this.pageImageRepository = pageImageRepository;
         this.pageXmlRepository = pageXmlRepository;
@@ -82,7 +87,8 @@ public class UploadConflictService {
         this.cleanupTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
-    public List<UploadConflictDto.ConflictResponse> getProjectConflicts(String projectId, String userId) {
+    public List<UploadConflictDto.ConflictResponse> getProjectConflicts(String workspaceId, String projectId, String userId) {
+        requireReadableProject(workspaceId, projectId, userId);
         List<UploadConflictDto.ConflictResponse> conflicts = new ArrayList<>();
 
         List<UploadSessionFile> dbConflicts = uploadSessionFileRepository.findByProjectIdAndStatus(
@@ -114,7 +120,6 @@ public class UploadConflictService {
                     file.getConflictType(),
                     file.getOriginalFileName(),
                     file.getOriginalFileName(),
-                    file.getTempFilePath(),
                     null,
                     file.getCreated(),
                     pageId,
@@ -128,13 +133,17 @@ public class UploadConflictService {
         return conflicts;
     }
 
-    public UploadConflictDto.BatchConflictResolutionResponse resolveConflicts(String projectId, String userId,
+    public UploadConflictDto.BatchConflictResolutionResponse resolveConflicts(String workspaceId, String projectId, String userId,
                                                                               UploadConflictDto.BatchConflictResolutionRequest request) {
+        workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
+        requireProjectInWorkspace(workspaceId, projectId);
         Map<UploadConflictDto.ConflictResolution, UploadSessionFile> conflicts = new LinkedHashMap<>();
         for (UploadConflictDto.ConflictResolution resolution : request.resolutions()) {
-            uploadSessionFileRepository.findById(resolution.conflictId())
-                    .filter(file -> file.getStatus() == UploadFileStatus.CONFLICT)
-                    .ifPresent(file -> conflicts.put(resolution, file));
+            UploadSessionFile file = uploadSessionFileRepository.findByIdAndProjectId(resolution.conflictId(), projectId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Upload conflict", resolution.conflictId()));
+            if (file.getStatus() == UploadFileStatus.CONFLICT) {
+                conflicts.put(resolution, file);
+            }
         }
 
         Map<String, Page> pagesByName = new HashMap<>();
@@ -344,7 +353,19 @@ public class UploadConflictService {
         }
     }
 
-    public boolean hasUnresolvedConflicts(String projectId) {
+    public boolean hasUnresolvedConflicts(String workspaceId, String projectId, String userId) {
+        requireReadableProject(workspaceId, projectId, userId);
         return uploadSessionFileRepository.existsByProjectIdAndStatus(projectId, UploadFileStatus.CONFLICT);
+    }
+
+    private void requireReadableProject(String workspaceId, String projectId, String userId) {
+        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        requireProjectInWorkspace(workspaceId, projectId);
+    }
+
+    private void requireProjectInWorkspace(String workspaceId, String projectId) {
+        if (!projectRepository.existsByIdAndLibraryWorkspaceId(projectId, workspaceId)) {
+            throw new ResourceNotFoundException("Project", projectId);
+        }
     }
 }

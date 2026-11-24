@@ -13,7 +13,6 @@ public class UploadConflictDto {
             String conflictType,
             String existingFileName,
             String newFileName,
-            String existingFilePath,
             String newFilePath,
             LocalDateTime conflictTimestamp,
             String pageId,

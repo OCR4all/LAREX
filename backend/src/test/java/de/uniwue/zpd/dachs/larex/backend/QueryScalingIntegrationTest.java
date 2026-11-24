@@ -292,10 +292,10 @@ class QueryScalingIntegrationTest {
         AtomicInteger counter = new AtomicInteger();
 
         addConflictFiles(project, fixture.workspaceId(), userId, 4, counter);
-        long smallCount = measurePreparedStatements(() -> uploadConflictService.getProjectConflicts(project.getId(), userId));
+        long smallCount = measurePreparedStatements(() -> uploadConflictService.getProjectConflicts(fixture.workspaceId(), project.getId(), userId));
 
         addConflictFiles(project, fixture.workspaceId(), userId, 30, counter);
-        long largeCount = measurePreparedStatements(() -> uploadConflictService.getProjectConflicts(project.getId(), userId));
+        long largeCount = measurePreparedStatements(() -> uploadConflictService.getProjectConflicts(fixture.workspaceId(), project.getId(), userId));
 
         assertThat(largeCount).isLessThanOrEqualTo(smallCount + 2);
     }

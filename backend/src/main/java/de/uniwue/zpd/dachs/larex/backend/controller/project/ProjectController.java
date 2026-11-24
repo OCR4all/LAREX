@@ -255,7 +255,7 @@ public class ProjectController {
             @PathVariable String projectId,
             @AuthenticationPrincipal(expression = "subject") String userId) {
 
-        List<UploadConflictDto.ConflictResponse> conflicts = uploadConflictService.getProjectConflicts(projectId, userId);
+        List<UploadConflictDto.ConflictResponse> conflicts = uploadConflictService.getProjectConflicts(workspaceId, projectId, userId);
         return ResponseEntity.ok(conflicts);
     }
 
@@ -266,13 +266,7 @@ public class ProjectController {
             @Valid @RequestBody UploadConflictDto.BatchConflictResolutionRequest request,
             @AuthenticationPrincipal(expression = "subject") String userId) {
 
-        try {
-            return ResponseEntity.ok(uploadConflictService.resolveConflicts(projectId, userId, request));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().build();
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        return ResponseEntity.ok(uploadConflictService.resolveConflicts(workspaceId, projectId, userId, request));
     }
 
     @GetMapping("/{projectId}/status")
@@ -281,7 +275,7 @@ public class ProjectController {
             @PathVariable String projectId,
             @AuthenticationPrincipal(expression = "subject") String userId) {
 
-        boolean hasConflicts = uploadConflictService.hasUnresolvedConflicts(projectId);
+        boolean hasConflicts = uploadConflictService.hasUnresolvedConflicts(workspaceId, projectId, userId);
 
         Map<String, Object> status = new HashMap<>();
         status.put("hasUnresolvedConflicts", hasConflicts);

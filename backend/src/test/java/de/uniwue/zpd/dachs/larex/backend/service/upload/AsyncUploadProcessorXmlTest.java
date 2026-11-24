@@ -253,12 +253,13 @@ class AsyncUploadProcessorXmlTest {
         file.setTempFilePath(xmlPath.toString());
         file.setStatus(UploadSessionFile.UploadFileStatus.CONFLICT);
         file.setConflictType("XML_FILE_EXISTS");
-        when(files.findById("conflict")).thenReturn(Optional.of(file));
+        when(projects.existsByIdAndLibraryWorkspaceId("project", "workspace")).thenReturn(true);
+        when(files.findByIdAndProjectId("conflict", "project")).thenReturn(Optional.of(file));
         when(pages.findByProjectIdAndName("project", "page")).thenReturn(Optional.of(page));
-        UploadConflictService conflicts = new UploadConflictService(pages, images, xmls, files, null, storage, null, validation, null, guard, access,
+        UploadConflictService conflicts = new UploadConflictService(projects, pages, images, xmls, files, null, storage, null, validation, null, guard, access,
                 mock(PlatformTransactionManager.class));
 
-        assertThrows(InvalidPageXmlException.class, () -> conflicts.resolveConflicts("project", "user",
+        assertThrows(InvalidPageXmlException.class, () -> conflicts.resolveConflicts("workspace", "project", "user",
                 new UploadConflictDto.BatchConflictResolutionRequest(List.of(new UploadConflictDto.ConflictResolution("conflict", "replace_with_new")))));
 
         verifyNoInteractions(storage, xmls);
