@@ -46,6 +46,10 @@ interface ConflictResolution {
   newFileName: string
 }
 
+interface ConflictResolutionResponse {
+  skipped: Array<{ conflictId: string, fileName: string, pageId: string, pageName: string, reason: string }>
+}
+
 const props = defineProps<Props>()
 const emit = defineEmits<{ close: [boolean] }>()
 const formId = useId()
@@ -110,19 +114,27 @@ async function resolveConflicts() {
       newFileName: resolutions.value[conflict.conflictId]?.newFileName ?? conflict.newFileName
     }))
 
-    await $fetch(`/api/workspaces/${selectedWorkspace.value}/projects/${props.projectId}/conflicts/resolve`, {
+    const { skipped } = await $fetch<ConflictResolutionResponse>(`/api/workspaces/${selectedWorkspace.value}/projects/${props.projectId}/conflicts/resolve`, {
       method: 'POST',
       body: {
         resolutions: conflictResolutions
       }
     })
 
-    toast.add({
-      title: 'Conflicts resolved',
-      description: 'All file conflicts have been resolved successfully',
-      color: 'success',
-      icon: 'i-lucide-check-circle'
-    })
+    toast.add(skipped.length > 0
+      ? {
+          title: 'Some files were skipped',
+          description: skipped.map(file => `${file.fileName}: ${file.reason}`).join('\n'),
+          color: 'warning',
+          icon: 'i-lucide-lock',
+          ui: { description: 'whitespace-pre-line' }
+        }
+      : {
+          title: 'Conflicts resolved',
+          description: 'All file conflicts have been resolved successfully',
+          color: 'success',
+          icon: 'i-lucide-check-circle'
+        })
 
     emit('close', true)
 

@@ -144,6 +144,13 @@ public class NormalizationProfileDto {
             int targetedRowCount,
             int changedRowCount,
             int changedPageCount,
+            List<SkippedPage> skippedPages,
             String message
+    ) {}
+
+    public record SkippedPage(
+            String pageId,
+            String pageName,
+            String reason
     ) {}
 }

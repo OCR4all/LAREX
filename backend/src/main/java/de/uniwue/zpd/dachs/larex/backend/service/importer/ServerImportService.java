@@ -10,6 +10,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.importing.ImportJobRepositor
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
+import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceStorageQuotaService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.OcrFormatToPageXml;
 import de.uniwue.zpd.dachs.larex.backend.util.ImageFileUtils;
@@ -37,6 +38,7 @@ public class ServerImportService {
     private final AsyncImportProcessor asyncImportProcessor;
     private final WorkspaceQuotaGuardService workspaceQuotaGuardService;
     private final ImportProperties properties;
+    private final WorkspaceAccessService workspaceAccessService;
 
     private List<Path> allowedPaths;
 
@@ -46,7 +48,8 @@ public class ServerImportService {
                                WorkspaceStorageQuotaService quotaService,
                                AsyncImportProcessor asyncImportProcessor,
                                WorkspaceQuotaGuardService workspaceQuotaGuardService,
-                               ImportProperties properties) {
+                               ImportProperties properties,
+                               WorkspaceAccessService workspaceAccessService) {
         this.importJobRepository = importJobRepository;
         this.projectRepository = projectRepository;
         this.pageRepository = pageRepository;
@@ -54,6 +57,7 @@ public class ServerImportService {
         this.asyncImportProcessor = asyncImportProcessor;
         this.workspaceQuotaGuardService = workspaceQuotaGuardService;
         this.properties = properties;
+        this.workspaceAccessService = workspaceAccessService;
     }
 
     @jakarta.annotation.PostConstruct
@@ -231,7 +235,7 @@ public class ServerImportService {
             log.info("Created import job {} for project {} from path: {}",
                     job.getId(), request.projectId(), validation.normalizedPath());
 
-            asyncImportProcessor.processImportJob(job.getId());
+            asyncImportProcessor.processImportJob(job.getId(), workspaceAccessService.canReviewPages(workspaceId, userId));
 
             return convertToJobResponse(job);
         } catch (RuntimeException e) {

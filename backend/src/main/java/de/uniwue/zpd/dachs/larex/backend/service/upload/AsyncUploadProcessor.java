@@ -16,10 +16,13 @@ import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.upload.UploadSessionFileRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.upload.UploadSessionRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.notification.NotificationService;
+import de.uniwue.zpd.dachs.larex.backend.service.page.PageFileWriteService;
+import de.uniwue.zpd.dachs.larex.backend.service.page.PageWriteGuard;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.StorageTrackingService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
+import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import de.uniwue.zpd.dachs.larex.backend.service.upload.events.UploadPageIndexingRequestedEvent;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.OcrFormatToPageXml;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlCanonicalizationService;
@@ -71,6 +74,9 @@ public class AsyncUploadProcessor {
     private final WorkspaceQuotaGuardService workspaceQuotaGuardService;
     private final UploadProperties uploadProperties;
     private final LinkedDatasetItemSync linkedDatasetItemSync;
+    private final PageWriteGuard pageWriteGuard;
+    private final PageFileWriteService pageFileWriteService;
+    private final WorkspaceAccessService workspaceAccessService;
 
     public AsyncUploadProcessor(UploadSessionRepository sessionRepository,
                                 UploadSessionFileRepository fileRepository,
@@ -88,7 +94,10 @@ public class AsyncUploadProcessor {
                                 UploadRealtimePublisher uploadRealtimePublisher,
                                 WorkspaceQuotaGuardService workspaceQuotaGuardService,
                                 UploadProperties uploadProperties,
-                                LinkedDatasetItemSync linkedDatasetItemSync) {
+                                LinkedDatasetItemSync linkedDatasetItemSync,
+                                PageWriteGuard pageWriteGuard,
+                                PageFileWriteService pageFileWriteService,
+                                WorkspaceAccessService workspaceAccessService) {
         this.sessionRepository = sessionRepository;
         this.fileRepository = fileRepository;
         this.projectRepository = projectRepository;
@@ -106,6 +115,9 @@ public class AsyncUploadProcessor {
         this.workspaceQuotaGuardService = workspaceQuotaGuardService;
         this.uploadProperties = uploadProperties;
         this.linkedDatasetItemSync = linkedDatasetItemSync;
+        this.pageWriteGuard = pageWriteGuard;
+        this.pageFileWriteService = pageFileWriteService;
+        this.workspaceAccessService = workspaceAccessService;
     }
 
     public void processUploadSession(String sessionId) {
@@ -381,11 +393,22 @@ public class AsyncUploadProcessor {
         // Find or create page
         Page page = pagesByName.get(baseName);
         if (page == null) {
+            Optional<String> projectLockReason = pageWriteGuard.projectLockReason(project.getId());
+            if (projectLockReason.isPresent()) {
+                for (UploadSessionFile file : acceptedFiles) {
+                    skipLockedFile(file, projectLockReason.get());
+                    fileRepository.save(file);
+                    emitFileState(sessionId, file);
+                }
+                return true;
+            }
             page = createPage(project, baseName);
             pagesByName.put(baseName, page);
             existingPageNames.add(baseName);
         }
 
+        Page targetPage = page;
+        boolean canReviewPages = workspaceAccessService.canReviewPages(workspaceId, createdByUserId);
         for (UploadSessionFile sessionFile : acceptedFiles) {
             if (isSessionCancelled(sessionId)) {
                 return false;
@@ -397,16 +420,18 @@ public class AsyncUploadProcessor {
 
             try {
                 if (isImageFile(sessionFile)) {
-                    processImageFile(page, sessionFile, workspaceId, project.getId(), createdByUserId);
+                    pageFileWriteService.writeUnlessLocked(page.getId(), canReviewPages, changes ->
+                            processImageFile(targetPage, sessionFile, workspaceId, project.getId(), createdByUserId, changes)
+                    ).ifPresent(reason -> skipLockedFile(sessionFile, reason));
                     if (sessionFile.getStatus() == UploadFileStatus.COMPLETED) {
                         uploadRealtimePublisher.broadcastPageCreatedOrUpdated(sessionId, project.getId(), page.getId(), page.getName(), "image");
                     }
                 } else if (isXmlFile(sessionFile)) {
-                    boolean queuedForIndex = processXmlFile(page, sessionFile, convertedXml.get(sessionFile), workspaceId, project.getId(), createdByUserId);
+                    pageFileWriteService.writeUnlessLocked(page.getId(), canReviewPages, changes ->
+                            processXmlFile(targetPage, sessionFile, convertedXml.get(sessionFile), workspaceId, project.getId(), createdByUserId, changes)
+                    ).ifPresent(reason -> skipLockedFile(sessionFile, reason));
                     if (sessionFile.getStatus() == UploadFileStatus.COMPLETED) {
                         uploadRealtimePublisher.broadcastPageCreatedOrUpdated(sessionId, project.getId(), page.getId(), page.getName(), "xml");
-                    }
-                    if (queuedForIndex) {
                         queuePageIndexing(sessionId, project.getId(), page.getId(), pagesNeedingIndex);
                     }
                 } else {
@@ -439,7 +464,8 @@ public class AsyncUploadProcessor {
                                   UploadSessionFile sessionFile,
                                   String workspaceId,
                                   String projectId,
-                                  String createdByUserId) throws IOException {
+                                  String createdByUserId,
+                                  PageFileWriteService.FileChanges changes) throws IOException {
         Path tempFilePath = Paths.get(sessionFile.getTempFilePath());
         if (!Files.exists(tempFilePath)) {
             throw new IOException("Temp file not found: " + tempFilePath);
@@ -473,14 +499,13 @@ public class AsyncUploadProcessor {
                 createdByUserId,
                 true
         );
+        changes.stored(storedImage.storagePath());
 
         if (!existingImages.isEmpty()) {
             // Delete existing image
             PageImage existingImage = existingImages.get(0);
-            hierarchicalFileStorageService.deleteStoredFile(existingImage.getFilePath());
-            if (existingImage.getThumbnailPath() != null) {
-                hierarchicalFileStorageService.deleteStoredFile(existingImage.getThumbnailPath());
-            }
+            changes.replaced(existingImage.getFilePath());
+            changes.replaced(existingImage.getThumbnailPath());
             pageImageRepository.delete(existingImage);
         }
 
@@ -503,12 +528,13 @@ public class AsyncUploadProcessor {
         sessionFile.setCreatedPageImageId(pageImage.getId());
     }
 
-    private boolean processXmlFile(Page page,
-                                   UploadSessionFile sessionFile,
-                                   byte[] convertedXml,
-                                   String workspaceId,
-                                   String projectId,
-                                   String createdByUserId) throws IOException {
+    private void processXmlFile(Page page,
+                                UploadSessionFile sessionFile,
+                                byte[] convertedXml,
+                                String workspaceId,
+                                String projectId,
+                                String createdByUserId,
+                                PageFileWriteService.FileChanges changes) throws IOException {
         Path tempFilePath = Paths.get(sessionFile.getTempFilePath());
         if (!Files.exists(tempFilePath)) {
             throw new IOException("Temp file not found: " + tempFilePath);
@@ -521,17 +547,17 @@ public class AsyncUploadProcessor {
                 sessionFile.setStatus(UploadFileStatus.SKIPPED);
                 sessionFile.setConflictType("XML_FILE_EXISTS");
                 Files.deleteIfExists(tempFilePath);
-                return false;
+                return;
             } else if ("replace".equals(conflictResolution) || "replace_with_new".equals(conflictResolution)) {
                 PageXml headXml = existingXml.get();
-                hierarchicalFileStorageService.deleteStoredFile(headXml.getFilePath());
+                changes.replaced(headXml.getFilePath());
                 pageXmlRepository.delete(headXml);
                 pageXmlRepository.flush();
             } else {
                 // Default: create conflict status
                 sessionFile.setStatus(UploadFileStatus.CONFLICT);
                 sessionFile.setConflictType("XML_FILE_EXISTS");
-                return false;
+                return;
             }
         }
 
@@ -550,6 +576,7 @@ public class AsyncUploadProcessor {
                 createdByUserId,
                 true
         );
+        changes.stored(storedXml.storagePath());
         if (convertedXml != null) {
             Files.deleteIfExists(tempFilePath);
         }
@@ -578,7 +605,16 @@ public class AsyncUploadProcessor {
 
         sessionFile.setStatus(UploadFileStatus.COMPLETED);
         sessionFile.setCreatedPageId(page.getId());
-        return true;
+    }
+
+    private void skipLockedFile(UploadSessionFile sessionFile, String lockReason) {
+        sessionFile.setStatus(UploadFileStatus.SKIPPED);
+        sessionFile.setErrorMessage(lockReason);
+        try {
+            Files.deleteIfExists(Paths.get(sessionFile.getTempFilePath()));
+        } catch (IOException e) {
+            log.warn("Failed to delete temp file: {}", sessionFile.getTempFilePath(), e);
+        }
     }
 
     private boolean processPdfFile(String sessionId,

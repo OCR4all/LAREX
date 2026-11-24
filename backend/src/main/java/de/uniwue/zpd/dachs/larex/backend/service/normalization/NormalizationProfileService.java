@@ -26,6 +26,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.workspace.PersonalWorkspaceR
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.TeamWorkspaceRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceQueryService;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.application.AnnotationProcessingService;
+import de.uniwue.zpd.dachs.larex.backend.service.page.PageWriteGuard;
 import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicyService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import de.uniwue.zpd.dachs.larex.backend.util.TextNormalizationUtil;
@@ -63,6 +64,7 @@ public class NormalizationProfileService {
     private final TeamWorkspaceRepository teamWorkspaceRepository;
     private final WorkspaceQueryService workspaceQueryService;
     private final AnnotationProcessingService annotationProcessingService;
+    private final PageWriteGuard pageWriteGuard;
 
     public NormalizationProfileService(NormalizationProfileRepository normalizationProfileRepository,
                                        WorkspaceAccessService workspaceAccessService,
@@ -74,7 +76,8 @@ public class NormalizationProfileService {
                                        PersonalWorkspaceRepository personalWorkspaceRepository,
                                        TeamWorkspaceRepository teamWorkspaceRepository,
                                        WorkspaceQueryService workspaceQueryService,
-                                       AnnotationProcessingService annotationProcessingService) {
+                                       AnnotationProcessingService annotationProcessingService,
+                                       PageWriteGuard pageWriteGuard) {
         this.normalizationProfileRepository = normalizationProfileRepository;
         this.workspaceAccessService = workspaceAccessService;
         this.authorizationPolicyService = authorizationPolicyService;
@@ -86,6 +89,7 @@ public class NormalizationProfileService {
         this.teamWorkspaceRepository = teamWorkspaceRepository;
         this.workspaceQueryService = workspaceQueryService;
         this.annotationProcessingService = annotationProcessingService;
+        this.pageWriteGuard = pageWriteGuard;
     }
 
     @Transactional(readOnly = true)
@@ -262,8 +266,20 @@ public class NormalizationProfileService {
             rowsByPageId.computeIfAbsent(row.getPage().getId(), ignored -> new ArrayList<>()).add(row);
         }
 
+        Map<String, String> lockReasons = pageWriteGuard.lockPages(
+                rowsByPageId.keySet(),
+                workspaceAccessService.canReviewPages(workspaceId, userId)
+        );
+        for (List<PageTextContent> pageRows : rowsByPageId.values()) {
+            Project project = pageRows.getFirst().getPage().getProject();
+            if (project.isLocked()) {
+                throw new IllegalStateException("Project '" + project.getName() + "' is locked");
+            }
+        }
+
         int changedRowCount = 0;
         int changedPageCount = 0;
+        List<NormalizationProfileDto.SkippedPage> skippedPages = new ArrayList<>();
 
         for (Map.Entry<String, List<PageTextContent>> entry : rowsByPageId.entrySet()) {
             List<PageTextContent> pageRows = entry.getValue();
@@ -271,12 +287,11 @@ public class NormalizationProfileService {
                 continue;
             }
 
-            Project project = pageRows.getFirst().getPage().getProject();
-            if (project == null) {
+            String lockReason = lockReasons.get(entry.getKey());
+            if (lockReason != null) {
+                skippedPages.add(new NormalizationProfileDto.SkippedPage(
+                        entry.getKey(), pageRows.getFirst().getPage().getName(), lockReason));
                 continue;
-            }
-            if (project.isLocked()) {
-                throw new IllegalStateException("Project '" + project.getName() + "' is locked");
             }
 
             PageXml pageXml = resolveEditablePageXml(entry.getKey());
@@ -305,6 +320,10 @@ public class NormalizationProfileService {
         String message = changedRowCount == 0
                 ? "No normalization changes needed for the selected sources"
                 : "Normalization changes were saved to PAGE XML. Search and filter indexes may take a moment to refresh.";
+        if (!skippedPages.isEmpty()) {
+            message = (changedRowCount == 0 ? "No pages were changed." : message) + " Skipped locked pages: "
+                    + PageWriteGuard.summarize(skippedPages.stream().map(NormalizationProfileDto.SkippedPage::reason).toList()) + ".";
+        }
 
         return new NormalizationProfileDto.ApplySourcesResponse(
                 analyzedProjectIds.size(),
@@ -312,6 +331,7 @@ public class NormalizationProfileService {
                 rows.size(),
                 changedRowCount,
                 changedPageCount,
+                skippedPages,
                 message
         );
     }

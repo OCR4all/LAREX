@@ -125,5 +125,6 @@ export interface ApplySourcesResponse {
   targetedRowCount: number
   changedRowCount: number
   changedPageCount: number
+  skippedPages: Array<{ pageId: string, pageName: string, reason: string }>
   message: string
 }

@@ -11,6 +11,8 @@ import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.dataset.LinkedDatasetItemSync;
 import de.uniwue.zpd.dachs.larex.backend.service.notification.NotificationService;
+import de.uniwue.zpd.dachs.larex.backend.service.page.PageFileWriteService;
+import de.uniwue.zpd.dachs.larex.backend.service.page.PageWriteGuard;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.StorageTrackingService;
@@ -31,7 +33,6 @@ import org.springframework.core.io.FileSystemResource;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AsyncImportProcessor {
@@ -52,6 +53,8 @@ public class AsyncImportProcessor {
     private final WorkspaceQuotaGuardService workspaceQuotaGuardService;
     private final ImportProperties properties;
     private final LinkedDatasetItemSync linkedDatasetItemSync;
+    private final PageWriteGuard pageWriteGuard;
+    private final PageFileWriteService pageFileWriteService;
 
     public AsyncImportProcessor(ImportJobRepository importJobRepository,
                                 ProjectRepository projectRepository,
@@ -66,7 +69,9 @@ public class AsyncImportProcessor {
                                 PageXmlValidationService pageXmlValidationService,
                                 WorkspaceQuotaGuardService workspaceQuotaGuardService,
                                 ImportProperties properties,
-                                LinkedDatasetItemSync linkedDatasetItemSync) {
+                                LinkedDatasetItemSync linkedDatasetItemSync,
+                                PageWriteGuard pageWriteGuard,
+                                PageFileWriteService pageFileWriteService) {
         this.importJobRepository = importJobRepository;
         this.projectRepository = projectRepository;
         this.pageRepository = pageRepository;
@@ -81,22 +86,23 @@ public class AsyncImportProcessor {
         this.workspaceQuotaGuardService = workspaceQuotaGuardService;
         this.properties = properties;
         this.linkedDatasetItemSync = linkedDatasetItemSync;
+        this.pageWriteGuard = pageWriteGuard;
+        this.pageFileWriteService = pageFileWriteService;
     }
 
     @Async("importTaskExecutor")
-    public void processImportJob(String jobId) {
+    public void processImportJob(String jobId, boolean canReviewPages) {
         log.info("Starting async processing for import job: {}", jobId);
 
         try {
-            doProcessImportJob(jobId);
+            doProcessImportJob(jobId, canReviewPages);
         } catch (Exception e) {
             log.error("Failed to process import job: {}", jobId, e);
             handleJobError(jobId, e.getMessage());
         }
     }
 
-    @Transactional
-    public void doProcessImportJob(String jobId) throws IOException {
+    public void doProcessImportJob(String jobId, boolean canReviewPages) throws IOException {
         ImportJob job = importJobRepository.findById(jobId)
                 .orElseThrow(() -> new RuntimeException("Import job not found: " + jobId));
 
@@ -185,6 +191,7 @@ public class AsyncImportProcessor {
         int processedCount = 0;
         int skippedCount = 0;
         int failedCount = 0;
+        List<String> lockReasons = new ArrayList<>();
 
         for (Map.Entry<String, List<Path>> entry : filesByBaseName.entrySet()) {
             // Check for cancellation periodically
@@ -202,9 +209,14 @@ public class AsyncImportProcessor {
             List<Path> groupFiles = entry.getValue();
 
             try {
-                int[] counts = processFileGroup(project, baseName, groupFiles, pagesByName, job.isOverwriteExisting(), job.getCreatedByUserId());
-                processedCount += counts[0];
-                skippedCount += counts[1];
+                GroupResult result = processFileGroup(project, job.getWorkspaceId(), baseName, groupFiles, pagesByName,
+                        job.isOverwriteExisting(), job.getCreatedByUserId(), canReviewPages);
+                processedCount += result.processed();
+                skippedCount += result.skipped();
+                if (result.lockReason() != null) {
+                    lockReasons.add(result.lockReason());
+                    job.appendToLog("Skipped files of " + baseName + ": " + result.lockReason());
+                }
 
                 job.setProcessedFiles(processedCount);
                 job.setSkippedFiles(skippedCount);
@@ -224,6 +236,9 @@ public class AsyncImportProcessor {
         job.setCompletedAt(LocalDateTime.now());
         job.appendToLog("Import completed: " + processedCount + " processed, " +
                 skippedCount + " skipped, " + failedCount + " failed");
+        if (!lockReasons.isEmpty()) {
+            job.setErrorMessage("Skipped files of locked pages: " + PageWriteGuard.summarize(lockReasons));
+        }
         importJobRepository.save(job);
 
         try {
@@ -246,10 +261,22 @@ public class AsyncImportProcessor {
                 jobId, processedCount, skippedCount, failedCount);
     }
 
-    private int[] processFileGroup(Project project, String baseName, List<Path> files, Map<String, Page> pagesByName,
-                                   boolean overwriteExisting, String createdByUserId) throws IOException {
+    private record GroupResult(int processed, int skipped, String lockReason) {
+    }
+
+    private GroupResult processFileGroup(Project project, String workspaceId, String baseName, List<Path> files,
+                                         Map<String, Page> pagesByName, boolean overwriteExisting,
+                                         String createdByUserId, boolean canReviewPages) throws IOException {
         int processed = 0;
         int skipped = 0;
+        String lockReason = null;
+
+        if (!pagesByName.containsKey(baseName)) {
+            Optional<String> projectLockReason = pageWriteGuard.projectLockReason(project.getId());
+            if (projectLockReason.isPresent()) {
+                return new GroupResult(0, files.size(), projectLockReason.get());
+            }
+        }
 
         // Find or create page
         Page page = pagesByName.computeIfAbsent(baseName, name -> createPage(project, name));
@@ -270,39 +297,13 @@ public class AsyncImportProcessor {
                     continue;
                 }
 
-                var storedImage = hierarchicalFileStorageService.storeFromPath(
-                        filePath,
-                        fileName,
-                        detectMimeType(fileName),
-                        project.getLibrary().getWorkspaceId(),
-                        project.getId(),
-                        StoredFileType.IMG,
-                        createdByUserId,
-                        false
-                );
-
-                if (!existingImages.isEmpty()) {
-                    // Delete existing
-                    PageImage existing = existingImages.get(0);
-                    hierarchicalFileStorageService.deleteStoredFile(existing.getFilePath());
-                    if (existing.getThumbnailPath() != null) {
-                        hierarchicalFileStorageService.deleteStoredFile(existing.getThumbnailPath());
-                    }
-                    pageImageRepository.delete(existing);
+                Optional<String> imageLockReason = pageFileWriteService.writeUnlessLocked(page.getId(), canReviewPages,
+                        changes -> importImage(project, workspaceId, page, filePath, nameInfo, createdByUserId, changes));
+                if (imageLockReason.isPresent()) {
+                    lockReason = imageLockReason.get();
+                    skipped++;
+                    continue;
                 }
-
-                // Create PageImage entity
-                PageImage pageImage = new PageImage(
-                        storedImage.originalFilename(),
-                        storedImage.storagePath(),
-                        storedImage.mimeType(),
-                        storedImage.sizeBytes(),
-                        nameInfo.variant(),
-                        nameInfo.baseName(),
-                        page
-                );
-                pageImage.setImageType(storedImage.imageType());
-                pageImageRepository.save(pageImage);
                 processed++;
 
             } else if (isXmlFile(filePath)) {
@@ -314,48 +315,20 @@ public class AsyncImportProcessor {
                 Optional<byte[]> converted = pageXmlValidationService.toImportablePageXml(new FileSystemResource(filePath),
                         pageXmlCanonicalizationService.storedPageImage(page.getId()));
                 Path xmlSource = converted.isPresent() ? writeConvertedCopy(converted.get()) : filePath;
-                if (existingXml.isPresent()) {
-                    PageXml headXml = existingXml.get();
-                    hierarchicalFileStorageService.deleteStoredFile(headXml.getFilePath());
-                    pageXmlRepository.delete(headXml);
-                    pageXmlRepository.flush();
-                }
-
-                HierarchicalFileStorageService.StoredFileDescriptor storedXml;
+                Optional<String> xmlLockReason;
                 try {
-                    storedXml = hierarchicalFileStorageService.storeFromPath(
-                            xmlSource,
-                            OcrFormatToPageXml.pageXmlFileName(fileName),
-                            "application/xml",
-                            project.getLibrary().getWorkspaceId(),
-                            project.getId(),
-                            StoredFileType.XML,
-                            createdByUserId,
-                            converted.isPresent()
-                    );
+                    xmlLockReason = pageFileWriteService.writeUnlessLocked(page.getId(), canReviewPages,
+                            changes -> importXml(project, workspaceId, page, xmlSource, fileName, converted.isPresent(), createdByUserId, changes));
                 } finally {
                     if (converted.isPresent()) {
                         Files.deleteIfExists(xmlSource);
                     }
                 }
-
-                // Create PageXml entity
-                String xmlBaseName = (storedXml.originalFilename() != null && storedXml.originalFilename().contains("."))
-                        ? storedXml.originalFilename().substring(0, storedXml.originalFilename().lastIndexOf('.'))
-                        : storedXml.originalFilename();
-
-                PageXml pageXml = new PageXml(
-                        storedXml.originalFilename(),
-                        storedXml.storagePath(),
-                        storedXml.mimeType(),
-                        storedXml.sizeBytes(),
-                        "original",
-                        xmlBaseName,
-                        XmlSchema.PAGE_XML, null, page
-                );
-                pageXml = pageXmlRepository.save(pageXml);
-                pageXmlCanonicalizationService.canonicalizeAtIngest(pageXml, createdByUserId, "server import");
-                linkedDatasetItemSync.relink(pageXml);
+                if (xmlLockReason.isPresent()) {
+                    lockReason = xmlLockReason.get();
+                    skipped++;
+                    continue;
+                }
 
                 // Index the page content for filtering
                 try {
@@ -368,7 +341,82 @@ public class AsyncImportProcessor {
             }
         }
 
-        return new int[]{processed, skipped};
+        return new GroupResult(processed, skipped, lockReason);
+    }
+
+    private void importImage(Project project, String workspaceId, Page page, Path filePath, ImageFileUtils.ImageNameInfo nameInfo,
+                             String createdByUserId, PageFileWriteService.FileChanges changes) throws IOException {
+        String fileName = filePath.getFileName().toString();
+        List<PageImage> existingImages = pageImageRepository.findByPageIdAndVariant(page.getId(), nameInfo.variant());
+
+        var storedImage = hierarchicalFileStorageService.storeFromPath(
+                filePath,
+                fileName,
+                detectMimeType(fileName),
+                workspaceId,
+                project.getId(),
+                StoredFileType.IMG,
+                createdByUserId,
+                false
+        );
+        changes.stored(storedImage.storagePath());
+
+        if (!existingImages.isEmpty()) {
+            PageImage existing = existingImages.get(0);
+            changes.replaced(existing.getFilePath());
+            changes.replaced(existing.getThumbnailPath());
+            pageImageRepository.delete(existing);
+        }
+
+        PageImage pageImage = new PageImage(
+                storedImage.originalFilename(),
+                storedImage.storagePath(),
+                storedImage.mimeType(),
+                storedImage.sizeBytes(),
+                nameInfo.variant(),
+                nameInfo.baseName(),
+                page
+        );
+        pageImage.setImageType(storedImage.imageType());
+        pageImageRepository.save(pageImage);
+    }
+
+    private void importXml(Project project, String workspaceId, Page page, Path xmlSource, String fileName, boolean moveSource,
+                           String createdByUserId, PageFileWriteService.FileChanges changes) throws IOException {
+        pageXmlRepository.findByPage_Id(page.getId()).ifPresent(headXml -> {
+            changes.replaced(headXml.getFilePath());
+            pageXmlRepository.delete(headXml);
+            pageXmlRepository.flush();
+        });
+
+        var storedXml = hierarchicalFileStorageService.storeFromPath(
+                xmlSource,
+                OcrFormatToPageXml.pageXmlFileName(fileName),
+                "application/xml",
+                workspaceId,
+                project.getId(),
+                StoredFileType.XML,
+                createdByUserId,
+                moveSource
+        );
+        changes.stored(storedXml.storagePath());
+
+        String xmlBaseName = (storedXml.originalFilename() != null && storedXml.originalFilename().contains("."))
+                ? storedXml.originalFilename().substring(0, storedXml.originalFilename().lastIndexOf('.'))
+                : storedXml.originalFilename();
+
+        PageXml pageXml = new PageXml(
+                storedXml.originalFilename(),
+                storedXml.storagePath(),
+                storedXml.mimeType(),
+                storedXml.sizeBytes(),
+                "original",
+                xmlBaseName,
+                XmlSchema.PAGE_XML, null, page
+        );
+        pageXml = pageXmlRepository.save(pageXml);
+        pageXmlCanonicalizationService.canonicalizeAtIngest(pageXml, createdByUserId, "server import");
+        linkedDatasetItemSync.relink(pageXml);
     }
 
     private Path writeConvertedCopy(byte[] pageXml) throws IOException {

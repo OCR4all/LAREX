@@ -5,8 +5,11 @@ import de.uniwue.zpd.dachs.larex.backend.repository.page.*;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.upload.*;
 import de.uniwue.zpd.dachs.larex.backend.service.dataset.LinkedDatasetItemSync;
+import de.uniwue.zpd.dachs.larex.backend.service.page.PageFileWriteService;
+import de.uniwue.zpd.dachs.larex.backend.service.page.PageWriteGuard;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
+import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.OcrFormatToPageXml;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlCanonicalizationService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlValidationService;
@@ -21,6 +24,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.PlatformTransactionManager;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -46,6 +50,10 @@ class AsyncUploadProcessorXmlTest {
     @Mock PageFilterIndexService filterIndex;
     @Mock LinkedDatasetItemSync linkedDatasetItemSync;
     @Spy PageXmlValidationService validation = new PageXmlValidationService();
+    @Mock PageWriteGuard guard;
+    @Mock WorkspaceAccessService access;
+    @Spy PageFileWriteService writes = new PageFileWriteService(mock(PageWriteGuard.class),
+            mock(HierarchicalFileStorageService.class), mock(PlatformTransactionManager.class));
     @InjectMocks AsyncUploadProcessor processor;
 
     @ParameterizedTest
@@ -239,13 +247,16 @@ class AsyncUploadProcessorXmlTest {
         Path xmlPath = tempDir.resolve("page.xml");
         Files.writeString(xmlPath, "<invalid/>");
         Page page = new Page();
+        page.setId("page");
+        page.setProject(new Project("Project", null, new Library("workspace", "Library")));
         UploadSessionFile file = new UploadSessionFile("page.xml", Files.size(xmlPath), "application/xml", "page", "xml", 1);
         file.setTempFilePath(xmlPath.toString());
         file.setStatus(UploadSessionFile.UploadFileStatus.CONFLICT);
         file.setConflictType("XML_FILE_EXISTS");
         when(files.findById("conflict")).thenReturn(Optional.of(file));
         when(pages.findByProjectIdAndName("project", "page")).thenReturn(Optional.of(page));
-        UploadConflictService conflicts = new UploadConflictService(pages, images, xmls, files, null, storage, null, validation, null);
+        UploadConflictService conflicts = new UploadConflictService(pages, images, xmls, files, null, storage, null, validation, null, guard, access,
+                mock(PlatformTransactionManager.class));
 
         assertThrows(InvalidPageXmlException.class, () -> conflicts.resolveConflicts("project", "user",
                 new UploadConflictDto.BatchConflictResolutionRequest(List.of(new UploadConflictDto.ConflictResolution("conflict", "replace_with_new")))));

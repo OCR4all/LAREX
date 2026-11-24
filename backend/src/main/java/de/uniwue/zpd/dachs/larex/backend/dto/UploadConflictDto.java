@@ -34,6 +34,18 @@ public class UploadConflictDto {
             @NotNull List<ConflictResolution> resolutions
     ) {}
 
+    public record BatchConflictResolutionResponse(
+            List<SkippedConflict> skipped
+    ) {}
+
+    public record SkippedConflict(
+            String conflictId,
+            String fileName,
+            String pageId,
+            String pageName,
+            String reason
+    ) {}
+
     public record ConflictResolution(
             @NotBlank String conflictId,
             @NotBlank String action // "keep_existing", "replace_with_new", "skip"

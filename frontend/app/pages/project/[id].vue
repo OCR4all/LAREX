@@ -1721,7 +1721,7 @@ async function applyNormalizationPreview(row?: NormalizePreview) {
     })
 
     if (row) {
-      removeNormalizationPreviewRow(row)
+      if (response.skippedPages.length === 0) removeNormalizationPreviewRow(row)
     } else {
       resetNormalizationPreview()
       isNormalizationPreviewSlideoverOpen.value = false

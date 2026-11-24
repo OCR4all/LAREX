@@ -260,15 +260,14 @@ public class ProjectController {
     }
 
     @PostMapping("/{projectId}/conflicts/resolve")
-    public ResponseEntity<Void> resolveUploadConflicts(
+    public ResponseEntity<UploadConflictDto.BatchConflictResolutionResponse> resolveUploadConflicts(
             @PathVariable String workspaceId,
             @PathVariable String projectId,
             @Valid @RequestBody UploadConflictDto.BatchConflictResolutionRequest request,
             @AuthenticationPrincipal(expression = "subject") String userId) {
 
         try {
-            uploadConflictService.resolveConflicts(projectId, userId, request);
-            return ResponseEntity.ok().build();
+            return ResponseEntity.ok(uploadConflictService.resolveConflicts(projectId, userId, request));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().build();
         } catch (Exception e) {

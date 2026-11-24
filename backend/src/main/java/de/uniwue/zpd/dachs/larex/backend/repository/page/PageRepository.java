@@ -151,6 +151,23 @@ public interface PageRepository extends JpaRepository<Page, String> {
     @Query("SELECT p FROM Page p WHERE p.id IN :pageIds ORDER BY p.id")
     List<Page> findAllByIdInForUpdate(@Param("pageIds") Collection<String> pageIds);
 
+    @Query("""
+           SELECT p.id AS pageId, p.locked AS locked, p.lockedReason AS lockedReason, p.workflowState AS workflowState,
+                  project.locked AS projectLocked, project.lockedReason AS projectLockedReason
+           FROM Page p JOIN p.project project
+           WHERE p.id IN :pageIds
+           """)
+    List<PageLockState> findLockStatesByIdIn(@Param("pageIds") Collection<String> pageIds);
+
+    interface PageLockState {
+        String getPageId();
+        boolean getLocked();
+        String getLockedReason();
+        Page.WorkflowState getWorkflowState();
+        boolean getProjectLocked();
+        String getProjectLockedReason();
+    }
+
     List<Page> findByProjectIdAndNameIn(String projectId, Collection<String> names);
 
     @Query("SELECT p.name FROM Page p WHERE p.project.id = :projectId")

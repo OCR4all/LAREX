@@ -49,6 +49,10 @@ public interface ProjectRepository extends JpaRepository<Project, String> {
     Optional<Project> findByIdAndLibraryWorkspaceIdForUpdate(@Param("projectId") String projectId,
                                                              @Param("workspaceId") String workspaceId);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM Project p WHERE p.id IN (SELECT page.project.id FROM Page page WHERE page.id IN :pageIds) ORDER BY p.id")
+    List<Project> findByPageIdsForUpdate(@Param("pageIds") Collection<String> pageIds);
+
     List<Project> findByLibraryWorkspaceIdAndDictionaryId(String workspaceId, String dictionaryId);
 
     List<Project> findByLibraryWorkspaceIdAndNormalizationProfileId(String workspaceId, String normalizationProfileId);

@@ -13,8 +13,10 @@ import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.upload.UploadSessionFileRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.dataset.LinkedDatasetItemSync;
+import de.uniwue.zpd.dachs.larex.backend.service.page.PageWriteGuard;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
+import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.OcrFormatToPageXml;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlCanonicalizationService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlValidationService;
@@ -27,9 +29,12 @@ import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 @Transactional
@@ -46,6 +51,9 @@ public class UploadConflictService {
     private final PageXmlCanonicalizationService pageXmlCanonicalizationService;
     private final PageXmlValidationService pageXmlValidationService;
     private final LinkedDatasetItemSync linkedDatasetItemSync;
+    private final PageWriteGuard pageWriteGuard;
+    private final WorkspaceAccessService workspaceAccessService;
+    private final TransactionTemplate cleanupTransaction;
 
     public UploadConflictService(PageRepository pageRepository,
                                   PageImageRepository pageImageRepository,
@@ -55,7 +63,10 @@ public class UploadConflictService {
                                   HierarchicalFileStorageService hierarchicalFileStorageService,
                                   PageXmlCanonicalizationService pageXmlCanonicalizationService,
                                   PageXmlValidationService pageXmlValidationService,
-                                  LinkedDatasetItemSync linkedDatasetItemSync) {
+                                  LinkedDatasetItemSync linkedDatasetItemSync,
+                                  PageWriteGuard pageWriteGuard,
+                                  WorkspaceAccessService workspaceAccessService,
+                                  PlatformTransactionManager transactionManager) {
         this.pageRepository = pageRepository;
         this.pageImageRepository = pageImageRepository;
         this.pageXmlRepository = pageXmlRepository;
@@ -65,6 +76,10 @@ public class UploadConflictService {
         this.pageXmlCanonicalizationService = pageXmlCanonicalizationService;
         this.pageXmlValidationService = pageXmlValidationService;
         this.linkedDatasetItemSync = linkedDatasetItemSync;
+        this.pageWriteGuard = pageWriteGuard;
+        this.workspaceAccessService = workspaceAccessService;
+        this.cleanupTransaction = new TransactionTemplate(transactionManager);
+        this.cleanupTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
     public List<UploadConflictDto.ConflictResponse> getProjectConflicts(String projectId, String userId) {
@@ -113,23 +128,71 @@ public class UploadConflictService {
         return conflicts;
     }
 
-    public void resolveConflicts(String projectId, String userId, UploadConflictDto.BatchConflictResolutionRequest request) {
+    public UploadConflictDto.BatchConflictResolutionResponse resolveConflicts(String projectId, String userId,
+                                                                              UploadConflictDto.BatchConflictResolutionRequest request) {
+        Map<UploadConflictDto.ConflictResolution, UploadSessionFile> conflicts = new LinkedHashMap<>();
         for (UploadConflictDto.ConflictResolution resolution : request.resolutions()) {
-            Optional<UploadSessionFile> dbConflictOpt = uploadSessionFileRepository.findById(resolution.conflictId());
-            if (dbConflictOpt.isPresent()) {
-                UploadSessionFile dbConflict = dbConflictOpt.get();
-                if (dbConflict.getStatus() == UploadFileStatus.CONFLICT) {
-                    try {
-                        resolveDbConflict(projectId, dbConflict, resolution.action());
-                    } catch (IOException e) {
-                        throw new RuntimeException("Failed to resolve database conflict: " + resolution.conflictId(), e);
-                    }
-                }
-            }
+            uploadSessionFileRepository.findById(resolution.conflictId())
+                    .filter(file -> file.getStatus() == UploadFileStatus.CONFLICT)
+                    .ifPresent(file -> conflicts.put(resolution, file));
         }
+
+        Map<String, Page> pagesByName = new HashMap<>();
+        conflicts.forEach((resolution, file) -> {
+            if (isReplace(resolution.action()) && !pagesByName.containsKey(file.getBaseName())) {
+                pageRepository.findByProjectIdAndName(projectId, file.getBaseName())
+                        .ifPresent(page -> pagesByName.put(file.getBaseName(), page));
+            }
+        });
+        Map<String, String> lockReasons = lockPages(pagesByName.values(), userId);
+
+        List<UploadConflictDto.SkippedConflict> skipped = new ArrayList<>();
+        conflicts.forEach((resolution, file) -> {
+            if (file.getStatus() != UploadFileStatus.CONFLICT) {
+                return;
+            }
+            Page page = pagesByName.get(file.getBaseName());
+            String lockReason = page == null || !isReplace(resolution.action()) ? null : lockReasons.get(page.getId());
+            try {
+                if (lockReason == null) {
+                    resolveDbConflict(page, file, resolution.action());
+                } else {
+                    skipLockedFile(file, lockReason);
+                    skipped.add(new UploadConflictDto.SkippedConflict(
+                            file.getId(), file.getOriginalFileName(), page.getId(), page.getName(), lockReason));
+                }
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to resolve database conflict: " + resolution.conflictId(), e);
+            }
+        });
+        return new UploadConflictDto.BatchConflictResolutionResponse(skipped);
     }
 
-    private void resolveDbConflict(String projectId, UploadSessionFile file, String action) throws IOException {
+    private Map<String, String> lockPages(Collection<Page> pages, String userId) {
+        if (pages.isEmpty()) {
+            return Map.of();
+        }
+        String workspaceId = pages.iterator().next().getProject().getLibrary().getWorkspaceId();
+        return pageWriteGuard.lockPages(
+                pages.stream().map(Page::getId).toList(),
+                workspaceAccessService.canReviewPages(workspaceId, userId)
+        );
+    }
+
+    private boolean isReplace(String action) {
+        return "REPLACE".equals(action) || "replace_with_new".equals(action);
+    }
+
+    private void skipLockedFile(UploadSessionFile file, String lockReason) throws IOException {
+        if (file.getTempFilePath() != null) {
+            Files.deleteIfExists(Paths.get(file.getTempFilePath()));
+        }
+        file.setStatus(UploadFileStatus.SKIPPED);
+        file.setErrorMessage(lockReason);
+        uploadSessionFileRepository.save(file);
+    }
+
+    private void resolveDbConflict(Page page, UploadSessionFile file, String action) throws IOException {
         Path tempFilePath = file.getTempFilePath() != null ? Paths.get(file.getTempFilePath()) : null;
 
         switch (action) {
@@ -142,16 +205,13 @@ public class UploadConflictService {
                     return;
                 }
 
-                // Find or create the page
-                Optional<Page> pageOpt = pageRepository.findByProjectIdAndName(projectId, file.getBaseName());
-                if (pageOpt.isEmpty()) {
+                if (page == null) {
                     log.warn("Page not found for conflict resolution: {}", file.getBaseName());
                     file.setStatus(UploadFileStatus.FAILED);
                     file.setErrorMessage("Page not found");
                     uploadSessionFileRepository.save(file);
                     return;
                 }
-                Page page = pageOpt.get();
                 List<String> replacedStoragePaths = new ArrayList<>();
 
                 if ("IMAGE_VARIANT_EXISTS".equals(file.getConflictType())) {
@@ -270,7 +330,8 @@ public class UploadConflictService {
             return;
         }
 
-        Runnable cleanup = () -> hierarchicalFileStorageService.deleteUnreferencedStoredFiles(paths);
+        Runnable cleanup = () -> cleanupTransaction.executeWithoutResult(
+                status -> hierarchicalFileStorageService.deleteUnreferencedStoredFiles(paths));
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
