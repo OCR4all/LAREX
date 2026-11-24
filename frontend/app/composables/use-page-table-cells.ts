@@ -2,12 +2,9 @@ import type { Ref } from 'vue'
 import type { TableSort } from '@/composables/use-table-filters'
 import type { Page } from '@/types/project-page'
 import UiColorTag from '@/components/ui/color-tag.vue'
+import { UBadge, UButton, UPopover } from '#components'
 
 export function usePageTableCells(sort: Ref<TableSort>) {
-  const UBadge = resolveComponent('UBadge')
-  const UButton = resolveComponent('UButton')
-  const UPopover = resolveComponent('UPopover')
-
   function toggleSort(column: string, initialDirection: TableSort['direction']) {
     if (sort.value.column === column) {
       sort.value.direction = sort.value.direction === 'asc' ? 'desc' : 'asc'
