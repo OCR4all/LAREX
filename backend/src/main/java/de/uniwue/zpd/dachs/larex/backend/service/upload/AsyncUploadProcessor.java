@@ -22,7 +22,6 @@ import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexSe
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.StorageTrackingService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
-import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import de.uniwue.zpd.dachs.larex.backend.service.upload.events.UploadPageIndexingRequestedEvent;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.OcrFormatToPageXml;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlCanonicalizationService;
@@ -76,7 +75,6 @@ public class AsyncUploadProcessor {
     private final LinkedDatasetItemSync linkedDatasetItemSync;
     private final PageWriteGuard pageWriteGuard;
     private final PageFileWriteService pageFileWriteService;
-    private final WorkspaceAccessService workspaceAccessService;
 
     public AsyncUploadProcessor(UploadSessionRepository sessionRepository,
                                 UploadSessionFileRepository fileRepository,
@@ -96,8 +94,7 @@ public class AsyncUploadProcessor {
                                 UploadProperties uploadProperties,
                                 LinkedDatasetItemSync linkedDatasetItemSync,
                                 PageWriteGuard pageWriteGuard,
-                                PageFileWriteService pageFileWriteService,
-                                WorkspaceAccessService workspaceAccessService) {
+                                PageFileWriteService pageFileWriteService) {
         this.sessionRepository = sessionRepository;
         this.fileRepository = fileRepository;
         this.projectRepository = projectRepository;
@@ -117,7 +114,6 @@ public class AsyncUploadProcessor {
         this.linkedDatasetItemSync = linkedDatasetItemSync;
         this.pageWriteGuard = pageWriteGuard;
         this.pageFileWriteService = pageFileWriteService;
-        this.workspaceAccessService = workspaceAccessService;
     }
 
     public void processUploadSession(String sessionId) {
@@ -284,7 +280,7 @@ public class AsyncUploadProcessor {
                     }
                     emitSessionState(sessionId, "processing-file");
                 }
-                boolean processed = processFileGroup(sessionId, project, session.getWorkspaceId(), baseName, groupFiles, session.getUserId(), pagesByName, existingPageNames, pagesNeedingIndex);
+                boolean processed = processFileGroup(sessionId, project, session.getWorkspaceId(), baseName, groupFiles, session.getUserId(), session.isCanReviewPages(), pagesByName, existingPageNames, pagesNeedingIndex);
                 if (!processed || stopProcessingIfCancelled(sessionId, session)) {
                     return;
                 }
@@ -352,6 +348,7 @@ public class AsyncUploadProcessor {
                                      String baseName,
                                      List<UploadSessionFile> files,
                                      String createdByUserId,
+                                     boolean canReviewPages,
                                      Map<String, Page> pagesByName,
                                      Set<String> existingPageNames,
                                      Set<String> pagesNeedingIndex) throws IOException {
@@ -408,7 +405,6 @@ public class AsyncUploadProcessor {
         }
 
         Page targetPage = page;
-        boolean canReviewPages = workspaceAccessService.canReviewPages(workspaceId, createdByUserId);
         for (UploadSessionFile sessionFile : acceptedFiles) {
             if (isSessionCancelled(sessionId)) {
                 return false;

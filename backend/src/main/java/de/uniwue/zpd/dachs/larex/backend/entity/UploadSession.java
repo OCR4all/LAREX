@@ -61,6 +61,9 @@ public class UploadSession {
     @Column(nullable = false, name = "quota_reservation_released")
     private boolean quotaReservationReleased = false;
 
+    @Column(nullable = false, updatable = false, name = "can_review_pages")
+    private boolean canReviewPages = false;
+
     @Column(name = "pdf_render_dpi")
     private Integer pdfRenderDpi;
 
@@ -235,6 +238,14 @@ public class UploadSession {
 
     public void setQuotaReservationReleased(boolean quotaReservationReleased) {
         this.quotaReservationReleased = quotaReservationReleased;
+    }
+
+    public boolean isCanReviewPages() {
+        return canReviewPages;
+    }
+
+    public void setCanReviewPages(boolean canReviewPages) {
+        this.canReviewPages = canReviewPages;
     }
 
     public Integer getPdfRenderDpi() {

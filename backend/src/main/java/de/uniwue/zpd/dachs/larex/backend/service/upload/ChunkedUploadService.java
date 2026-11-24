@@ -139,6 +139,7 @@ public class ChunkedUploadService {
             );
             session.setReservedBytes(reservedBytes);
             session.setQuotaReservationReleased(false);
+            session.setCanReviewPages(workspaceAccessService.canReviewPages(workspaceId, userId));
 
             session = sessionRepository.save(session);
 

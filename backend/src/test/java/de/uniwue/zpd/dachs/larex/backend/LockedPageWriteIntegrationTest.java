@@ -403,6 +403,7 @@ class LockedPageWriteIntegrationTest {
     private UploadSession session(UploadSession.UploadSessionStatus status, int files) {
         UploadSession session = new UploadSession(project.getId(), workspace, USER, files, files);
         session.setStatus(status);
+        session.setCanReviewPages(access.canReviewPages(workspace, USER));
         return sessions.save(session);
     }
 
