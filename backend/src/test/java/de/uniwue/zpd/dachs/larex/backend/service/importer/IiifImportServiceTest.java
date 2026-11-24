@@ -480,6 +480,7 @@ class IiifImportServiceTest {
                 """.getBytes(StandardCharsets.UTF_8)
         );
 
+        when(workspaceAccessService.canReviewPages(WORKSPACE_ID, USER_ID)).thenReturn(true);
         IiifImportDto.PreviewResponse preview = service.previewFromManifestFile(WORKSPACE_ID, PROJECT_ID, USER_ID, file);
 
         service.startImportJob(
@@ -498,6 +499,7 @@ class IiifImportServiceTest {
         assertEquals("REPLACE", payloads.get(0).action());
         assertEquals("page-1", payloads.get(0).targetPageId());
         assertNull(payloads.get(0).sortOrder());
+        assertTrue(payloads.get(0).canReviewPages());
         assertEquals("IMPORT", payloads.get(1).action());
         assertEquals(1000, payloads.get(1).sortOrder());
     }
@@ -591,8 +593,8 @@ class IiifImportServiceTest {
         )));
         sourceJob.setWarningsJson("[]");
         sourceJob.setCanvasPayloadJson(new ObjectMapper().writeValueAsString(List.of(
-                new IiifJobCanvasPayload("canvas-1", "Canvas 1", 1, null, "Page 1", "Page 1", "desc", "IMPORT", "https://example.org/images/1.jpg", UNKNOWN_IMAGE_SIZE_ESTIMATE_BYTES, null, "canvas-1", "{}", null, null, null, null),
-                new IiifJobCanvasPayload("canvas-2", "Canvas 2", 2, null, "Page 2", "Page 2", "desc", "IMPORT", "https://example.org/images/2.jpg", UNKNOWN_IMAGE_SIZE_ESTIMATE_BYTES, null, "canvas-2", "{}", null, null, null, null)
+                new IiifJobCanvasPayload("canvas-1", "Canvas 1", 1, null, "Page 1", "Page 1", "desc", "IMPORT", "https://example.org/images/1.jpg", UNKNOWN_IMAGE_SIZE_ESTIMATE_BYTES, null, "canvas-1", "{}", null, null, null, null, true),
+                new IiifJobCanvasPayload("canvas-2", "Canvas 2", 2, null, "Page 2", "Page 2", "desc", "IMPORT", "https://example.org/images/2.jpg", UNKNOWN_IMAGE_SIZE_ESTIMATE_BYTES, null, "canvas-2", "{}", null, null, null, null, true)
         )));
         sourceJob.setResultsJson(null);
         when(iiifImportJobItemRepository.findByJobIdOrderByCanvasIndexAsc("job-source"))
@@ -629,6 +631,7 @@ class IiifImportServiceTest {
         List<IiifJobCanvasPayload> payloads = service.readJobPayloads(savedJob.get());
         assertEquals(1, payloads.size());
         assertEquals("canvas-1", payloads.get(0).canvasId());
+        assertFalse(payloads.get(0).canReviewPages());
     }
 
     @Test

@@ -31,19 +31,26 @@ public class PageFileWriteService {
     }
 
     public Optional<String> writeUnlessLocked(String pageId, boolean canReviewPages, PageFileWrite write) throws IOException {
+        return inTransaction(changes -> {
+            Optional<String> lockReason = Optional.ofNullable(
+                    pageWriteGuard.lockPages(List.of(pageId), canReviewPages).get(pageId));
+            if (lockReason.isEmpty()) {
+                write.apply(changes);
+            }
+            return lockReason;
+        });
+    }
+
+    public <T> T inTransaction(FileTransaction<T> transaction) throws IOException {
         FileChanges changes = new FileChanges();
-        String lockReason;
+        T result;
         try {
-            lockReason = transactionTemplate.execute(status -> {
-                String reason = pageWriteGuard.lockPages(List.of(pageId), canReviewPages).get(pageId);
-                if (reason == null) {
-                    try {
-                        write.apply(changes);
-                    } catch (IOException e) {
-                        throw new UncheckedIOException(e);
-                    }
+            result = transactionTemplate.execute(status -> {
+                try {
+                    return transaction.apply(changes);
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
                 }
-                return reason;
             });
         } catch (UncheckedIOException e) {
             deleteFiles(changes.stored);
@@ -53,7 +60,7 @@ public class PageFileWriteService {
             throw e;
         }
         deleteFiles(changes.replaced);
-        return Optional.ofNullable(lockReason);
+        return result;
     }
 
     private void deleteFiles(List<String> storagePaths) {
@@ -72,12 +79,19 @@ public class PageFileWriteService {
         void apply(FileChanges changes) throws IOException;
     }
 
+    @FunctionalInterface
+    public interface FileTransaction<T> {
+        T apply(FileChanges changes) throws IOException;
+    }
+
     public static final class FileChanges {
         private final List<String> stored = new ArrayList<>();
         private final List<String> replaced = new ArrayList<>();
 
         public void stored(String storagePath) {
-            stored.add(storagePath);
+            if (storagePath != null) {
+                stored.add(storagePath);
+            }
         }
 
         public void replaced(String storagePath) {

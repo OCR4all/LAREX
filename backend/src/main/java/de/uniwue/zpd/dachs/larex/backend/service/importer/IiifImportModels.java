@@ -53,5 +53,29 @@ record IiifJobCanvasPayload(
         String thumbnailUrl,
         String sourceManifestId,
         String sourceManifestLabel,
-        String sourceManifestUrl
-) {}
+        String sourceManifestUrl,
+        Boolean canReviewPages
+) {
+    IiifJobCanvasPayload withCanReviewPages(boolean canReviewPages) {
+        return new IiifJobCanvasPayload(
+                canvasId,
+                canvasLabel,
+                index,
+                sortOrder,
+                requestedPageName,
+                finalPageName,
+                pageDescription,
+                action,
+                imageUrl,
+                estimatedBytes,
+                targetPageId,
+                externalSourceUrl,
+                externalSourceMetadataJson,
+                thumbnailUrl,
+                sourceManifestId,
+                sourceManifestLabel,
+                sourceManifestUrl,
+                canReviewPages
+        );
+    }
+}

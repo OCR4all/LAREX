@@ -172,16 +172,19 @@ const jobOutcomeTitle = computed(() => {
 })
 const jobOutcomeDescription = computed(() => {
   if (!job.value) return undefined
-  if (job.value.errorMessage?.trim()) return job.value.errorMessage
+  const errorMessage = job.value.errorMessage?.trim()
+  if (errorMessage && job.value.status === 'FAILED') return errorMessage
 
   const failedResults = job.value.results.filter(result => result.status === 'FAILED' && result.message.trim())
   if (failedResults.length > 0) {
     const firstMessage = failedResults[0]?.message.trim()
-    if (failedResults.length === 1) {
-      return firstMessage
-    }
-    return `${failedResults.length} canvases failed. First error: ${firstMessage}`
+    const failure = failedResults.length === 1
+      ? firstMessage
+      : `${failedResults.length} canvases failed. First error: ${firstMessage}`
+    return [failure, errorMessage].filter(Boolean).join(' ')
   }
+
+  if (errorMessage) return errorMessage
 
   if (job.value.status === 'CANCELLED' && hasSuccessfulImports.value) {
     return `Imported ${job.value.processedCanvases} ${job.value.processedCanvases === 1 ? 'page' : 'pages'} before cancellation.`

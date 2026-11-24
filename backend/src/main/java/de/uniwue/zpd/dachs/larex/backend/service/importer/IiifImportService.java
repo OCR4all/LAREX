@@ -503,6 +503,10 @@ public class IiifImportService {
             throw new IllegalArgumentException("No IIIF canvases are selected for import.");
         }
 
+        boolean canReviewPages = workspaceAccessService.canReviewPages(workspaceId, userId);
+        List<IiifJobCanvasPayload> jobPayloads = payloads.stream()
+                .map(payload -> payload.withCanReviewPages(canReviewPages))
+                .toList();
         long estimatedBytes = payloads.stream()
                 .filter(payload -> !"KEEP_EXISTING".equals(payload.action()))
                 .mapToLong(payload -> payload.estimatedBytes() == null ? UNKNOWN_IMAGE_SIZE_ESTIMATE_BYTES : payload.estimatedBytes())
@@ -522,7 +526,7 @@ public class IiifImportService {
             job.setReservedBytes(reservedBytes);
             job.setManifestSummaryJson(manifest == null ? null : writeJson(manifest));
             job.setWarningsJson(writeJson(warnings == null ? List.of() : warnings));
-            job.setCanvasPayloadJson(writeJson(payloads));
+            job.setCanvasPayloadJson(writeJson(jobPayloads));
             job.setResultsJson(null);
             job.appendToLog(logMessage);
             job = iiifImportJobRepository.save(job);
@@ -649,7 +653,8 @@ public class IiifImportService {
                             canvas.thumbnailUrl(),
                             canvas.sourceManifestId(),
                             canvas.sourceManifestLabel(),
-                            canvas.sourceManifestUrl()
+                            canvas.sourceManifestUrl(),
+                            null
                     ));
                     case "REPLACE" -> payloads.add(new IiifJobCanvasPayload(
                             canvas.canvasId(),
@@ -668,7 +673,8 @@ public class IiifImportService {
                             canvas.thumbnailUrl(),
                             canvas.sourceManifestId(),
                             canvas.sourceManifestLabel(),
-                            canvas.sourceManifestUrl()
+                            canvas.sourceManifestUrl(),
+                            null
                     ));
                     case "RENAME" -> {
                         String renamedPageName = normalizePageNameInput(resolution.pageName());
@@ -694,7 +700,8 @@ public class IiifImportService {
                                 canvas.thumbnailUrl(),
                                 canvas.sourceManifestId(),
                                 canvas.sourceManifestLabel(),
-                                canvas.sourceManifestUrl()
+                                canvas.sourceManifestUrl(),
+                                null
                         ));
                     }
                     default -> throw new IllegalArgumentException("Unsupported IIIF resolution action: " + resolution.action());
@@ -724,7 +731,8 @@ public class IiifImportService {
                     canvas.thumbnailUrl(),
                     canvas.sourceManifestId(),
                     canvas.sourceManifestLabel(),
-                    canvas.sourceManifestUrl()
+                    canvas.sourceManifestUrl(),
+                    null
             ));
         }
 

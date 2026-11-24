@@ -8,6 +8,8 @@ import de.uniwue.zpd.dachs.larex.backend.repository.importing.IiifImportJobRepos
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageImageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
+import de.uniwue.zpd.dachs.larex.backend.service.page.PageFileWriteService;
+import de.uniwue.zpd.dachs.larex.backend.service.page.PageWriteGuard;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.ThumbnailService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
@@ -77,6 +79,8 @@ class AsyncIiifImportProcessorTest {
                 imageDownloader,
                 new IiifProperties(),
                 mock(JobRealtimePublisher.class),
+                mock(PageWriteGuard.class),
+                new PageFileWriteService(mock(PageWriteGuard.class), mock(HierarchicalFileStorageService.class), transactionManager),
                 transactionManager,
                 Clock.fixed(Instant.parse("2026-07-09T10:00:00Z"), ZoneOffset.UTC)
         );
@@ -139,6 +143,8 @@ class AsyncIiifImportProcessorTest {
                 imageDownloader,
                 new IiifProperties(),
                 mock(JobRealtimePublisher.class),
+                mock(PageWriteGuard.class),
+                new PageFileWriteService(mock(PageWriteGuard.class), mock(HierarchicalFileStorageService.class), transactionManager),
                 transactionManager,
                 Clock.fixed(Instant.parse("2026-07-09T10:00:00Z"), ZoneOffset.UTC)
         );
@@ -210,6 +216,8 @@ class AsyncIiifImportProcessorTest {
                 imageDownloader,
                 properties,
                 mock(JobRealtimePublisher.class),
+                mock(PageWriteGuard.class),
+                new PageFileWriteService(mock(PageWriteGuard.class), mock(HierarchicalFileStorageService.class), transactionManager),
                 transactionManager,
                 Clock.fixed(Instant.parse("2026-07-09T10:00:00Z"), ZoneOffset.UTC)
         );
@@ -264,6 +272,7 @@ class AsyncIiifImportProcessorTest {
                 null,
                 "https://iiif.example/manifest",
                 "{}",
+                null,
                 null,
                 null,
                 null,

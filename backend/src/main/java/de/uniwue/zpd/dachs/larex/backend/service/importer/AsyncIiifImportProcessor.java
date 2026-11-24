@@ -13,6 +13,8 @@ import de.uniwue.zpd.dachs.larex.backend.repository.importing.IiifImportJobRepos
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageImageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
+import de.uniwue.zpd.dachs.larex.backend.service.page.PageFileWriteService;
+import de.uniwue.zpd.dachs.larex.backend.service.page.PageWriteGuard;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.ThumbnailService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
@@ -54,6 +56,8 @@ public class AsyncIiifImportProcessor {
     private final Clock clock;
     private final TransactionTemplate transactionTemplate;
     private final JobRealtimePublisher jobRealtimePublisher;
+    private final PageWriteGuard pageWriteGuard;
+    private final PageFileWriteService pageFileWriteService;
 
     @Autowired
     public AsyncIiifImportProcessor(IiifImportJobRepository iiifImportJobRepository,
@@ -68,6 +72,8 @@ public class AsyncIiifImportProcessor {
                                     IiifImageDownloader imageDownloader,
                                     IiifProperties properties,
                                     JobRealtimePublisher jobRealtimePublisher,
+                                    PageWriteGuard pageWriteGuard,
+                                    PageFileWriteService pageFileWriteService,
                                     PlatformTransactionManager transactionManager) {
         this(
                 iiifImportJobRepository,
@@ -82,6 +88,8 @@ public class AsyncIiifImportProcessor {
                 imageDownloader,
                 properties,
                 jobRealtimePublisher,
+                pageWriteGuard,
+                pageFileWriteService,
                 transactionManager,
                 Clock.systemDefaultZone()
         );
@@ -99,6 +107,8 @@ public class AsyncIiifImportProcessor {
                              IiifImageDownloader imageDownloader,
                              IiifProperties properties,
                              JobRealtimePublisher jobRealtimePublisher,
+                             PageWriteGuard pageWriteGuard,
+                             PageFileWriteService pageFileWriteService,
                              PlatformTransactionManager transactionManager,
                              Clock clock) {
         this.iiifImportJobRepository = iiifImportJobRepository;
@@ -113,6 +123,8 @@ public class AsyncIiifImportProcessor {
         this.imageDownloader = imageDownloader;
         this.properties = properties;
         this.jobRealtimePublisher = jobRealtimePublisher;
+        this.pageWriteGuard = pageWriteGuard;
+        this.pageFileWriteService = pageFileWriteService;
         this.clock = clock;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
@@ -167,6 +179,10 @@ public class AsyncIiifImportProcessor {
             currentJob.setCompletedAt(LocalDateTime.now(clock));
             currentJob.clearLease();
             currentJob.appendToLog("IIIF import completed");
+            List<String> lockReasons = lockReasons(jobId);
+            if (!lockReasons.isEmpty()) {
+                currentJob.setErrorMessage("Skipped images of locked pages: " + PageWriteGuard.summarize(lockReasons));
+            }
             return iiifImportJobRepository.save(currentJob);
         });
         if (completedJob != null) {
@@ -177,7 +193,7 @@ public class AsyncIiifImportProcessor {
 
     private void processPayload(String jobId, String workerId, IiifJobCanvasPayload payload) {
         if ("KEEP_EXISTING".equals(payload.action())) {
-            persistResult(jobId, workerId, skippedResult(payload), null);
+            persistResult(jobId, workerId, skippedResult(payload, "Skipped because existing page was kept."), null);
             return;
         }
 
@@ -206,47 +222,58 @@ public class AsyncIiifImportProcessor {
         }
 
         try (downloadedImage) {
-            transactionTemplate.executeWithoutResult(status -> {
-                IiifImportJob job = requireOwnedJob(jobId, workerId);
-                if (hasResult(jobId, payload.index())) {
-                    return;
-                }
-                try {
-                    ensureActualBytesReserved(job, downloadedImage.sizeBytes());
-                    Project project = projectRepository.findById(job.getProjectId())
-                            .orElseThrow(() -> new IllegalStateException("Project not found: " + job.getProjectId()));
-                    persistResult(
-                            job,
-                            importDownloadedCanvas(
-                                    project,
-                                    payload,
-                                    job.getCreatedByUserId(),
-                                    downloadedImage
-                            ),
-                            downloadedImage.sizeBytes()
-                    );
-                } catch (LeaseLostException | JobCancelledException e) {
-                    throw e;
-                } catch (Exception e) {
-                    throw new CanvasPersistenceException(e);
-                }
+            pageFileWriteService.inTransaction(changes -> {
+                persistDownloadedCanvas(jobId, workerId, payload, downloadedImage, changes);
+                return null;
             });
         } catch (LeaseLostException | JobCancelledException e) {
             throw e;
         } catch (Exception e) {
-            Throwable cause = e instanceof CanvasPersistenceException && e.getCause() != null ? e.getCause() : e;
-            log.warn("Failed to import IIIF canvas {} for job {}: {}", payload.canvasId(), jobId, cause.getMessage());
-            persistResult(jobId, workerId, failedResult(payload, errorMessage(cause)), null);
+            log.warn("Failed to import IIIF canvas {} for job {}: {}", payload.canvasId(), jobId, e.getMessage());
+            persistResult(jobId, workerId, failedResult(payload, errorMessage(e)), null);
         }
+    }
+
+    private void persistDownloadedCanvas(String jobId,
+                                         String workerId,
+                                         IiifJobCanvasPayload payload,
+                                         IiifImageDownloader.DownloadedImage downloadedImage,
+                                         PageFileWriteService.FileChanges changes) throws IOException {
+        String lockReason = lockTargetPage(payload);
+        IiifImportJob job = requireOwnedJob(jobId, workerId);
+        if (hasResult(jobId, payload.index())) {
+            return;
+        }
+        if (lockReason != null) {
+            persistResult(job, skippedResult(payload, lockReason), null);
+            return;
+        }
+        ensureActualBytesReserved(job, downloadedImage.sizeBytes());
+        Project project = projectRepository.findById(job.getProjectId())
+                .orElseThrow(() -> new IllegalStateException("Project not found: " + job.getProjectId()));
+        persistResult(
+                job,
+                importDownloadedCanvas(project, payload, job.getCreatedByUserId(), downloadedImage, changes),
+                downloadedImage.sizeBytes()
+        );
+    }
+
+    private String lockTargetPage(IiifJobCanvasPayload payload) {
+        if (!"REPLACE".equals(payload.action())) {
+            return null;
+        }
+        return pageWriteGuard.lockPages(List.of(payload.targetPageId()), Boolean.TRUE.equals(payload.canReviewPages()))
+                .get(payload.targetPageId());
     }
 
     private IiifImportDto.ItemResult importDownloadedCanvas(Project project,
                                                             IiifJobCanvasPayload payload,
                                                             String createdByUserId,
-                                                            IiifImageDownloader.DownloadedImage downloadedImage)
+                                                            IiifImageDownloader.DownloadedImage downloadedImage,
+                                                            PageFileWriteService.FileChanges changes)
             throws IOException {
         Page page = resolvePage(project, payload);
-        replaceExistingIiifImages(page);
+        replaceExistingIiifImages(page, changes);
 
         String originalFileName = buildOriginalFileName(payload.finalPageName(), downloadedImage.extension());
         var storedImage = hierarchicalFileStorageService.storeFromPath(
@@ -259,6 +286,7 @@ public class AsyncIiifImportProcessor {
                 createdByUserId,
                 false
         );
+        changes.stored(storedImage.storagePath());
 
         PageImage pageImage = new PageImage(
                 storedImage.originalFilename(),
@@ -274,6 +302,7 @@ public class AsyncIiifImportProcessor {
         pageImage = pageImageRepository.save(pageImage);
 
         String thumbnailPath = thumbnailService.generateThumbnail(storedImage.storagePath());
+        changes.stored(thumbnailPath);
         if (thumbnailPath != null) {
             pageImage.setThumbnailPath(thumbnailPath);
             pageImageRepository.save(pageImage);
@@ -358,7 +387,7 @@ public class AsyncIiifImportProcessor {
         job.setReservedBytes(saturatedAdd(job.getReservedBytes(), reserved));
     }
 
-    private IiifImportDto.ItemResult skippedResult(IiifJobCanvasPayload payload) {
+    private IiifImportDto.ItemResult skippedResult(IiifJobCanvasPayload payload, String message) {
         return new IiifImportDto.ItemResult(
                 payload.canvasId(),
                 payload.canvasLabel(),
@@ -368,7 +397,7 @@ public class AsyncIiifImportProcessor {
                 payload.action(),
                 "SKIPPED",
                 payload.targetPageId(),
-                "Skipped because existing page was kept."
+                message
         );
     }
 
@@ -403,16 +432,14 @@ public class AsyncIiifImportProcessor {
         return pageRepository.save(page);
     }
 
-    private void replaceExistingIiifImages(Page page) {
+    private void replaceExistingIiifImages(Page page, PageFileWriteService.FileChanges changes) {
         List<PageImage> existingImages = pageImageRepository.findByPageIdAndVariant(
                 page.getId(),
                 IiifImportService.IIIF_IMAGE_VARIANT
         );
         for (PageImage existingImage : existingImages) {
-            hierarchicalFileStorageService.deleteStoredFile(existingImage.getFilePath());
-            if (existingImage.getThumbnailPath() != null) {
-                hierarchicalFileStorageService.deleteStoredFile(existingImage.getThumbnailPath());
-            }
+            changes.replaced(existingImage.getFilePath());
+            changes.replaced(existingImage.getThumbnailPath());
             pageImageRepository.delete(existingImage);
         }
     }
@@ -466,6 +493,14 @@ public class AsyncIiifImportProcessor {
 
     private boolean hasResult(String jobId, int canvasIndex) {
         return iiifImportJobItemRepository.existsByJobIdAndCanvasIndex(jobId, canvasIndex);
+    }
+
+    private List<String> lockReasons(String jobId) {
+        return iiifImportJobItemRepository.findByJobIdOrderByCanvasIndexAsc(jobId).stream()
+                .map(IiifImportJobItem::toResult)
+                .filter(result -> "REPLACE".equals(result.action()) && "SKIPPED".equals(result.status()))
+                .map(IiifImportDto.ItemResult::message)
+                .toList();
     }
 
     private List<IiifJobCanvasPayload> readPayloads(String json) {
@@ -567,12 +602,6 @@ public class AsyncIiifImportProcessor {
     private static final class LeaseLostException extends RuntimeException {}
 
     private static final class JobCancelledException extends RuntimeException {}
-
-    private static final class CanvasPersistenceException extends RuntimeException {
-        private CanvasPersistenceException(Throwable cause) {
-            super(cause);
-        }
-    }
 
     private record DownloadBudget(long maxBytes, boolean quotaLimited) {}
 }
