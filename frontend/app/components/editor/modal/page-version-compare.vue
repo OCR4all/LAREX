@@ -408,7 +408,8 @@ function close() {
     title="Compare PAGE Versions"
     :dismissible="!restoring"
     :ui="{
-      content: 'sm:max-w-[min(98vw,120rem)]',
+      overlay: 'z-[55]',
+      content: 'z-[55] sm:max-w-[min(98vw,120rem)]',
       body: 'p-0 sm:p-0'
     }"
     @close="close"
