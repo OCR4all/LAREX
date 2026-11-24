@@ -76,6 +76,7 @@ export default defineNuxtConfig({
     },
     optimizeDeps: {
       include: [
+        '@codemirror/commands',
         '@codemirror/lang-xml',
         '@codemirror/lang-yaml',
         '@codemirror/language',
@@ -87,8 +88,12 @@ export default defineNuxtConfig({
         '@lezer/highlight',
         '@lucasmarkes/hairline',
         '@maxnth/gestalt',
+        '@prettier/plugin-xml',
         '@tanstack/vue-virtual',
         '@vue/devtools-core',
+        '@vue-flow/background',
+        '@vue-flow/controls',
+        '@vue-flow/core',
         '@vueuse/integrations/useSortable',
         'codemirror',
         'd3-polygon',
@@ -102,6 +107,7 @@ export default defineNuxtConfig({
         'jsts/org/locationtech/jts/operation/valid/IsValidOp.js',
         'jsts/org/locationtech/jts/simplify/TopologyPreservingSimplifier.js',
         'martinez-polygon-clipping',
+        'prettier/standalone',
         'rbush',
         'reka-ui',
         'vue-draggable-plus',
