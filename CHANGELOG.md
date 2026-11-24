@@ -2,6 +2,53 @@
 
 <!-- version list -->
 
+## v1.3.0 (2026-11-24)
+
+### Bug Fixes
+
+- **backend**: Keep files of locked pages unchanged in uploads, server imports and normalization
+  ([`ff36a99`](https://github.com/OCR4all/LAREX/commit/ff36a9942914678f74db73569d71a1160ec7b4e5))
+
+- **backend**: Keep IIIF images of locked pages unchanged in IIIF imports
+  ([`dd3b51f`](https://github.com/OCR4all/LAREX/commit/dd3b51fc6bb110c4313fbdee13c14810a0d39c6c))
+
+- **backend**: Keep the review permission of global admins in upload workers
+  ([`ce446a8`](https://github.com/OCR4all/LAREX/commit/ce446a873a07d4cb978c0d71199ed9d561616716))
+
+- **backend**: Require workspace and project access for upload conflicts
+  ([`88aafbc`](https://github.com/OCR4all/LAREX/commit/88aafbc03a6f20c03da203b5090f1f2fe6772636))
+
+- **editor**: Show the restore confirmation above the version comparison
+  ([`4941309`](https://github.com/OCR4all/LAREX/commit/49413090757f66c37a0e5451edd9f9d66a5605e9))
+
+- **frontend**: Import table cell components so page sort buttons render
+  ([`237f7d6`](https://github.com/OCR4all/LAREX/commit/237f7d6eba473cd6d6d17fde2e7d79980e4d3b72))
+
+- **import**: Cover more Transkribus PAGE XML deviations
+  ([`0c878d4`](https://github.com/OCR4all/LAREX/commit/0c878d46ab7f2af0b0647ecc8052d12ee95a7986))
+
+### Build System
+
+- **frontend**: Pre-bundle codemirror commands, vue-flow and prettier
+  ([`717a1ba`](https://github.com/OCR4all/LAREX/commit/717a1ba7434ececd3ea260bd3e453b869d386696))
+
+### Documentation
+
+- Correct outdated instructions and remove stale content
+  ([`65a7e03`](https://github.com/OCR4all/LAREX/commit/65a7e039a031153fe638221bce9886d9f65f56fc))
+
+- **actions**: Describe the download retry window of the SDK
+  ([`ba527f0`](https://github.com/OCR4all/LAREX/commit/ba527f0403326dcd2375359db94c0e5d9a43c52c))
+
+- **actions**: List available official and community Actions
+  ([`a10144d`](https://github.com/OCR4all/LAREX/commit/a10144dd4884b681c5d88427c6fa4efe53ecc71c))
+
+### Features
+
+- **editor**: Add export, dataset and copy actions for the active page
+  ([`c207d2d`](https://github.com/OCR4all/LAREX/commit/c207d2d2fec93a6fc8146c818c700a9303dcd2fb))
+
+
 ## v1.2.0 (2026-11-23)
 
 ### Chores
