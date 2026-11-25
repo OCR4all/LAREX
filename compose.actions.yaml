@@ -37,7 +37,7 @@ services:
     profiles:
       - actions
       - action-kraken
-    image: ${LAREX_ACTION_KRAKEN_IMAGE:-ghcr.io/ocr4all/larex-action-kraken:${LAREX_ACTION_KRAKEN_IMAGE_TAG:-0.6.0}}
+    image: ${LAREX_ACTION_KRAKEN_IMAGE:-ghcr.io/ocr4all/larex-action-kraken:${LAREX_ACTION_KRAKEN_IMAGE_TAG:-0.7.0}}
     environment:
       LAREX_DISPATCH_HMAC_SECRET: ${LAREX_ACTION_ENDPOINT_SECRET_KRAKEN_SEGMENTATION_V1:?Run scripts/operations/bootstrap-env-secrets.sh actions first}
       LAREX_PROCESSOR_ID: kraken-segmentation
@@ -84,7 +84,7 @@ services:
     profiles:
       - actions
       - action-kraken
-    image: ${LAREX_ACTION_KRAKEN_IMAGE:-ghcr.io/ocr4all/larex-action-kraken:${LAREX_ACTION_KRAKEN_IMAGE_TAG:-0.6.0}}
+    image: ${LAREX_ACTION_KRAKEN_IMAGE:-ghcr.io/ocr4all/larex-action-kraken:${LAREX_ACTION_KRAKEN_IMAGE_TAG:-0.7.0}}
     command: ["uvicorn", "larex_action_kraken.training:app", "--host", "0.0.0.0", "--port", "9000"]
     environment:
       LAREX_DISPATCH_HMAC_SECRET: ${LAREX_ACTION_ENDPOINT_SECRET_KRAKEN_LAYOUT_TRAINING_V1:?Run scripts/operations/bootstrap-env-secrets.sh actions first}
