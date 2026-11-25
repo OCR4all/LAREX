@@ -1,12 +1,11 @@
-import type { Commander } from '@/commands'
+import { type Commander, ConstrainToParentCommand, DeletePolygonCommand, DeletePolylineCommand, DeleteSelectedElementsCommand, ChangeRegionLabelCommand, ChangeRegionKindCommand, DuplicateElementCommand, SimplifyPolygonCommand, BufferPolygonCommand, FitToBoundingBoxCommand, ConvexHullCommand, createReparentCommand, UpdateReadingOrderCommand, CompoundCommand, CreateTableGridCommand, BuildTableFromRegionsCommand, AssignTextLinesToCellsCommand, TableStructureCommand, CreateGridFromCellsCommand, RepairTableCommand, type ReparentMove } from '@/commands'
 import type { CommandContext } from '@/commands/editor/types'
-import { ConstrainToParentCommand, DeletePolygonCommand, DeletePolylineCommand, DeleteSelectedElementsCommand, ChangeRegionLabelCommand, ChangeRegionKindCommand, DuplicateElementCommand, SimplifyPolygonCommand, BufferPolygonCommand, FitToBoundingBoxCommand, ConvexHullCommand, ReparentElementCommand, UpdateReadingOrderCommand, CompoundCommand, CreateTableGridCommand, BuildTableFromRegionsCommand, AssignTextLinesToCellsCommand, TableStructureCommand, CreateGridFromCellsCommand, RepairTableCommand } from '@/commands'
 import { MergeElementsCommand } from '@/commands/editor/merge-elements-command'
 import { getEditorSession } from '@/session/editor/editor-session'
 import type { RenderablePolygon, RenderablePolyline } from '@/types/editor/rendering'
 import type { ActionTargetSelection } from '@/types/action'
 import type { ReadingOrder, ReadingOrderNode, ReadingOrderGroup, Region, RegionRef, RegionKind, TextContentVariantData } from '@/models/editor'
-import { ALL_REGION_KINDS, ALL_TEXT_REGION_SUBTYPES, ALL_GRAPHIC_REGION_SUBTYPES, ALL_CHART_REGION_SUBTYPES, canContainTextLines, isTextRegion, PolygonType } from '@/models/editor'
+import { ALL_REGION_KINDS, ALL_TEXT_REGION_SUBTYPES, ALL_GRAPHIC_REGION_SUBTYPES, ALL_CHART_REGION_SUBTYPES, isTextRegion, PolygonType } from '@/models/editor'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import type { LabelDefinition } from '@/models/editor/labels'
 import { getRegionKindDisplayName, getRegionKindIcon } from '@/utils/editor/region-colors'
@@ -24,6 +23,7 @@ import { isRepairableTableIssue, validateTable } from '@/utils/editor/table/tabl
 import { tableToCsv, tableToHtml, type TableExportFormat } from '@/utils/editor/table/table-export'
 import { resolveFullTextLineValue } from '@/components/editor/text/shared/full-text-lines'
 import { isPageFrameType } from '@/utils/editor/page-frame'
+import { createReparentRules, type ReparentRules } from '@/utils/editor/reparent-rules'
 
 const log = createScopedLogger('EditorCommand')
 
@@ -41,11 +41,11 @@ const POLYGON_CHILD_DESCRIPTIONS: Record<PolygonElementType, string> = {
   glyph: 'children'
 }
 
-/** Which parent type a textline, word or glyph can be moved to via "Move to ...". */
-const REPARENT_TARGETS: Record<string, { parentType: string, childLabel: string, parentLabel: string } | undefined> = {
-  [PolygonType.TEXTLINE]: { parentType: PolygonType.REGION, childLabel: 'Text Line', parentLabel: 'Region' },
-  [PolygonType.WORD]: { parentType: PolygonType.TEXTLINE, childLabel: 'Word', parentLabel: 'Text Line' },
-  [PolygonType.GLYPH]: { parentType: PolygonType.WORD, childLabel: 'Glyph', parentLabel: 'Word' }
+const REPARENT_LABELS: Record<string, { childLabel: string, parentLabel: string } | undefined> = {
+  [PolygonType.REGION]: { childLabel: 'Region', parentLabel: 'Region' },
+  [PolygonType.TEXTLINE]: { childLabel: 'Text Line', parentLabel: 'Region' },
+  [PolygonType.WORD]: { childLabel: 'Word', parentLabel: 'Text Line' },
+  [PolygonType.GLYPH]: { childLabel: 'Glyph', parentLabel: 'Word' }
 }
 
 const REPARENT_PARENT_ICONS: Record<string, string | undefined> = {
@@ -597,16 +597,6 @@ export function useEditorCommand(
     }), commandCtx)
   }
 
-  /**
-   * Whether a polygon can become the new parent of an element of the given type.
-   */
-  function isValidReparentTarget(parent: RenderablePolygon, childType: string | undefined): boolean {
-    const target = REPARENT_TARGETS[childType ?? '']
-    if (!target || parent.type !== target.parentType) return false
-    if (parent.type !== PolygonType.REGION) return true
-    return !!parent.regionKind && canContainTextLines(parent.regionKind)
-  }
-
   function toReparentMenuItem(p: RenderablePolygon): ContextMenuItem {
     return {
       id: `reparent-to-${p.id}`,
@@ -615,30 +605,127 @@ export function useEditorCommand(
     }
   }
 
-  /**
-   * Build submenu for reparenting a textline, word or glyph to a different parent
-   */
-  function buildReparentSubmenu(elementId: string, elementType: string | undefined, currentParentId?: string): ContextMenuItem[] {
+  function buildReparentSubmenu(rules: ReparentRules, elementIds: string[]): ContextMenuItem[] {
+    const targetIds = rules.targetIdsFor(elementIds)
     return polygons
-      .filter(p => p.id !== elementId && p.id !== currentParentId && isValidReparentTarget(p, elementType))
+      .filter(p => targetIds.has(p.id))
       .map(toReparentMenuItem)
   }
 
-  function buildBulkReparentSubmenu(elementIds: string[], elementType: string | undefined): ContextMenuItem[] {
-    const selected = new Set(elementIds)
-    const currentParents = new Set(
-      polygons
-        .filter(p => selected.has(p.id))
-        .map(p => p.parentId)
-        .filter(Boolean)
-    )
+  function movesOneLevelUp(rules: ReparentRules, ids: string[]): ReparentMove[] {
+    const topmostIds = new Set(rules.withoutDescendants(ids))
     return polygons
-      .filter(p =>
-        !selected.has(p.id)
-        && !(currentParents.size === 1 && currentParents.has(p.id))
-        && isValidReparentTarget(p, elementType)
-      )
-      .map(toReparentMenuItem)
+      .filter(p => topmostIds.has(p.id) && p.type === PolygonType.REGION)
+      .flatMap((p) => {
+        const newParentId = rules.parentIdOneLevelUp(p.id)
+        return newParentId === undefined ? [] : [{ id: p.id, type: p.type, newParentId }]
+      })
+  }
+
+  function movesInto(rules: ReparentRules, ids: string[], newParentId: string | null): ReparentMove[] {
+    const movable = new Set(rules.movableInto(ids, newParentId))
+    return polygons
+      .filter(p => movable.has(p.id))
+      .map(p => ({ id: p.id, type: p.type, newParentId }))
+  }
+
+  function buildHierarchyMenuItems(selected: RenderablePolygon[]): ContextMenuItem[] {
+    const type = selected[0]?.type
+    const labels = REPARENT_LABELS[type ?? '']
+    if (!labels || selected.some(p => p.type !== type)) return []
+
+    const ids = selected.map(p => p.id)
+    const rules = createReparentRules(polygons)
+    const targets = buildReparentSubmenu(rules, ids)
+    const moveToParent: ContextMenuItem[] = targets.length > 0
+      ? [{
+          id: 'reparent',
+          label: selected.length > 1
+            ? `Move ${formatElementCount(selected.length, labels.childLabel)} to ${labels.parentLabel}`
+            : `Move to ${labels.parentLabel}`,
+          icon: 'i-lucide-move',
+          submenu: targets
+        }]
+      : []
+    if (type !== PolygonType.REGION) return moveToParent
+
+    const submenu: ContextMenuItem[] = []
+    if (selected.length === 1) {
+      const containedCount = rules.containedSiblingRegionIds(ids[0]!).length
+      if (containedCount > 0) {
+        submenu.push({
+          id: 'move-contained-inside',
+          label: `Move ${formatElementCount(containedCount, 'Contained Region')} Inside`,
+          icon: 'i-lucide-list-indent-increase'
+        })
+      }
+      const childCount = rules.childRegionIdsMovableOut(ids[0]!).length
+      if (childCount > 0) {
+        submenu.push({
+          id: 'move-children-out',
+          label: `Move ${formatElementCount(childCount, 'Child Region')} Out`,
+          icon: 'i-lucide-list-indent-decrease'
+        })
+      }
+    }
+
+    const outMoves = movesOneLevelUp(rules, ids)
+    if (outMoves.length > 0) {
+      submenu.push({ id: 'move-out-of-parent', label: 'Move Out of Parent', icon: 'i-lucide-corner-left-up' })
+    }
+    const topLevelMoves = movesInto(rules, ids, null)
+    if (topLevelMoves.length > 0 && outMoves.some(move => move.newParentId !== null)) {
+      submenu.push({ id: 'move-to-top-level', label: 'Move to Top Level', icon: 'i-lucide-arrow-up-to-line' })
+    }
+    submenu.push(...moveToParent)
+
+    return submenu.length > 0
+      ? [{ id: 'hierarchy', label: 'Hierarchy', icon: 'i-lucide-list-tree', submenu }]
+      : []
+  }
+
+  function executeMoves(moves: ReparentMove[], description: string): void {
+    if (moves.length === 0) return
+    commander.execute(createReparentCommand(moves, description), getCommandContext())
+  }
+
+  function runHierarchyAction(itemId: string, selected: RenderablePolygon[]): boolean {
+    const ids = selected.map(p => p.id)
+    const rules = createReparentRules(polygons)
+    const firstId = ids[0]
+    if (!firstId) return false
+
+    if (itemId.startsWith('reparent-to-')) {
+      const labels = REPARENT_LABELS[selected[0]!.type ?? '']
+      const moves = movesInto(rules, ids, itemId.replace('reparent-to-', ''))
+      executeMoves(moves, `Move ${formatElementCount(moves.length, labels?.childLabel ?? 'Element')} to ${labels?.parentLabel ?? 'parent'}`)
+      return true
+    }
+
+    switch (itemId) {
+      case 'move-contained-inside': {
+        const moves = movesInto(rules, rules.containedSiblingRegionIds(firstId), firstId)
+        executeMoves(moves, `Move ${formatElementCount(moves.length, 'contained region')} inside`)
+        return true
+      }
+      case 'move-children-out': {
+        const moves = movesOneLevelUp(rules, rules.childRegionIdsMovableOut(firstId))
+        executeMoves(moves, `Move ${formatElementCount(moves.length, 'child region')} out`)
+        return true
+      }
+      case 'move-out-of-parent': {
+        const moves = movesOneLevelUp(rules, ids)
+        executeMoves(moves, `Move ${formatElementCount(moves.length, 'region')} out of parent`)
+        return true
+      }
+      case 'move-to-top-level': {
+        const moves = movesInto(rules, ids, null)
+        executeMoves(moves, `Move ${formatElementCount(moves.length, 'region')} to top level`)
+        return true
+      }
+      default:
+        return false
+    }
   }
 
   function getPolygonSelectionContext(polygon: RenderablePolygon): ContextMenuSelection | null {
@@ -766,8 +853,6 @@ export function useEditorCommand(
     const selectedPolygons = selection.polygons
     const polygonTypes = new Set(selectedPolygons.map(p => p.type))
     const allRegions = polygonCount > 1 && polygonTypes.size === 1 && selectedPolygons[0]?.type === PolygonType.REGION
-    const sharedPolygonType = polygonCount > 1 && polygonTypes.size === 1 ? selectedPolygons[0]?.type : undefined
-    const reparentTarget = sharedPolygonType ? REPARENT_TARGETS[sharedPolygonType] : undefined
 
     contextMenuTarget.value = {
       type: 'selection',
@@ -822,17 +907,7 @@ export function useEditorCommand(
       }
     }
 
-    if (reparentTarget) {
-      const reparentSubmenu = buildBulkReparentSubmenu(selection.polygonIds, sharedPolygonType)
-      if (reparentSubmenu.length > 0) {
-        menuItems.push({
-          id: 'reparent',
-          label: `Move ${formatElementCount(polygonCount, reparentTarget.childLabel)} to ${reparentTarget.parentLabel}`,
-          icon: 'i-lucide-move',
-          submenu: reparentSubmenu
-        })
-      }
-    }
+    if (polygonCount > 1) menuItems.push(...buildHierarchyMenuItems(selectedPolygons))
 
     if (getActionTargetForSelection(selection)) {
       menuItems.push({
@@ -988,18 +1063,7 @@ export function useEditorCommand(
     const readingOrder = session?.document.value?.page?.readingOrder
     const inReadingOrder = isRegionInReadingOrder(readingOrder, polygon.id)
 
-    const reparentTarget = REPARENT_TARGETS[polygon.type ?? '']
-    if (reparentTarget) {
-      const reparentSubmenu = buildReparentSubmenu(polygon.id, polygon.type, polygon.parentId)
-      if (reparentSubmenu.length > 0) {
-        menuItems.push({
-          id: 'reparent',
-          label: `Move to ${reparentTarget.parentLabel}`,
-          icon: 'i-lucide-move',
-          submenu: reparentSubmenu
-        })
-      }
-    }
+    menuItems.push(...buildHierarchyMenuItems([polygon]))
 
     if (isRegion) {
       menuItems.push({
@@ -1240,25 +1304,6 @@ export function useEditorCommand(
     commander.execute(new CompoundCommand(commands, `Duplicate ${commands.length} selected elements`), getCommandContext())
   }
 
-  function reparentSelection(selection: ContextMenuSelection, newParentId: string): void {
-    const newParent = polygons.find(p => p.id === newParentId)
-    const elementsToMove = newParent
-      ? selection.polygons.filter(p => p.type !== PolygonType.REGION && isValidReparentTarget(newParent, p.type))
-      : []
-    if (elementsToMove.length === 0) return
-
-    const commands = elementsToMove.map(polygon => new ReparentElementCommand({
-      elementId: polygon.id,
-      elementType: toPolygonElementType(polygon.type),
-      newParentId
-    }))
-    const target = REPARENT_TARGETS[elementsToMove[0]!.type ?? '']
-    commander.execute(
-      new CompoundCommand(commands, `Move ${formatElementCount(elementsToMove.length, target?.childLabel ?? 'Element')} to ${target?.parentLabel ?? 'parent'}`),
-      getCommandContext()
-    )
-  }
-
   function updateSelectionReadingOrder(selection: ContextMenuSelection, action: 'add' | 'remove'): void {
     const session = getEditorSession(canvasId)
     if (!session?.document.value?.page) return
@@ -1386,10 +1431,7 @@ export function useEditorCommand(
         return
       }
 
-      if (item.id.startsWith('reparent-to-')) {
-        reparentSelection(selection, item.id.replace('reparent-to-', ''))
-        return
-      }
+      if (runHierarchyAction(item.id, selection.polygons)) return
 
       switch (item.id) {
         case 'run-action':
@@ -1527,18 +1569,7 @@ export function useEditorCommand(
       return
     }
 
-    if (item.id.startsWith('reparent-to-')) {
-      if (target.type === 'polygon') {
-        const polygon = target.element as RenderablePolygon
-        const newParentId = item.id.replace('reparent-to-', '')
-        commander.execute(new ReparentElementCommand({
-          elementId: polygon.id,
-          elementType: toPolygonElementType(polygon.type),
-          newParentId
-        }), commandCtx)
-      }
-      return
-    }
+    if (target.type === 'polygon' && runHierarchyAction(item.id, [target.element as RenderablePolygon])) return
 
     switch (item.id) {
       case 'run-action':

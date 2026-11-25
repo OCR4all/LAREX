@@ -102,6 +102,7 @@ export interface EditorCanvasControls {
   hoverPolylineById?: (id: string | null) => void
   unhoverPolygon?: () => void
   unhoverPolyline?: () => void
+  contextMenuItemsForElement?: (elementId: string, event: MouseEvent) => CanvasContextMenuItem[]
   tableContextMenuItemsForPolygon?: (polygonId: string, event: MouseEvent) => CanvasContextMenuItem[]
 }
 

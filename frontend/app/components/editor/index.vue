@@ -18,7 +18,7 @@ import { useEditorCanvasInteractionBlocker } from '@/composables/editor/use-canv
 import { CreateRelationCommand, UpdateRelationCommand, UpdateRegionCommentCommand } from '@/commands'
 import { PolygonType, type RegionKind, type Relation } from '@/models/editor'
 import type { MergeSettings } from '@/components/editor/slideover/merge-settings.vue'
-import type { ActionProcessingRenderTarget, CommentOverlayLabel, ElementOverlayLabel, RenderablePolygon } from '@/types/editor/rendering'
+import type { ActionProcessingRenderTarget, CommentOverlayLabel, ElementOverlayLabel, RenderablePolygon, RenderablePolyline } from '@/types/editor/rendering'
 import type { ActionTargetSelection } from '@/types/action'
 import type { CanvasContextMenuItem, SelectionFocusMode, SelectionFocusOptions } from '@/types/editor/canvas-controls'
 import { getViewModePolygonType, visibilityService } from '@/services/editor/visibility-service'
@@ -1291,6 +1291,16 @@ canvasControls.hoverPolygonById = handleHoverPolygon
 canvasControls.unhoverPolygon = handleUnhoverPolygon
 canvasControls.hoverPolylineById = handleHoverPolyline
 canvasControls.unhoverPolyline = handleUnhoverPolyline
+canvasControls.contextMenuItemsForElement = (elementId, event) => {
+  if (!canShowCanvasContent.value || !isCanvasWritable.value) return []
+  const polygon = polygons.find(candidate => candidate.id === elementId)
+  const polyline = polygon ? undefined : polylines.find(candidate => candidate.id === elementId)
+  if (!polygon && !polyline) return []
+  closeRegionComment()
+  if (polygon) editorCommands.showContextMenuForPolygon(event, polygon as RenderablePolygon)
+  else editorCommands.showContextMenuForPolyline(event, polyline as RenderablePolyline)
+  return mapContextMenuItems(editorCommands.contextMenuItems.value?.filter(item => item.id !== 'edit-region-comment'))
+}
 canvasControls.tableContextMenuItemsForPolygon = (polygonId, event) => {
   const polygon = polygons.find(candidate => candidate.id === polygonId)
   if (!polygon || !canShowCanvasContent.value || !isCanvasWritable.value) return []

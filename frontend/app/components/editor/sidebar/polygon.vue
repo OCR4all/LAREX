@@ -18,7 +18,8 @@ import {
   ChangeRegionKindCommand,
   DeletePolygonCommand,
   DeletePolylineCommand,
-  SetHiddenElementsCommand
+  SetHiddenElementsCommand,
+  createReparentCommand
 } from '@/commands'
 import { getEditorSession } from '@/session/editor/editor-session'
 import { showEditorDeleteUndoToast } from '@/composables/editor/use-editor-delete-undo-toast'
@@ -395,6 +396,23 @@ function togglePolygonVisibility(polygonId: string): void {
   )
 }
 
+function moveItems(itemIds: string[], newParentId: string | null): void {
+  if (!props.commander || props.isPageLocked) return
+
+  const ctx = getCommandContext()
+  const ids = new Set(itemIds)
+  const moves = props.polygons
+    .filter(polygon => ids.has(polygon.id))
+    .map(({ id, type }) => ({ id, type, newParentId }))
+  if (!ctx || moves.length === 0) return
+
+  props.commander.execute(createReparentCommand(moves, `Move ${moves.length} elements`), ctx)
+  if (newParentId) {
+    expandAncestors(newParentId)
+    expandedRegions.value.add(newParentId)
+  }
+}
+
 function deletePolygon(polygonId: string): void {
   if (!props.commander || props.isPageLocked) return
 
@@ -560,6 +578,7 @@ watch(() => props.collapsed, (collapsed) => {
                   @hover-polyline="hoverPolyline"
                   @unhover-polygon="unhoverPolygon"
                   @delete-item="deletePolygon"
+                  @move-items="moveItems"
                   @toggle-visibility="togglePolygonVisibility"
                   @toggle-expanded="toggleExpanded"
                   @collapse-all="collapseAll"
@@ -652,6 +671,7 @@ watch(() => props.collapsed, (collapsed) => {
             @hover-polyline="hoverPolyline"
             @unhover-polygon="unhoverPolygon"
             @delete-item="deletePolygon"
+            @move-items="moveItems"
             @toggle-visibility="togglePolygonVisibility"
             @toggle-expanded="toggleExpanded"
             @collapse-all="collapseAll"

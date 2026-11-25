@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { useVirtualizer, type VirtualItem } from '@tanstack/vue-virtual'
+import { defaultRangeExtractor, useVirtualizer, type VirtualItem } from '@tanstack/vue-virtual'
 import type { FlatStructureRow, TreeItemData } from '@/components/editor/sidebar/structure-tree'
 import { buildChildrenByParentId, flattenStructureRows } from '@/components/editor/sidebar/structure-tree'
 import { getEditorSession } from '@/session/editor/editor-session'
+import type { CanvasContextMenuItem } from '@/types/editor/canvas-controls'
+import { createReparentRules } from '@/utils/editor/reparent-rules'
 
 const props = defineProps<{
   polygons: TreeItemData[]
@@ -23,6 +25,7 @@ const emit = defineEmits<{
   'hover-polyline': [id: string]
   'unhover-polygon': []
   'delete-item': [id: string]
+  'move-items': [ids: string[], newParentId: string | null]
   'toggle-visibility': [id: string]
   'toggle-expanded': [id: string]
   'collapse-all': []
@@ -34,10 +37,11 @@ const ROW_HEIGHT_PX = 36
 const editorStore = useEditorStore()
 // Not a prop: the canvas hover changes on most mouse moves, and passing it
 // down would re-render every sidebar panel on the way.
-const hoveredPolygonId = computed(() => {
+const canvasControls = computed(() => {
   const canvasId = editorStore.activeCanvasId
-  return canvasId ? getEditorSession(canvasId)?.controls.value?.hoveredPolygonId?.value ?? null : null
+  return canvasId ? getEditorSession(canvasId)?.controls.value ?? null : null
 })
+const hoveredPolygonId = computed(() => canvasControls.value?.hoveredPolygonId?.value ?? null)
 
 const selectedPolygonIdSet = computed(() => new Set(props.selectedPolygonIds))
 const selectedPolylineIdSet = computed(() => new Set(props.selectedPolylineIds))
@@ -55,6 +59,72 @@ const visibleRows = computed<FlatStructureRow[]>(() => {
 const hasAnyItems = computed(() => props.polygons.length > 0 || props.polylines.length > 0)
 const canExpandAll = computed(() => childrenByParentId.value.size > 0)
 const canCollapseAll = computed(() => props.expandedRegions.size > 0)
+
+const reparentRules = computed(() => createReparentRules(props.polygons))
+const draggedIds = ref<string[]>([])
+const dragSourceId = ref<string | null>(null)
+const dropTargetId = ref<string | null>(null)
+const isTopLevelDropTarget = ref(false)
+const canDropAtTopLevel = computed(() => movableDraggedIds(null).length > 0)
+
+function movableDraggedIds(targetId: string | null): string[] {
+  return draggedIds.value.length > 0 ? reparentRules.value.movableInto(draggedIds.value, targetId) : []
+}
+
+function isDraggable(itemId: string): boolean {
+  return !props.readOnly && reparentRules.value.isMovable(itemId)
+}
+
+function startDrag(event: DragEvent, itemId: string): void {
+  if (!event.dataTransfer || !isDraggable(itemId)) return
+  event.dataTransfer.effectAllowed = 'move'
+  event.dataTransfer.setData('application/x-larex-structure', itemId)
+  dragSourceId.value = itemId
+  draggedIds.value = selectedPolygonIdSet.value.has(itemId) ? [...props.selectedPolygonIds] : [itemId]
+}
+
+function endDrag(): void {
+  draggedIds.value = []
+  dragSourceId.value = null
+  clearDropTarget()
+}
+
+function clearDropTarget(): void {
+  dropTargetId.value = null
+  isTopLevelDropTarget.value = false
+}
+
+function leaveDropZone(event: DragEvent): void {
+  const zone = event.currentTarget as HTMLElement
+  if (!zone.contains(event.relatedTarget as Node | null)) clearDropTarget()
+}
+
+function dragOver(event: DragEvent, targetId: string | null): void {
+  clearDropTarget()
+  if (movableDraggedIds(targetId).length === 0) return
+  event.preventDefault()
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+  dropTargetId.value = targetId
+  isTopLevelDropTarget.value = targetId === null
+}
+
+function drop(event: DragEvent, targetId: string | null): void {
+  const ids = movableDraggedIds(targetId)
+  endDrag()
+  if (ids.length === 0) return
+  event.preventDefault()
+  emit('move-items', ids, targetId)
+}
+
+const contextMenuItems = ref<CanvasContextMenuItem[]>([])
+
+function openContextMenu(event: MouseEvent): void {
+  const itemId = (event.target as HTMLElement | null)?.closest<HTMLElement>('[data-structure-item-id]')?.dataset.structureItemId
+  contextMenuItems.value = itemId ? canvasControls.value?.contextMenuItemsForElement?.(itemId, event) ?? [] : []
+  if (contextMenuItems.value.length > 0) return
+  event.preventDefault()
+  event.stopPropagation()
+}
 
 const listRootRef = ref<HTMLElement | null>(null)
 const scrollElement = ref<HTMLElement | null>(null)
@@ -104,6 +174,11 @@ const rowVirtualizer = useVirtualizer<HTMLElement, HTMLElement>(computed(() => (
   getItemKey: index => visibleRows.value[index]?.item.id ?? index,
   estimateSize: () => ROW_HEIGHT_PX,
   overscan: 12,
+  rangeExtractor: (range) => {
+    const indexes = defaultRangeExtractor(range)
+    const sourceIndex = dragSourceId.value === null ? -1 : visibleRows.value.findIndex(row => row.item.id === dragSourceId.value)
+    return sourceIndex < 0 || indexes.includes(sourceIndex) ? indexes : [...indexes, sourceIndex].sort((a, b) => a - b)
+  },
   scrollMargin: scrollMargin.value
 })))
 
@@ -171,12 +246,20 @@ watch(rowOrderSignature, () => {
 
 <template>
   <div class="h-full flex flex-col">
-    <div class="px-4 py-2 flex justify-between items-center bg-muted/50">
+    <div
+      class="px-4 py-2 flex justify-between items-center"
+      :class="canDropAtTopLevel
+        ? ['sticky top-0 z-10 outline-2 -outline-offset-2 outline-dashed', isTopLevelDropTarget ? 'bg-accented outline-primary' : 'bg-elevated outline-accented']
+        : 'bg-muted/50'"
+      @dragover="dragOver($event, null)"
+      @dragleave="leaveDropZone"
+      @drop="drop($event, null)"
+    >
       <span class="text-xs text-muted font-medium">
-        {{ polygons.length }} items
+        {{ canDropAtTopLevel ? 'Drop here to move to top level' : `${polygons.length} items` }}
       </span>
 
-      <div class="flex items-center gap-1">
+      <div class="flex items-center gap-1" :class="{ invisible: canDropAtTopLevel }">
         <UButton
           variant="outline"
           size="sm"
@@ -201,41 +284,68 @@ watch(rowOrderSignature, () => {
 
     <div ref="listRootRef" class="flex-1 min-h-0">
       <div class="p-2">
-        <div
+        <UContextMenu
           v-if="hasAnyItems"
-          role="tree"
-          aria-label="Document structure"
-          class="relative w-full"
-          :style="{ height: `${totalSize}px` }"
+          :items="contextMenuItems"
+          :disabled="readOnly"
+          :ui="{ content: 'min-w-48' }"
         >
-          <div
-            v-for="row in virtualRows"
-            :key="String(row.item.key)"
-            class="absolute left-0 top-0 w-full"
-            :style="{ transform: `translateY(${row.item.start - scrollMargin}px)` }"
-          >
-            <EditorSidebarTreeItem
-              :item="row.row.item"
-              :level="row.row.level"
-              :has-children="row.row.hasChildren"
-              :is-expanded="row.row.isExpanded"
-              :hovered-id="hoveredPolygonId"
-              :selected-polygon-id-set="selectedPolygonIdSet"
-              :selected-polyline-id-set="selectedPolylineIdSet"
-              :hidden-polygon-id-set="hiddenPolygonIdSet"
-              :hidden-polyline-id-set="hiddenPolylineIdSet"
-              :read-only="readOnly"
-              @select-item="(id) => emit('select-polygon', id)"
-              @select-polyline="(id) => emit('select-polyline', id)"
-              @hover-item="(id) => emit('hover-polygon', id)"
-              @hover-polyline="(id) => emit('hover-polyline', id)"
-              @unhover-item="emit('unhover-polygon')"
-              @delete-item="(id) => emit('delete-item', id)"
-              @toggle-visibility="(id) => emit('toggle-visibility', id)"
-              @toggle-expanded="(id) => emit('toggle-expanded', id)"
-            />
+          <div>
+            <div
+              role="tree"
+              aria-label="Document structure"
+              class="relative w-full"
+              :style="{ height: `${totalSize}px` }"
+              @contextmenu="openContextMenu"
+              @dragleave="leaveDropZone"
+            >
+              <div
+                v-for="row in virtualRows"
+                :key="String(row.item.key)"
+                class="absolute left-0 top-0 w-full rounded-sm"
+                :class="{
+                  'opacity-50': draggedIds.includes(row.row.item.id),
+                  'outline-2 -outline-offset-2 outline-primary': dropTargetId === row.row.item.id
+                }"
+                :style="{ transform: `translateY(${row.item.start - scrollMargin}px)` }"
+                :data-structure-item-id="row.row.item.id"
+                :draggable="isDraggable(row.row.item.id)"
+                @dragstart="startDrag($event, row.row.item.id)"
+                @dragover="dragOver($event, row.row.item.id)"
+                @drop="drop($event, row.row.item.id)"
+                @dragend="endDrag"
+              >
+                <EditorSidebarTreeItem
+                  :item="row.row.item"
+                  :level="row.row.level"
+                  :has-children="row.row.hasChildren"
+                  :is-expanded="row.row.isExpanded"
+                  :hovered-id="hoveredPolygonId"
+                  :selected-polygon-id-set="selectedPolygonIdSet"
+                  :selected-polyline-id-set="selectedPolylineIdSet"
+                  :hidden-polygon-id-set="hiddenPolygonIdSet"
+                  :hidden-polyline-id-set="hiddenPolylineIdSet"
+                  :read-only="readOnly"
+                  @select-item="(id) => emit('select-polygon', id)"
+                  @select-polyline="(id) => emit('select-polyline', id)"
+                  @hover-item="(id) => emit('hover-polygon', id)"
+                  @hover-polyline="(id) => emit('hover-polyline', id)"
+                  @unhover-item="emit('unhover-polygon')"
+                  @delete-item="(id) => emit('delete-item', id)"
+                  @toggle-visibility="(id) => emit('toggle-visibility', id)"
+                  @toggle-expanded="(id) => emit('toggle-expanded', id)"
+                />
+              </div>
+            </div>
           </div>
-        </div>
+          <template #item-leading="{ item }">
+            <div class="mr-2 flex shrink-0 items-center gap-1">
+              <span v-if="item.dotColor" class="size-2.5 rounded-sm border border-neutral-300" :style="{ backgroundColor: item.dotColor }" />
+              <Icon v-if="item.icon" :name="item.icon" class="size-4" />
+              <span v-else class="w-4" />
+            </div>
+          </template>
+        </UContextMenu>
 
         <div v-else class="flex flex-col items-center justify-center py-12 text-center px-4">
           <div class="bg-muted rounded-sm p-3 mb-3">

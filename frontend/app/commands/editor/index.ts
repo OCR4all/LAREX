@@ -61,7 +61,7 @@ export { SimplifyPolygonCommand, type SimplifyPolygonCommandData } from './simpl
 export { BufferPolygonCommand, type BufferPolygonCommandData } from './buffer-polygon-command'
 export { FitToBoundingBoxCommand, type FitToBoundingBoxCommandData } from './fit-to-bounding-box-command'
 export { ConvexHullCommand, type ConvexHullCommandData } from './convex-hull-command'
-export { ReparentElementCommand, type ReparentElementCommandData } from './reparent-element-command'
+export { ReparentElementCommand, createReparentCommand, type ReparentElementCommandData, type ReparentMove } from './reparent-element-command'
 export { ReorderTextLinesCommand, type ReorderTextLinesCommandData } from './reorder-textlines-command'
 export { UpdateReadingOrderCommand, type UpdateReadingOrderCommandData } from './update-reading-order-command'
 

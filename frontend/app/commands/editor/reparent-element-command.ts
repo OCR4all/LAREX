@@ -1,9 +1,11 @@
 import type { Command, CommandContext } from './types'
+import { CompoundCommand } from './compound-command'
+import { regionSiblings } from './table-command-utils'
 import { PcGts } from '@/models/editor'
 import type { TextRegion } from '@/models/editor'
 import { isTextRegion, canContainTextLines } from '@/models/editor/region'
 import { visibilityService } from '@/services/editor/visibility-service'
-import { findGlyphRecursive, findRegionRecursive, findTextLineRecursive, findWordRecursive, rebuildSpatialIndexFromPcGts } from '@/utils/editor/pcgts-editor-primitives'
+import { findGlyphRecursive, findRegionRecursive, findTextLineRecursive, findWordRecursive, rebuildSpatialIndexFromPcGts, toPolygonElementType } from '@/utils/editor/pcgts-editor-primitives'
 
 export interface ReparentElementCommandData {
   elementId: string
@@ -25,6 +27,7 @@ export class ReparentElementCommand implements Command {
   }
 
   execute(ctx?: CommandContext): boolean {
+    this.undoState = null
     const pcGts = ctx?.session?.document.value
     if (!pcGts) return false
 
@@ -98,22 +101,17 @@ export class ReparentElementCommand implements Command {
     const hit = findRegionRecursive(pcGts.page.regions, this.data.elementId)
     if (!hit) return false
 
+    const { newParentId } = this.data
     const oldParentId = hit.parent?.id ?? null
-    if (oldParentId === this.data.newParentId) return false // Same parent
+    if (oldParentId === newParentId) return false
+    if (newParentId && findRegionRecursive([hit.region], newParentId)) return false
+
+    const newSiblings = regionSiblings(pcGts, newParentId)
+    if (!newSiblings) return false
 
     this.undoState = { oldParentId, oldIndex: hit.index }
-
-    const oldSiblings = hit.parent?.regions ?? pcGts.page.regions
-    oldSiblings.splice(hit.index, 1)
-
-    if (this.data.newParentId) {
-      const newParentHit = findRegionRecursive(pcGts.page.regions, this.data.newParentId)
-      if (!newParentHit) return false
-      newParentHit.region.regions = newParentHit.region.regions ?? []
-      newParentHit.region.regions.push(hit.region)
-    } else {
-      pcGts.page.regions.push(hit.region)
-    }
+    regionSiblings(pcGts, oldParentId)!.splice(hit.index, 1)
+    newSiblings.push(hit.region)
 
     this.finalize(ctx, pcGts)
     return true
@@ -182,20 +180,11 @@ export class ReparentElementCommand implements Command {
 
   private undoRegion(pcGts: PcGts, ctx: CommandContext): void {
     const hit = findRegionRecursive(pcGts.page.regions, this.data.elementId)
-    if (!hit) return
+    const oldSiblings = regionSiblings(pcGts, this.undoState!.oldParentId)
+    if (!hit || !oldSiblings) return
 
-    const currentSiblings = hit.parent?.regions ?? pcGts.page.regions
-    currentSiblings.splice(hit.index, 1)
-
-    if (this.undoState!.oldParentId) {
-      const oldParentHit = findRegionRecursive(pcGts.page.regions, this.undoState!.oldParentId)
-      if (oldParentHit) {
-        oldParentHit.region.regions = oldParentHit.region.regions ?? []
-        oldParentHit.region.regions.splice(this.undoState!.oldIndex, 0, hit.region)
-      }
-    } else {
-      pcGts.page.regions.splice(this.undoState!.oldIndex, 0, hit.region)
-    }
+    regionSiblings(pcGts, hit.parent?.id ?? null)!.splice(hit.index, 1)
+    oldSiblings.splice(this.undoState!.oldIndex, 0, hit.region)
 
     this.finalize(ctx, pcGts)
   }
@@ -209,4 +198,19 @@ export class ReparentElementCommand implements Command {
     rebuildSpatialIndexFromPcGts(ctx.session)
     visibilityService.clearCache()
   }
+}
+
+export interface ReparentMove {
+  id: string
+  type?: string
+  newParentId: string | null
+}
+
+export function createReparentCommand(moves: ReparentMove[], description: string): Command {
+  const commands = moves.map(({ id, type, newParentId }) => new ReparentElementCommand({
+    elementId: id,
+    elementType: toPolygonElementType(type),
+    newParentId
+  }))
+  return commands.length === 1 ? commands[0]! : new CompoundCommand(commands, description)
 }

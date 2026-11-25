@@ -8,6 +8,7 @@ export interface TreeItemData {
   regionKind?: string
   regionSubtype?: string
   regionCustom?: string
+  tableCell?: { tableId: string }
 }
 
 export interface FlatStructureRow {
