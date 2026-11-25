@@ -2,7 +2,7 @@ import type { Ref } from 'vue'
 import type { Point, Relation } from '@/models/editor'
 import type { RenderablePolygon, RelationOverlayLabel, RelationRenderData } from '@/types/editor/rendering'
 import type { ArrowSegment } from '@/webgl/editor/reading-order-renderer'
-import type { RelationDraftState, RelationPickerMode } from '@/utils/editor/relations'
+import { getRelationTypeIcon, type RelationDraftState, type RelationPickerMode } from '@/utils/editor/relations'
 
 const DEFAULT_RELATION_COLOR: [number, number, number, number] = [0.94, 0.48, 0.12, 0.78]
 const SELECTED_RELATION_COLOR: [number, number, number, number] = [0.96, 0.74, 0.16, 1]
@@ -97,6 +97,7 @@ export function useRelationsVisualization(
         targetPosition: to,
         position: getMidpoint(from, to),
         text: getRelationLabel(relation),
+        icon: getRelationTypeIcon(relation.type),
         isSelected
       })
     }
@@ -138,6 +139,7 @@ export function useRelationsVisualization(
               targetPosition,
               position: getMidpoint(sourcePosition, targetPosition),
               text: `Draft ${draftType}`,
+              icon: getRelationTypeIcon(draftType),
               isSelected: true,
               isDraft: true
             })

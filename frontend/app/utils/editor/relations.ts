@@ -7,6 +7,11 @@ export const PAGE_RELATION_TYPE_OPTIONS = [
   { label: 'Join', value: 'join' }
 ] as const
 
+const RELATION_TYPE_ICONS: Partial<Record<string, string>> = {
+  link: 'i-lucide-link-2',
+  join: 'i-lucide-puzzle'
+}
+
 export type RelationPickerMode = 'idle' | 'pick-source' | 'pick-target' | 'repick-source' | 'repick-target'
 
 export interface RelationDraftState {
@@ -134,6 +139,11 @@ export function getRelationTypeOptions(currentType?: string | null) {
       value: normalized
     }
   ]
+}
+
+export function getRelationTypeIcon(type?: string | null): string | undefined {
+  const normalized = normalizeOptionalRelationString(type)
+  return normalized ? RELATION_TYPE_ICONS[normalized] : undefined
 }
 
 export function getRelationDisplayLabel(relation: Pick<Relation, 'id' | 'type'>): string {

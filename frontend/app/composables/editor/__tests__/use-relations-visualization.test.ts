@@ -117,4 +117,35 @@ describe('useRelationsVisualization', () => {
     expect(renderData.value.labels.map(label => label.relationId)).toEqual(['line-word', 'glyph-region'])
     expect(renderData.value.segments[0]).toMatchObject({ from: { x: 25, y: 5 }, to: { x: 45, y: 5 } })
   })
+
+  it('gives link and join labels distinct icons and leaves other types without one', () => {
+    const square = (x: number) => [{ x, y: 0 }, { x: x + 10, y: 0 }, { x: x + 10, y: 10 }, { x, y: 10 }]
+    const endpoints = { sourceRegionRef: 'r1', targetRegionRef: 'r2' }
+    const relations = ref<Relation[]>([
+      { id: 'a', type: 'link', ...endpoints },
+      { id: 'b', type: 'join', ...endpoints },
+      { id: 'c', type: 'custom', ...endpoints },
+      { id: 'd', ...endpoints }
+    ])
+    const polygons = computed<RenderablePolygon[]>(() => [
+      { id: 'r1', type: 'region', points: square(0) },
+      { id: 'r2', type: 'region', points: square(20) }
+    ])
+
+    const { renderData } = useRelationsVisualization(
+      relations,
+      polygons,
+      ref<string | null>(null),
+      ref({ id: '', type: 'join', ...endpoints, labels: [] })
+    )
+
+    expect(renderData.value.labels.map(label => [label.id, label.icon])).toEqual([
+      ['a', 'i-lucide-link-2'],
+      ['b', 'i-lucide-puzzle'],
+      ['c', undefined],
+      ['d', undefined],
+      ['draft-source', undefined],
+      ['draft-relation', 'i-lucide-puzzle']
+    ])
+  })
 })

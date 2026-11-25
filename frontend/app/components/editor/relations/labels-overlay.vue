@@ -64,9 +64,10 @@ function worldToScreen(point: Point): { x: number, y: number } {
         }"
       >
         <span
-          class="inline-flex items-center rounded-sm px-1.5 py-0.5 text-[10px] font-semibold text-white shadow-md"
+          class="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] font-semibold text-white shadow-md"
           :class="label.isDraft ? 'bg-sky-600' : label.isSelected ? 'bg-amber-500' : 'bg-black/75'"
         >
+          <Icon v-if="label.icon" :name="label.icon" class="size-3 shrink-0" />
           {{ label.text }}
         </span>
       </div>

@@ -85,6 +85,7 @@ export interface RelationOverlayLabel {
   targetPosition?: Point
   position: Point
   text: string
+  icon?: string
   isSelected: boolean
   isDraft?: boolean
 }
