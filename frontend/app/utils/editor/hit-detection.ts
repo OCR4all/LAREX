@@ -2,10 +2,12 @@ import earcut from 'earcut'
 import { visibilityService } from '@/services/editor/visibility-service'
 import type { Polygon, Polyline, VisibilityContext } from '@/services/editor/visibility-service'
 import type { SpatialIndexService } from '@/services/editor/spatial-index-service'
-import type { Point, View } from '@/models/editor'
+import { calculatePolygonArea } from '@/utils/editor/polygon-clipping'
+import { PolygonType, type Point, type View } from '@/models/editor'
 import type { ViewMode } from '@/types/editor/rendering'
 
 const SNAP_DISTANCE = 0.015
+const EQUAL_AREA_TOLERANCE = 1e-6
 
 export function isPointInPolygon(point: Point, polygon: Point[]): boolean {
   if (polygon.length < 3) return false
@@ -25,6 +27,33 @@ export function isPointInPolygon(point: Point, polygon: Point[]): boolean {
   }
 
   return inside
+}
+
+function findPolygonAtPoint(
+  polygons: Polygon[],
+  point: Point,
+  candidates: number[],
+  isEligible: (polygon: Polygon) => boolean
+): number {
+  let hitIndex = -1
+  let hit: Polygon | null = null
+  let hitArea = 0
+
+  for (const index of candidates) {
+    const polygon = polygons[index]
+    if (!polygon) continue
+    if (hit && (polygon.type !== PolygonType.REGION || polygon.parentId !== hit.parentId)) continue
+    if (!isEligible(polygon) || !isPointInPolygon(point, polygon.points)) continue
+    if (polygon.type !== PolygonType.REGION) return index
+
+    const area = calculatePolygonArea(polygon.points)
+    if (hit && area >= hitArea * (1 - EQUAL_AREA_TOLERANCE)) continue
+    hitIndex = index
+    hit = polygon
+    hitArea = area
+  }
+
+  return hitIndex
 }
 
 /**
@@ -51,28 +80,14 @@ export function getVisiblePolygonAtPoint(
     ? spatialIndex.queryPolygonsAtPoint(point)
     : Array.from({ length: polygons.length }, (_, i) => i).reverse()
 
-  for (const polygonIndex of candidates) {
-    const polygon = polygons[polygonIndex]
-    if (!polygon) continue
-
-    if (hiddenPolygonIds?.has(polygon.id)) {
-      continue
-    }
-
-    if (!visibilityService.shouldBeSelectablePolygon(polygon, {
+  return findPolygonAtPoint(polygons, point, candidates, polygon =>
+    !hiddenPolygonIds?.has(polygon.id)
+    && visibilityService.shouldBeSelectablePolygon(polygon, {
       selectedPolygonIndex,
       allPolygons: polygons,
       viewMode: viewMode as VisibilityContext['viewMode'],
       hiddenPolygonIds
-    })) {
-      continue
-    }
-
-    if (isPointInPolygon(point, polygon.points)) {
-      return polygonIndex
-    }
-  }
-  return -1 // No visible polygon found
+    }))
 }
 
 /**
@@ -105,15 +120,9 @@ export function getHoverablePolygonAtPoint(
     ? spatialIndex.queryPolygonsAtPoint(point)
     : Array.from({ length: polygons.length }, (_, i) => i).reverse()
 
-  for (const polygonIndex of candidates) {
-    const polygon = polygons[polygonIndex]
-    if (!polygon) continue
-
-    if (hiddenPolygonIds?.has(polygon.id)) {
-      continue
-    }
-
-    const shouldShow = visibilityService.shouldShowPolygonHover(polygon, {
+  return findPolygonAtPoint(polygons, point, candidates, polygon =>
+    !hiddenPolygonIds?.has(polygon.id)
+    && visibilityService.shouldShowPolygonHover(polygon, {
       selectedPolygonIndex,
       selectedPolylineIndex,
       allPolygons: polygons,
@@ -121,19 +130,7 @@ export function getHoverablePolygonAtPoint(
       viewMode: viewMode as VisibilityContext['viewMode'],
       hiddenPolygonIds,
       hiddenPolylineIds
-    })
-
-    if (!shouldShow) {
-      continue
-    }
-
-    const isInside = isPointInPolygon(point, polygon.points)
-
-    if (isInside) {
-      return polygonIndex
-    }
-  }
-  return -1 // No hoverable polygon found
+    }))
 }
 
 /**
