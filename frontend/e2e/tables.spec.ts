@@ -103,6 +103,7 @@ async function canvasPoint(page: Page, dx: number, dy: number) {
 }
 
 async function contextMenu(page: Page, dx: number, dy: number) {
+  await expect(page.getByRole('menu')).toHaveCount(0)
   const point = await canvasPoint(page, dx, dy)
   await page.mouse.click(point.x, point.y)
   await page.mouse.click(point.x, point.y, { button: 'right' })
