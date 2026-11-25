@@ -2,6 +2,35 @@
 
 <!-- version list -->
 
+## v1.4.0 (2026-11-25)
+
+### Bug Fixes
+
+- **editor**: Select the smallest of overlapping regions at the same level
+  ([`8947e7a`](https://github.com/OCR4all/LAREX/commit/8947e7a80d0f2e8f758affb299a7f568b7af987f))
+
+### Chores
+
+- **deps**: Bump larex-action-kraken to 0.7.0
+  ([`1be91ed`](https://github.com/OCR4all/LAREX/commit/1be91edd43284e3966ef4e50b5a1a82270a85782))
+
+### Features
+
+- **editor**: Add link and join icons to relation labels
+  ([`6b5c773`](https://github.com/OCR4all/LAREX/commit/6b5c77387c6231567e975063522e85594942780d))
+
+- **editor**: Move regions between parents in the structure tree and context menu
+  ([`4305abf`](https://github.com/OCR4all/LAREX/commit/4305abf56cc1a278962917aec0fe04a5314002f6))
+
+- **editor**: Show the relations overlay when opening the relations panel
+  ([`d548c83`](https://github.com/OCR4all/LAREX/commit/d548c83295923962a99fdca754502ea163a8acb3))
+
+### Testing
+
+- **e2e**: Wait for the previous context menu to close before opening the next
+  ([`d043b10`](https://github.com/OCR4all/LAREX/commit/d043b10e802954bed0d08607fbd8007b7b7285a9))
+
+
 ## v1.3.0 (2026-11-24)
 
 ### Bug Fixes
