@@ -1,5 +1,5 @@
 # Docs Development Dockerfile
-FROM node:22.23.5-alpine
+FROM node:26.13.1-alpine
 
 WORKDIR /workspace/docs
 
