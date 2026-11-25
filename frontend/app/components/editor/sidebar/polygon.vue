@@ -37,8 +37,9 @@ const DELETE_ELEMENT_LABELS = {
 
 const activePopoverButtonClass = 'bg-navy-600 text-white hover:bg-navy-500 active:bg-navy-700 dark:bg-navy-500 dark:hover:bg-navy-400 dark:active:bg-navy-600'
 
-function showReadingOrderOverlay(): void {
-  editorUiStore.setReadingOrderOverlayVisible(true)
+function showPanelOverlay(slot: string): void {
+  if (slot === 'reading-order') editorUiStore.setReadingOrderOverlayVisible(true)
+  else if (slot === 'relations') editorUiStore.setRelationsOverlayVisible(true)
 }
 
 function getCommandContext(): CommandContext | undefined {
@@ -98,7 +99,7 @@ const accordionModel = computed({
   get: () => props.accordionPanels,
   set: (val) => {
     const panels = val as string[]
-    if (panels.includes('reading-order')) showReadingOrderOverlay()
+    panels.filter(panel => !props.accordionPanels.includes(panel)).forEach(showPanelOverlay)
     emit('update:accordionPanels', panels)
   }
 })
@@ -166,7 +167,7 @@ function closeCollapsedPopover() {
 
 function handleCollapsedPopoverOpenUpdate(slot: string, open: boolean) {
   if (open) {
-    if (slot === 'reading-order') showReadingOrderOverlay()
+    showPanelOverlay(slot)
     openCollapsedPopover(slot)
   } else if (collapsedPopoverSlot.value === slot) {
     closeCollapsedPopover()
